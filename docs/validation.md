@@ -130,6 +130,28 @@ Composer/detail follow-up acceptance:
   backend was modified. Full external artwork is deliberately excluded from Git;
   see `icons.md` for the clean-checkout fallback and explicit import workflow.
 
+## Complete public catalog and transcript header (2026-10-19)
+
+- TekesUI publicly publishes 176 valid SVG names at `icons-v0.1.1`, commit
+  `80d6b05649234f953ea452d42e1cbed369fdddbb`. Its Node catalog/hash tests, Rust
+  icon tests, targeted self-contained Gallery test and independent Rust public-API
+  consumer pass. The existing eight-icon animation API remains compatible.
+- Web directly depends on that immutable public HTTPS archive and SHA512 integrity.
+  Removed the local asset directory, import command, copied SVG defaults and
+  generic fallback. Public package assets are required and checked by the build.
+- Cloned the actual public Web repository at commit
+  `7952f6092b3eae2ea0b19c038d5f249f0b06d965` into an empty temporary directory.
+  Used a fresh npm cache, empty npm configs, disabled Git credential helpers,
+  disabled SSH, and disabled interactive Git prompts. `npm ci`, all 40 tests
+  (zero skips) and production build pass without any local TekesUI/legacy directory.
+- All 176 canonical SVG byte hashes are present in that clean build. Vite emits
+  172 unique SVG files because four identical resources deduplicate; no glyph is
+  replaced by a generic fallback. The MIT notice is retained.
+- The live browser confirms zero transcript initial boxes, zero thinking disclosures,
+  retained message timestamps and working shared tool icons. No model request or
+  backend restart was needed. The transcript removes the initial box only; Composer
+  Harness selection remains available.
+
 This is local browser and API acceptance, not full native App parity, a mobile
 device acceptance run, physical IME/VoiceOver acceptance or a performance benchmark.
 The integration retains the earlier host's Kernel 0.9.0 data root; it does not

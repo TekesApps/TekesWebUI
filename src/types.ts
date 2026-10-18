@@ -93,9 +93,23 @@ export interface Catalog {
 export interface Item {
   id: string;
   turnId: string;
-  kind: 'user' | 'assistant' | 'system' | 'error' | 'notice';
+  kind:
+    | 'user'
+    | 'assistant'
+    | 'system'
+    | 'error'
+    | 'notice'
+    | 'narration'
+    | 'reasoning'
+    | 'artifact'
+    | 'usage'
+    | 'unknown'
+    | (string & {});
   text: string;
   reasoning?: string;
+  reasoningEnded?: boolean;
+  sourceSequence?: number;
+  metadata?: Json;
   isVisible: boolean;
   isFinal: boolean;
   isProvisional: boolean;
@@ -109,6 +123,8 @@ export interface Tool {
   phase: string;
   arguments: Json;
   result?: Json;
+  callView?: Json;
+  resultView?: Json;
 }
 export interface Question {
   id: string;
@@ -143,6 +159,13 @@ export interface View extends Address {
     error?: string;
   };
   transcript?: {
+    turns?: {
+      id: string;
+      status: string;
+      input: string;
+      startedAt?: number;
+      endedAt?: number;
+    }[];
     items: Item[];
     tools: Tool[];
     hasMoreBefore: boolean;

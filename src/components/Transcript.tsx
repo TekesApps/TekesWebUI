@@ -9,19 +9,20 @@ import {
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {
-  Check,
-  ChevronDown,
-  Copy,
-  FileText,
-  LoaderCircle,
-  Sparkles,
-  Terminal,
-} from 'lucide-react';
+import { Check, ChevronDown, FileText, LoaderCircle } from 'lucide-react';
 import { safeLink, formatTimestamp, timestampMillis } from '../state';
-import type { Item, Json, Tool, View } from '../types';
-import { byteSize } from '../composer';
+import type { Item, View } from '../types';
+import { AttachmentCards } from './ui/AttachmentCards';
 import { RevealText, TextMotion } from './ui/RevealText';
+import { CopyButton } from './ui/CopyButton';
+import { Activity, Information, ToolRows } from './TranscriptActivity';
+import {
+  liveTurnID,
+  partitionTurn,
+  thinkingStatus,
+  turnStatus,
+  visibleItem,
+} from '../transcript';
 
 function revealChildren(children: ReactNode) {
   return Children.map(children, (child) =>
@@ -71,79 +72,24 @@ function motionSnapshot() {
   return window.matchMedia(reducedQuery).matches;
 }
 
-function AttachmentCards({ attachments }: { attachments: Json[] }) {
-  return (
-    <div className="transcript-attachments">
-      {attachments.map((part, index) => {
-        const value =
-          part && typeof part === 'object' && !Array.isArray(part) ? part : {};
-        const nested = value.attachment || value.file;
-        const metadata =
-          nested && typeof nested === 'object' && !Array.isArray(nested)
-            ? nested
-            : value;
-        const name =
-          typeof metadata.name === 'string'
-            ? metadata.name
-            : value.type === 'image'
-              ? '图片附件'
-              : '文件附件';
-        return (
-          <div className="transcript-attachment" key={index}>
-            <FileText size={18} />
-            <span>
-              <strong>{name}</strong>
-              {typeof metadata.bytes === 'number' && (
-                <small>{byteSize(metadata.bytes)}</small>
-              )}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false),
-    [error, setError] = useState(false);
-  return (
-    <button
-      className="icon-button copy-button"
-      aria-label={error ? '复制失败，请选择文本复制' : '复制内容'}
-      title={
-        copied ? '已复制' : error ? '复制失败，请选择文本复制' : '复制内容'
-      }
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1800);
-        } catch {
-          setError(true);
-        }
-      }}
-    >
-      {copied ? <Check size={15} /> : <Copy size={15} />}
-    </button>
-  );
-}
 const Message = memo(function Message({
   item,
   fresh,
   streaming,
+  process = false,
 }: {
   item: Item;
   fresh: boolean;
   streaming: boolean;
+  process?: boolean;
 }) {
   return (
     <TextMotion.Provider value={{ streaming, fresh }}>
       <article
-        className={`message ${item.kind} ${fresh ? 'message-enter' : ''}`}
+        className={`message ${item.kind} ${fresh ? 'message-enter' : ''} ${process ? 'message-narration' : ''}`}
         title={formatTimestamp(item.time) || undefined}
       >
-        {item.kind === 'assistant' && (
+        {item.kind === 'assistant' && !process && (
           <div className="message-author">
             <span className="mini-mark" aria-hidden="true">
               T
@@ -160,18 +106,6 @@ const Message = memo(function Message({
               </time>
             )}
           </div>
-        )}
-        {item.reasoning && (
-          <details className="thinking">
-            <summary>
-              <Sparkles size={14} />
-              思考过程
-              <ChevronDown size={14} />
-            </summary>
-            <div>
-              <RevealText text={item.reasoning} />
-            </div>
-          </details>
         )}
         {item.kind === 'user' ? (
           <>
@@ -234,73 +168,6 @@ const Message = memo(function Message({
     </TextMotion.Provider>
   );
 });
-function output(value: Json | undefined): string {
-  if (typeof value === 'string') return value;
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    if (Array.isArray(value.content))
-      return value.content
-        .map((v) =>
-          v &&
-          typeof v === 'object' &&
-          !Array.isArray(v) &&
-          typeof v.text === 'string'
-            ? v.text
-            : '',
-        )
-        .filter(Boolean)
-        .join('\n');
-    if (typeof value.output === 'string') return value.output;
-  }
-  return value == null ? '' : JSON.stringify(value, null, 2);
-}
-function Tools({ tools }: { tools: Tool[] }) {
-  const active = tools.some((t) =>
-    ['doing', 'running', 'pending'].includes(t.phase),
-  );
-  return (
-    <details className="work-summary">
-      <summary>
-        {active ? (
-          <LoaderCircle className="spin" size={15} />
-        ) : (
-          <Check size={15} />
-        )}
-        <span>
-          {active ? '正在执行' : '已完成'} {tools.length} 项操作
-        </span>
-        <ChevronDown size={14} />
-      </summary>
-      <div className="tool-list">
-        {tools.map((tool) => {
-          const args =
-            tool.arguments &&
-            typeof tool.arguments === 'object' &&
-            !Array.isArray(tool.arguments)
-              ? tool.arguments
-              : {};
-          const command =
-            args.command || args.cmd || args.path || args.file_path;
-          return (
-            <details className="tool" key={tool.id}>
-              <summary>
-                <Terminal size={14} />
-                <strong>{tool.name}</strong>
-                <span>{typeof command === 'string' ? command : ''}</span>
-                <small>{tool.phase}</small>
-              </summary>
-              <pre>
-                {typeof command === 'string'
-                  ? command
-                  : JSON.stringify(tool.arguments, null, 2)}
-              </pre>
-              {tool.result != null && <pre>{output(tool.result)}</pre>}
-            </details>
-          );
-        })}
-      </div>
-    </details>
-  );
-}
 export function Transcript({ view }: { view: View | null }) {
   if (!view?.transcript)
     return (
@@ -320,69 +187,80 @@ function TranscriptContents({ view }: { view: View }) {
     motionSnapshot,
     () => true,
   );
-  const items = view.transcript?.items.filter((i) => i.isVisible) || [],
+  const items = view.transcript?.items.filter(visibleItem) || [],
     tools = view.transcript?.tools || [];
   const turns = [
-    ...new Set([...items.map((i) => i.turnId), ...tools.map((t) => t.turnId)]),
+    ...new Set([
+      ...(view.transcript?.turns?.map((t) => t.id) || []),
+      ...items.map((i) => i.turnId),
+      ...tools.map((t) => t.turnId),
+    ]),
   ];
-  const latestTurn = items.at(-1)?.turnId;
-  const live =
-    !view.transcript?.isStale && view.run.connection.phase === 'connected';
+  const liveID = liveTurnID(view);
+  function renderItem(item: Item, process = false) {
+    if (
+      item.kind !== 'user' &&
+      item.kind !== 'assistant' &&
+      item.kind !== 'narration'
+    )
+      return <Information key={item.id} item={item} />;
+    return (
+      <Message
+        key={item.id}
+        item={item}
+        process={process || item.kind === 'narration'}
+        fresh={!reduced && item.turnId === liveID && !baseline.has(item.id)}
+        streaming={
+          !reduced &&
+          item.turnId === liveID &&
+          item.kind === 'assistant' &&
+          !item.isFinal
+        }
+      />
+    );
+  }
   return (
     <>
-      {turns.map((turn) => (
-        <section className="turn" key={turn}>
-          {items
-            .filter((i) => i.turnId === turn && i.kind === 'user')
-            .map((item) => (
-              <Message
-                key={item.id}
-                item={item}
-                fresh={
-                  !reduced &&
-                  live &&
-                  turn === latestTurn &&
-                  !baseline.has(item.id)
-                }
-                streaming={
-                  !reduced &&
-                  live &&
-                  turn === latestTurn &&
-                  item.kind === 'assistant' &&
-                  !item.isFinal
-                }
-              />
-            ))}
-          {tools.some((t) => t.turnId === turn) && (
-            <Tools tools={tools.filter((t) => t.turnId === turn)} />
-          )}
-          {items
-            .filter((i) => i.turnId === turn && i.kind !== 'user')
-            .map((item) => (
-              <Message
-                key={item.id}
-                item={item}
-                fresh={
-                  !reduced &&
-                  live &&
-                  turn === latestTurn &&
-                  !baseline.has(item.id)
-                }
-                streaming={
-                  !reduced &&
-                  live &&
-                  turn === latestTurn &&
-                  item.kind === 'assistant' &&
-                  !item.isFinal
-                }
-              />
-            ))}
-        </section>
-      ))}
+      {turns.map((turn) => {
+        const turnTools = tools.filter((t) => t.turnId === turn);
+        const { inputs, output, activity } = partitionTurn(
+          items.filter((i) => i.turnId === turn),
+          turnTools,
+        );
+        const live = turn === liveID;
+        const information = activity.filter((i) =>
+          ['system', 'notice', 'error'].includes(i.kind),
+        );
+        const process = activity.filter((i) => !information.includes(i));
+        return (
+          <section className="turn" key={turn}>
+            {information
+              .filter((i) => i.kind === 'system')
+              .map((i) => renderItem(i))}
+            {inputs.map((i) => renderItem(i))}
+            {information
+              .filter((i) => i.kind !== 'system')
+              .map((i) => renderItem(i))}
+            {(turnTools.length > 0 || process.length > 0) && (
+              <Activity
+                tools={turnTools}
+                live={live}
+                status={turnStatus(view, turn)}
+              >
+                {process.map((i) => renderItem(i, true))}
+                <ToolRows tools={turnTools} live={live} />
+              </Activity>
+            )}
+            {output.map((i) => renderItem(i))}
+          </section>
+        );
+      })}
       {view.run.phase === 'running' && (
         <div className="working" role="status">
           <span className="working-orbit" />
-          <span className="working-label">正在工作</span>
+          <span className="working-label">
+            {thinkingStatus(view) ? '正在思考' : '正在工作'}
+          </span>
           <span className="working-dots" aria-hidden="true">
             <i />
             <i />
@@ -390,7 +268,7 @@ function TranscriptContents({ view }: { view: View }) {
           </span>
         </div>
       )}
-      {view.run.phase !== 'running' && !items.length && (
+      {view.run.phase !== 'running' && !items.length && !tools.length && (
         <p className="loading-state">会话已准备好，发送消息开始。</p>
       )}
       {view.run.queue.map((queued, i) => (

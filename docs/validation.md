@@ -95,6 +95,24 @@ Composer/detail follow-up acceptance:
   reduced-motion rendering and disclosure height enhancement still need broader
   device acceptance. Unsupported disclosure animation falls back to native details.
 
+## ClientKit transcript information alignment (2026-10-19)
+
+- Read-only comparison against ClientKit's current transcript mode, tool-role,
+  row-model, activity, information and AgentKit DTO implementations. The browser
+  now maps the same 51 exact tool names plus two family prefixes; the drift check
+  reads the actual Swift mapping instead of relying on a duplicated fixture.
+- Thirty-six tests, source mapping check, strict TypeScript and production build
+  pass. Regressions cover live/history reasoning omission from all rendered HTML,
+  semantic glyph coverage, process/final partition, literal notices/errors, full
+  input/output retention and stopped/failed/nonzero-exit state handling.
+- Browser acceptance used the existing authenticated real Kernel history, with no
+  new model request or backend restart. Normal completed process starts collapsed;
+  expansion shows its shell tool glyph and `ok` state; individual expansion retains
+  full inputs, outputs and copy actions. The actual page has zero thinking
+  disclosures. Screenshots are private evidence outside this public repository.
+- See `transcript-parity.md` for the exact policy and public DTO limitations.
+  No ClientKit, native host, AgentKit or Kernel code changed in this update.
+
 This is local browser and API acceptance, not full native App parity, a mobile
 device acceptance run, physical IME/VoiceOver acceptance or a performance benchmark.
 The integration retains the earlier host's Kernel 0.9.0 data root; it does not

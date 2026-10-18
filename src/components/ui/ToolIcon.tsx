@@ -1,0 +1,52 @@
+import {
+  BadgeCheck,
+  Bookmark,
+  BookOpen,
+  Brain,
+  BriefcaseBusiness,
+  Clock,
+  Compass,
+  FilePenLine,
+  FileText,
+  Globe,
+  Layers,
+  ListChecks,
+  MessageCircleQuestion,
+  NotebookPen,
+  Search,
+  Sparkles,
+  Text,
+  Users,
+  Wrench,
+  type LucideIcon,
+  Terminal,
+} from 'lucide-react';
+import { toolRole, type ToolRole } from '../../transcript';
+export const toolIcons: Record<ToolRole, LucideIcon> = {
+  write: FilePenLine,
+  read: FileText,
+  shell: Terminal,
+  search: Search,
+  webSearch: Globe,
+  webFetch: Compass,
+  verify: BadgeCheck,
+  task: ListChecks,
+  subagent: Users,
+  brief: Text,
+  askUser: MessageCircleQuestion,
+  skill: Sparkles,
+  report: FileText,
+  memorize: Bookmark,
+  job: Clock,
+  context: Layers,
+  note: NotebookPen,
+  recall: BookOpen,
+  think: Brain,
+  compact: BriefcaseBusiness,
+  unknown: Wrench,
+};
+export function ToolIcon({ name }: { name: string }) {
+  const role = toolRole(name),
+    Icon = toolIcons[role];
+  return <Icon size={15} aria-hidden="true" data-tool-role={role} />;
+}

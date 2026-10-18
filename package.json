@@ -1,6 +1,6 @@
 {
   "name": "tekes-web-ui",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -19,7 +19,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "tsx --test tests/*.test.ts",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "check:clientkit": "tsx scripts/check-clientkit-transcript.ts"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "2.2.1",

@@ -943,11 +943,6 @@ kbd {
   width: 25px;
   height: 25px;
 }
-.thinking {
-  margin: 0 0 14px;
-  font-size: 12px;
-  color: var(--secondary);
-}
 summary {
   cursor: pointer;
   list-style: none;
@@ -955,20 +950,6 @@ summary {
 summary::-webkit-details-marker {
   display: none;
 }
-.thinking summary {
-  display: inline-flex;
-  gap: 7px;
-  align-items: center;
-  padding: 3px 0;
-}
-.thinking > div {
-  border-left: 1px solid var(--border);
-  padding: 4px 14px;
-  margin: 10px 0;
-  line-height: 1.8;
-  white-space: pre-wrap;
-}
-.thinking[open] summary > svg:last-child,
 .work-summary[open] > summary > svg:last-child {
   transform: rotate(180deg);
 }

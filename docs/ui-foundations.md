@@ -39,7 +39,7 @@ Its vocabulary follows the reference's text reveal, message rise, quiet dots and
 status shimmer; it is independently implemented with the existing Sage theme.
 
 `RevealText` immediately renders the full authoritative string. Only appended text
-in live assistant Markdown/reasoning receives a 320ms opacity/3px blur reveal,
+in live assistant Markdown receives a 320ms opacity/3px blur reveal,
 with at most 60ms staggering. It uses grapheme boundaries (including emoji/ZWJ),
 groups three graphemes per span, bounds each range to 120 graphemes and retains at
 most four active ranges per leaf. Spans are removed after settling. Reconciled

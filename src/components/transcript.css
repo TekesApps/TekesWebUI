@@ -1,0 +1,97 @@
+.transcript-information {
+  margin: 0 0 16px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+.transcript-information > summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+}
+.transcript-information pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--code);
+}
+.transcript-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0 16px;
+  padding: 9px 12px;
+  border-left: 2px solid var(--secondary);
+  font-size: 12px;
+  color: var(--secondary);
+}
+.transcript-notice > div {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.transcript-notice.failure {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.message.message-narration {
+  margin: 10px 0 14px;
+}
+.message-narration .markdown {
+  color: var(--secondary);
+  font-size: 13px;
+}
+.work-summary[data-state='error'] > summary,
+.tool[data-state='error'] > summary > small {
+  color: var(--danger);
+}
+.tool > summary strong {
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tool > summary > span {
+  flex: 1;
+}
+.tool > summary small {
+  flex-shrink: 0;
+}
+.tool-chevron {
+  color: var(--tertiary);
+  transition: transform 200ms var(--ease-expand);
+}
+.tool[open] > summary > .tool-chevron {
+  transform: rotate(180deg);
+}
+.tool[data-state='running']:not([open]) > summary {
+  animation: tool-active 1800ms ease-in-out infinite;
+}
+@keyframes tool-active {
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+}
+.tool-detail header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--secondary);
+  font-size: 11px;
+  margin-top: 8px;
+}
+.tool-detail pre {
+  margin-top: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool[data-state='running']:not([open]) > summary {
+    animation: none;
+  }
+}

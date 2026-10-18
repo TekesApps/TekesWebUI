@@ -93,21 +93,20 @@ button {
 .message-time {
   transition: opacity var(--motion-fast) var(--ease-swift);
 }
-.thinking summary > svg:last-child,
-.work-summary summary > svg:last-child {
+
+.work-summary > summary > svg:last-child {
   transition: transform 200ms var(--ease-expand);
 }
-.thinking[open] summary > svg:last-child,
-.work-summary[open] summary > svg:last-child {
+
+.work-summary[open] > summary > svg:last-child {
   transform: rotate(180deg);
 }
 @supports (interpolate-size: allow-keywords) {
-  .thinking,
   .work-summary,
   .tool {
     interpolate-size: allow-keywords;
   }
-  .thinking::details-content,
+
   .work-summary::details-content,
   .tool::details-content {
     block-size: 0;
@@ -116,7 +115,7 @@ button {
       block-size 200ms var(--ease-expand),
       content-visibility 200ms allow-discrete;
   }
-  .thinking[open]::details-content,
+
   .work-summary[open]::details-content,
   .tool[open]::details-content {
     block-size: auto;
@@ -207,7 +206,7 @@ button {
     background: none;
     color: var(--secondary);
   }
-  .thinking::details-content,
+
   .work-summary::details-content,
   .tool::details-content {
     transition: none;

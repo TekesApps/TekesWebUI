@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CircleHelp,
   Folder,
+  FolderOpen,
   Menu,
   Plus,
   Search,
@@ -300,7 +301,11 @@ export function Sidebar({
                   ) : (
                     <ChevronDown size={12} />
                   )}
-                  <Folder size={14} />
+                  {collapsed.has(group.key) && !query ? (
+                    <Folder size={14} />
+                  ) : (
+                    <FolderOpen size={14} />
+                  )}
                   <span>{group.name}</span>
                 </button>
                 <button

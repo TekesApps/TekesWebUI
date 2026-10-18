@@ -31,5 +31,5 @@ assert.ok(count >= 45, 'ClientKit role table was not recognized');
 assert.equal(toolRole('terminal_read'), 'shell');
 assert.equal(toolRole('schedule_add'), 'job');
 console.log(
-  `ClientKit tool icon families: ${count} exact names and both prefixes aligned; browser glyphs remain Lucide.`,
+  `ClientKit tool icon families: ${count} exact names and both prefixes aligned; browser glyphs use the TekesUI catalog.`,
 );

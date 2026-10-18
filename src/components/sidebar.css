@@ -45,7 +45,7 @@
 .sidebar .new-chat:hover {
   background: var(--hover);
 }
-.sidebar .new-chat > svg {
+.sidebar .new-chat > :is(svg, .tekes-icon) {
   color: var(--accent);
 }
 .sidebar .new-chat kbd {
@@ -185,7 +185,7 @@
   background: var(--hover);
   color: var(--text);
 }
-.sidebar-settings svg {
+.sidebar-settings :is(svg, .tekes-icon) {
   margin-left: auto;
 }
 .tooltip-anchor {

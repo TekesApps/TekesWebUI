@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy } from './Icons';
 export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false),
     [error, setError] = useState(false);

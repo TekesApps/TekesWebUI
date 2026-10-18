@@ -11,7 +11,7 @@ import {
   SlidersHorizontal,
   Square,
   X,
-} from 'lucide-react';
+} from './ui/Icons';
 import type { Workspace, WorkspaceState } from '../workspace';
 import { byteSize, effortTitle, presetTitle } from '../composer';
 import { shouldSend } from '../state';

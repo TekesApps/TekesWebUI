@@ -1,5 +1,5 @@
 import * as Dropdown from '@radix-ui/react-dropdown-menu';
-import { Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight } from './Icons';
 import { useRef, useState, type ReactElement, type ReactNode } from 'react';
 
 /** Shared menu behavior: roving focus, typeahead, dismissal and viewport collision. */

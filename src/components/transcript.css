@@ -95,3 +95,20 @@
     animation: none;
   }
 }
+/* Reuse original TekesUI SVG alpha geometry; tint with the surrounding semantic role. */
+.tekes-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  background: currentColor;
+  mask-image: var(--tekes-icon-url);
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: var(--tekes-icon-url);
+  -webkit-mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+}
+.tool > summary > .tekes-icon {
+  flex: 0 0 auto;
+}

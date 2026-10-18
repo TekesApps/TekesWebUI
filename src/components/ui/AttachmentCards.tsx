@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { FileText } from './Icons';
 import type { Json } from '../../types';
 import { byteSize } from '../../composer';
 export function AttachmentCards({ attachments }: { attachments: Json[] }) {

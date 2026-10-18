@@ -6,7 +6,7 @@ import {
   LoaderCircle,
   Square,
   Info,
-} from 'lucide-react';
+} from './ui/Icons';
 import type { Item, Json, Tool } from '../types';
 import {
   humanize,

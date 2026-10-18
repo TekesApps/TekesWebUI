@@ -5,3 +5,5 @@ dist/
 .DS_Store
 coverage/
 *.local
+# External read-only legacy artwork used by TekesUI Gallery: local integration only.
+src/icons/local/

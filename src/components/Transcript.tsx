@@ -9,7 +9,7 @@ import {
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, ChevronDown, FileText, LoaderCircle } from 'lucide-react';
+import { Check, ChevronDown, FileText, LoaderCircle } from './ui/Icons';
 import { safeLink, formatTimestamp, timestampMillis } from '../state';
 import type { Item, View } from '../types';
 import { AttachmentCards } from './ui/AttachmentCards';

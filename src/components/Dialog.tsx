@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { X } from './ui/Icons';
 
 export function Dialog({
   title,

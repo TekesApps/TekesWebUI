@@ -94,11 +94,11 @@ button {
   transition: opacity var(--motion-fast) var(--ease-swift);
 }
 
-.work-summary > summary > svg:last-child {
+.work-summary > summary > :is(svg, .tekes-icon):last-child {
   transition: transform 200ms var(--ease-expand);
 }
 
-.work-summary[open] > summary > svg:last-child {
+.work-summary[open] > summary > :is(svg, .tekes-icon):last-child {
   transform: rotate(180deg);
 }
 @supports (interpolate-size: allow-keywords) {

@@ -1,0 +1,48 @@
+{
+  "format": "tekesui-web-icons/1",
+  "repository": "https://github.com/TekesApps/TekesUI",
+  "revision": "bc3de79466834e99062a1b4ef0872323e2860001",
+  "licenseSha256": "0d295928227df2f9ecb57b44628e9bfff4f5d4287e7a9a54c0d4cb23474aae77",
+  "entries": [
+    {
+      "name": "tekes-settings",
+      "source": "crates/tekes-ui-icons/assets/tekes-settings.svg",
+      "sha256": "2bc1ae68873e019174cb4c78ace1d5a3c32ad15573e87748e22d2ee85b813ce0"
+    },
+    {
+      "name": "tekes-new-goal",
+      "source": "crates/tekes-ui-icons/assets/tekes-new-goal.svg",
+      "sha256": "e3ff1f1e71e7a3cbbc4c0ffd333293025c1daf5bf88811cd63cf489c082eeef3"
+    },
+    {
+      "name": "tekes-goal-completed",
+      "source": "crates/tekes-ui-icons/assets/tekes-goal-completed.svg",
+      "sha256": "13bbd3053b4af1cd0ea9f8dfde05b6c13a3d96567e9c0ba03830afa03ee4b947"
+    },
+    {
+      "name": "tekes-memory",
+      "source": "crates/tekes-ui-icons/assets/tekes-memory.svg",
+      "sha256": "41c0add7c8042c6142a4b54dceb3375ee1408ffdf1c5dac17583d085b8cb1775"
+    },
+    {
+      "name": "tekes-think",
+      "source": "crates/tekes-ui-icons/assets/tekes-think.svg",
+      "sha256": "2469ed55708e9dbab091479fb96370011338230f0d16f4bbf6825fe118aef590"
+    },
+    {
+      "name": "tekes-router",
+      "source": "crates/tekes-ui-icons/assets/tekes-router.svg",
+      "sha256": "9f9fd657434f785e7a9924fa1a8e3081dd97b1abffda6a9ef0528a189e010495"
+    },
+    {
+      "name": "tekes-provider",
+      "source": "crates/tekes-ui-icons/assets/tekes-provider.svg",
+      "sha256": "ba287fdc8903f525fcaf93229562cb6e3277c2909a111eb81d2e9ac9b1f76808"
+    },
+    {
+      "name": "tekes-appearance",
+      "source": "crates/tekes-ui-icons/assets/tekes-appearance.svg",
+      "sha256": "05e6d29820da9acade156d3bb8cefbb16ec1711ce96db1c5d44a71b5d66e3bf6"
+    }
+  ]
+}

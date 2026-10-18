@@ -18,5 +18,5 @@ export default defineConfig({
         }
       : undefined,
   },
-  build: { sourcemap: false },
+  build: { sourcemap: false, assetsInlineLimit: 0 },
 });

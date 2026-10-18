@@ -101,7 +101,7 @@ select:focus-visible {
 ::selection {
   background: color-mix(in srgb, var(--brand-seed) 35%, transparent);
 }
-svg {
+:is(svg, .tekes-icon) {
   flex-shrink: 0;
   stroke-width: 1.65;
 }
@@ -438,7 +438,7 @@ kbd {
 .connection:hover {
   background: var(--hover);
 }
-.connection > svg {
+.connection > :is(svg, .tekes-icon) {
   margin-left: auto;
 }
 .sidebar-footnote {
@@ -702,11 +702,11 @@ kbd {
   background: color-mix(in srgb, var(--surface) 30%, transparent);
   color: var(--secondary);
 }
-.suggestions button > svg:first-child {
+.suggestions button > :is(svg, .tekes-icon):first-child {
   color: var(--accent);
   opacity: 0.9;
 }
-.suggestions button > svg:last-child {
+.suggestions button > :is(svg, .tekes-icon):last-child {
   margin-left: auto;
   transform: rotate(45deg);
   opacity: 0.4;
@@ -950,7 +950,7 @@ summary {
 summary::-webkit-details-marker {
   display: none;
 }
-.work-summary[open] > summary > svg:last-child {
+.work-summary[open] > summary > :is(svg, .tekes-icon):last-child {
   transform: rotate(180deg);
 }
 .work-summary {
@@ -967,7 +967,7 @@ summary::-webkit-details-marker {
   color: var(--secondary);
   font-size: 11px;
 }
-.work-summary > summary > svg:last-child {
+.work-summary > summary > :is(svg, .tekes-icon):last-child {
   margin-left: auto;
 }
 .tool-list {
@@ -1265,7 +1265,7 @@ summary::-webkit-details-marker {
   gap: 9px;
   align-items: center;
 }
-.action-heading svg {
+.action-heading :is(svg, .tekes-icon) {
   color: var(--accent);
 }
 .action-card p {
@@ -1350,7 +1350,7 @@ summary::-webkit-details-marker {
     padding: 13px 10px;
     gap: 6px;
   }
-  .suggestions button > svg:last-child {
+  .suggestions button > :is(svg, .tekes-icon):last-child {
     display: none;
   }
   .composer-options {
@@ -1453,7 +1453,7 @@ summary::-webkit-details-marker {
     padding: 12px 14px;
     font-size: 12px;
   }
-  .suggestions button > svg:last-child {
+  .suggestions button > :is(svg, .tekes-icon):last-child {
     display: block;
   }
   .welcome-note {

@@ -129,7 +129,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ui-choice > svg {
+.ui-choice > :is(svg, .tekes-icon) {
   flex-shrink: 0;
 }
 .ui-choice:hover,

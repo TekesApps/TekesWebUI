@@ -10,7 +10,7 @@ import {
   Settings2,
   SlidersHorizontal,
   X,
-} from 'lucide-react';
+} from './ui/Icons';
 import type { Workspace, WorkspaceState } from '../workspace';
 import {
   addressKey,

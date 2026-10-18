@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, MessageCircleQuestion } from 'lucide-react';
+import { ShieldCheck, MessageCircleQuestion } from './ui/Icons';
 import type { Actionable } from '../types';
 import type { Workspace } from '../workspace';
 import { displayError } from '../state';

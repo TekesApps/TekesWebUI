@@ -113,6 +113,23 @@ Composer/detail follow-up acceptance:
 - See `transcript-parity.md` for the exact policy and public DTO limitations.
   No ClientKit, native host, AgentKit or Kernel code changed in this update.
 
+## TekesUI SVG integration (2026-10-19)
+
+- Replaced all interface and tool glyph imports with TekesUI canonical SVG slots;
+  removed the Lucide dependency. Copied 8 MIT shared defaults with the original
+  license and SHA256 provenance; 42 selected external Gallery assets are local-only.
+- Thirty-nine tests pass, including exact shared/optional-local SVG byte hashes
+  and complete canonical slot coverage. ClientKit semantic-role drift check passes.
+  Strict TypeScript, production build, and an independent public-source build with
+  no external legacy files pass. The public build contains no legacy shell SVG.
+- The authenticated browser reports no Lucide elements and zero fallback glyphs
+  among all rendered icons. The historical Shell row resolves to `tekes-shell`
+  at 15px through a same-origin SVG mask. Light and dark rendering were inspected;
+  the original system appearance was restored. Source artwork is unchanged.
+- SVGs stay external under the existing strict CSP. Neither source repository nor
+  backend was modified. Full external artwork is deliberately excluded from Git;
+  see `icons.md` for the clean-checkout fallback and explicit import workflow.
+
 This is local browser and API acceptance, not full native App parity, a mobile
 device acceptance run, physical IME/VoiceOver acceptance or a performance benchmark.
 The integration retains the earlier host's Kernel 0.9.0 data root; it does not

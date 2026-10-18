@@ -1,0 +1,35 @@
+import type { ToolRole } from '../transcript';
+/** Canonical names from the same catalog loaded by TekesUI Gallery. */
+export const toolIcons: Record<ToolRole, string> = {
+  write: 'tekes-write',
+  read: 'tekes-read',
+  shell: 'tekes-shell',
+  search: 'tekes-search',
+  webSearch: 'tekes-web-search',
+  webFetch: 'tekes-web-fetch',
+  verify: 'tekes-verify',
+  task: 'tekes-task',
+  subagent: 'tekes-subagent',
+  brief: 'tekes-brief',
+  askUser: 'tekes-ask-user',
+  skill: 'tekes-skill',
+  report: 'tekes-report',
+  memorize: 'tekes-memorize',
+  job: 'tekes-job',
+  context: 'tekes-context',
+  note: 'tekes-note',
+  recall: 'tekes-recall',
+  think: 'tekes-think',
+  compact: 'tekes-compact',
+  unknown: 'tekes-unknown-tool',
+};
+export const sharedIconNames = [
+  'tekes-settings',
+  'tekes-new-goal',
+  'tekes-goal-completed',
+  'tekes-memory',
+  'tekes-think',
+  'tekes-router',
+  'tekes-provider',
+  'tekes-appearance',
+] as const;

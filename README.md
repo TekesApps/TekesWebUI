@@ -117,3 +117,11 @@ in `design/brand.json`. Generated token data retains TekesUI's MIT copyright.
 | `src/styles.css`   | Semantic tokens, responsive layout and appearance   |
 
 MIT © TekesApps
+
+### TekesUI icons
+
+Interface and tool glyphs use the TekesUI Gallery catalog. Eight shared MIT SVGs
+ship with this repository. To reproduce the complete local glyph set, import the
+external catalog with `npm run icons:import -- /path/to/TekesUI --legacy /path/to/TekesIcons`
+before building. External legacy assets remain gitignored; a clean public build
+uses a generic shared fallback for unavailable slots. See [icon sources](docs/icons.md).

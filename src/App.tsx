@@ -22,7 +22,7 @@ import {
   Pencil,
   Sparkles,
   X,
-} from 'lucide-react';
+} from './components/ui/Icons';
 import {
   displayError,
   folderName,

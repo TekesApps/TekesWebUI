@@ -1,6 +1,6 @@
 import type { Item, Json, Tool, View } from './types';
 
-// Semantic roles mirror ClientKit TranscriptToolDisplay. Browser glyphs are Lucide SVGs.
+// Semantic roles mirror ClientKit TranscriptToolDisplay. Browser glyphs use the TekesUI Gallery SVG catalog.
 export const toolFamilies = {
   write: 'write',
   edit: 'write',

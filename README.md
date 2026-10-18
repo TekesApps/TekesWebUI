@@ -120,8 +120,7 @@ MIT © TekesApps
 
 ### TekesUI icons
 
-Interface and tool glyphs use the TekesUI Gallery catalog. Eight shared MIT SVGs
-ship with this repository. To reproduce the complete local glyph set, import the
-external catalog with `npm run icons:import -- /path/to/TekesUI --legacy /path/to/TekesIcons`
-before building. External legacy assets remain gitignored; a clean public build
-uses a generic shared fallback for unavailable slots. See [icon sources](docs/icons.md).
+The complete 176-icon catalog is a public TekesUI dependency, locked to an immutable
+HTTPS source archive and integrity hash. `npm ci` installs all artwork; `npm run build`
+checks every SVG and emits the assets. No local directory, import command, private
+repository, SSH key or generic icon fallback is required. See [icon sources](docs/icons.md).

@@ -1,3 +1,4 @@
+import type { IconName } from '@tekesui/icons';
 /** Interface slots use the canonical TekesUI Gallery catalog, not another icon library. */
 export const interfaceIcons = {
   ArrowDown: 'tekes-jump-bottom',
@@ -28,4 +29,4 @@ export const interfaceIcons = {
   ShieldCheck: 'tekes-approval',
   MessageCircleQuestion: 'tekes-ask-user',
   Copy: 'tekes-copy',
-} as const;
+} as const satisfies Record<string, IconName>;

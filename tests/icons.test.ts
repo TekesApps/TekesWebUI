@@ -1,60 +1,44 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFile, access } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { toolIcons, sharedIconNames } from '../src/icons/tool-assets';
+import { fileURLToPath } from 'node:url';
+import { iconNames, getIconUrl, type IconName } from '@tekesui/icons';
+import { toolIcons } from '../src/icons/tool-assets';
 import { interfaceIcons } from '../src/icons/interface-assets';
-const sha = (bytes: string) => createHash('sha256').update(bytes).digest('hex');
-test('shared TekesUI SVGs and MIT notice retain their exact imported hashes', async () => {
-  const manifest = JSON.parse(await readFile('design/icons.json', 'utf8'));
-  assert.equal(manifest.entries.length, sharedIconNames.length);
-  assert.equal(
-    sha(await readFile('public/tekes-icons/LICENSE', 'utf8')),
-    manifest.licenseSha256,
-  );
-  for (const entry of manifest.entries) {
-    const svg = await readFile(
-      `public/tekes-icons/defaults/${entry.name}.svg`,
-      'utf8',
-    );
-    assert.equal(sha(svg), entry.sha256);
-    assert.ok(svg.includes('viewBox="0 0 24 24"'));
-    assert.ok(!/<(?:script|foreignObject|image)\b|\b(?:href|src)=/i.test(svg));
-  }
-});
-test('every interface and tool slot requests a canonical TekesUI name', () => {
-  for (const name of [
-    ...Object.values(toolIcons),
-    ...Object.values(interfaceIcons),
-  ])
-    assert.match(name, /^tekes-[a-z-]+$/);
-  assert.equal(toolIcons.shell, 'tekes-shell');
-  assert.equal(toolIcons.unknown, 'tekes-unknown-tool');
-  assert.equal(interfaceIcons.Settings2, 'tekes-settings');
-});
-test('optional local Gallery assets cover all requested slots with original bytes', async (t) => {
-  try {
-    await access('src/icons/local/provenance.json');
-  } catch {
-    t.skip(
-      'External Gallery legacy catalog not installed; public shared fallback is used.',
-    );
-    return;
-  }
+test('the complete public TekesUI dependency contains every original SVG with its catalog hash', async () => {
   const manifest = JSON.parse(
-    await readFile('src/icons/local/provenance.json', 'utf8'),
+    await readFile(
+      fileURLToPath(import.meta.resolve('@tekesui/icons/catalog.json')),
+      'utf8',
+    ),
   );
-  const names = new Set<string>(sharedIconNames);
-  for (const entry of manifest.entries) {
-    assert.equal(
-      sha(await readFile(`src/icons/local/${entry.name}.svg`, 'utf8')),
-      entry.sha256,
-    );
-    names.add(entry.name);
+  assert.equal(manifest.icons.length, 176);
+  assert.equal(
+    await readFile('public/tekes-icons/LICENSE', 'utf8'),
+    await readFile(
+      new URL('./LICENSE', import.meta.resolve('@tekesui/icons/package.json')),
+      'utf8',
+    ),
+  );
+  assert.equal(iconNames.length, 176);
+  for (const entry of manifest.icons) {
+    const svg = await readFile(fileURLToPath(getIconUrl(entry.name)), 'utf8');
+    assert.equal(createHash('sha256').update(svg).digest('hex'), entry.sha256);
+    assert.ok(svg.includes('viewBox="0 0 24 24"'));
+    assert.ok(svg.includes('currentColor'));
   }
+});
+test('all Web interface and tool slots resolve to actual shared catalog artwork', () => {
   for (const name of [
     ...Object.values(toolIcons),
     ...Object.values(interfaceIcons),
-  ])
-    assert.ok(names.has(name), name);
+  ]) {
+    assert.ok(iconNames.includes(name));
+    assert.match(getIconUrl(name), new RegExp(name + '\\.svg$'));
+  }
+});
+test('unknown or retired icon names fail explicitly rather than falling back to provider', () => {
+  for (const name of ['missing-icon', 'tekes-annotation', 'tekes-computer-use'])
+    assert.throws(() => getIconUrl(name as IconName), /Unknown TekesUI icon/);
 });

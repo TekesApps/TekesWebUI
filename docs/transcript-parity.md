@@ -43,9 +43,9 @@ mapping mirrors every exact ClientKit family (51 names) and the `terminal_` and
 `schedule_` prefixes, with explicit Kernel/Pi aliases. MCP action labels are humanized;
 unknown tools use `tekes-unknown-tool` rather than a shell glyph.
 
-`src/components/ui/ToolIcon.tsx` maps semantic roles to browser glyphs. No SF Symbols or reference-project artwork is used. The eight shared MIT resources
-are checked in; the external legacy catalog is imported into ignored local assets.
-See `icons.md` for the public/local distribution boundary.
+`src/components/ui/ToolIcon.tsx` maps semantic roles to browser glyphs. No SF Symbols or reference-project artwork is used. Web directly consumes TekesUI's
+complete public 176-SVG package, with all names and source hashes checked during
+build. See `icons.md` for the locked public dependency.
 
 Validate source drift using:
 

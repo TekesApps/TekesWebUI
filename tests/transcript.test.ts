@@ -181,5 +181,19 @@ test('information classes keep literal text; tools retain full inputs and output
   assert.ok(html.includes('offset'));
   assert.ok(html.includes('file contents'));
   assert.ok(html.includes('data-tool-role="read"'));
-  assert.ok(!html.includes('mini-mark\">T</span>Tekes'));
+  assert.ok(!html.includes('mini-mark'));
+});
+
+test('assistant transcript retains time without a Harness initial box or brand label', () => {
+  const html = renderToStaticMarkup(
+    createElement(Transcript, {
+      view: view([
+        item('assistant', '答案', { isFinal: true, time: 1792292400 }),
+      ]),
+    }),
+  );
+  assert.ok(html.includes('message-time'));
+  assert.ok(!html.includes('mini-mark'));
+  assert.ok(!html.includes('>T<'));
+  assert.ok(!/>Tekes</.test(html));
 });

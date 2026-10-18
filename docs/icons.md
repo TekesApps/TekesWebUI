@@ -1,41 +1,35 @@
-# TekesUI icon source
+# Complete public TekesUI icons
 
-All tool and interface glyphs use the canonical TekesUI Gallery catalog through
-`TekesIcon`. Lucide has been removed. Original SVG geometry is preserved; CSS alpha
-masks apply the surrounding semantic color without editing SVG strokes or paths.
-The source art uses a 24pt viewBox and 1.5pt rounded strokes.
+Every interface and tool glyph comes directly from the public `@tekesui/icons`
+package in TekesUI. All 176 canonical SVGs live in TekesUI's
+`crates/tekes-ui-icons/assets`; Web has no copied SVG catalog, external directory,
+manual import step or generic missing-icon fallback.
 
-TekesUI has two different resource sources:
+The dependency is an immutable HTTPS archive of the public TekesUI commit, pinned
+in `package.json` and by SHA512 integrity in `package-lock.json`. Installing it
+requires neither an SSH key, a private repository, a local TekesUI checkout nor a
+Rust toolchain. The package exports `iconNames`, typed `IconName`, and
+`getIconUrl(name)`. Its public `catalog.json` records every SVG's hash and provenance.
 
-1. `crates/tekes-ui-icons/assets`: eight approved, self-contained MIT SVG resources.
-   These ship in `public/tekes-icons/defaults`, with the complete upstream MIT notice.
-   `design/icons.json` pins their source revision, paths and SHA256 hashes.
-2. The Gallery also reads the existing external `TekesIcons` catalog. Its handoff
-   explicitly keeps old artwork read-only/local pending public provenance/license
-   review. Those resources are copied byte-for-byte only to ignored `src/icons/local`;
-   they are included in the user's local build, never committed to this public repo.
-   A local manifest records the selected names and hashes, without publishing paths.
-
-Import from the same source as the running Gallery:
+From a fresh checkout:
 
 ```sh
-npm run icons:import -- /path/to/TekesUI \
-  --legacy /path/to/Tekes/Tekes/Assets.xcassets/TekesIcons
+npm ci
+npm test
 npm run build
 ```
 
-The importer checks the Gallery's external-source contract, SVG budgets/active
-content and the MIT source notice. It imports 8 shared defaults and 42 selected
-external glyphs for the current interface/tool mapping, without modifying source
-repositories. The approved default always wins over its legacy counterpart.
+Build first runs `icons:check`: it checks all 176 SVG hashes and every requested
+interface/tool slot. Missing or unknown names fail explicitly. Tests are never
+skipped because a local directory is absent.
 
-A clean public checkout builds without the external catalog. Unavailable slots
-show the shared Provider symbol as an explicit generic fallback, retain their
-requested canonical name in `data-icon-requested`, and expose `data-icon-fallback`.
-The label/operation is still available; a generic fallback is not represented as
-complete artwork parity. Install the external catalog for the full local glyph set.
+Vite resolves the package's static module-relative SVG URLs and emits same-origin
+asset files under the existing strict CSP. The package is excluded from development
+prebundling so dev URLs also resolve to the original package assets. CSS alpha masks
+apply the surrounding semantic color without editing geometry. The MIT notice is
+retained in `public/tekes-icons/LICENSE`.
 
-SVGs are emitted as same-origin files (`assetsInlineLimit: 0`) to satisfy the host's
-strict CSP without data URLs or an expanded policy. Local images are rendered as
-masks; no raw SVG markup is injected. Icon labels and decorative/accessibility roles
-remain in their owning buttons or rows. Reduced motion still applies to spinners.
+The current public source is TekesUI commit
+`80d6b05649234f953ea452d42e1cbed369fdddbb` (`icons-v0.1.1`). This supersedes the earlier
+8-resource/local-only integration. All valid catalog artwork is now shared publicly;
+the 5 retired originals remain excluded. ClientKit semantic role mapping is unchanged.

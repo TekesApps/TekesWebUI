@@ -89,11 +89,8 @@ const Message = memo(function Message({
         className={`message ${item.kind} ${fresh ? 'message-enter' : ''} ${process ? 'message-narration' : ''}`}
         title={formatTimestamp(item.time) || undefined}
       >
-        {item.kind === 'assistant' && !process && (
+        {item.kind === 'assistant' && !process && !!item.time && (
           <div className="message-author">
-            <span className="mini-mark" aria-hidden="true">
-              T
-            </span>
             {item.time && (
               <time
                 className="message-time"

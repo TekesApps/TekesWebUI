@@ -1,6 +1,7 @@
+import type { IconName } from '@tekesui/icons';
 import type { ToolRole } from '../transcript';
 /** Canonical names from the same catalog loaded by TekesUI Gallery. */
-export const toolIcons: Record<ToolRole, string> = {
+export const toolIcons: Record<ToolRole, IconName> = {
   write: 'tekes-write',
   read: 'tekes-read',
   shell: 'tekes-shell',
@@ -23,13 +24,3 @@ export const toolIcons: Record<ToolRole, string> = {
   compact: 'tekes-compact',
   unknown: 'tekes-unknown-tool',
 };
-export const sharedIconNames = [
-  'tekes-settings',
-  'tekes-new-goal',
-  'tekes-goal-completed',
-  'tekes-memory',
-  'tekes-think',
-  'tekes-router',
-  'tekes-provider',
-  'tekes-appearance',
-] as const;

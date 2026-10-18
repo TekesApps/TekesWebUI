@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 // Development also uses the authenticated host. No key or token is bundled here.
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: { exclude: ['@tekesui/icons'] },
   server: {
     host: '127.0.0.1',
     proxy: process.env.TEKES_HOST_URL

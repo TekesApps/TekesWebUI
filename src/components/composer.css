@@ -75,31 +75,11 @@
 .harness-symbol.dsh {
   color: var(--secondary);
 }
-.harness-picker-root {
-  position: relative;
-  min-width: 0;
-}
 .composer-model-controls {
   display: flex;
   align-items: center;
   gap: 5px;
   margin-left: auto;
-}
-.composer .model-picker select {
-  font-size: 12px;
-  max-width: 190px;
-  padding-left: 7px;
-}
-.effort-picker {
-  padding-left: 5px;
-  color: var(--secondary);
-}
-.effort-picker > svg:first-child {
-  position: static;
-}
-.effort-picker select {
-  font-size: 11px;
-  padding-left: 5px;
 }
 .composer-inspect {
   width: 27px;
@@ -111,56 +91,6 @@
   height: 31px;
   border-radius: 50%;
   margin-left: 4px;
-}
-.harness-menu {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 0;
-  width: 250px;
-  max-height: min(390px, 65dvh);
-  overflow: auto;
-  z-index: 20;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 30px #00000018;
-  background: var(--surface);
-}
-.harness-menu > section + section {
-  border-top: 1px solid var(--border);
-  margin-top: 5px;
-  padding-top: 5px;
-}
-.harness-menu-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px 5px;
-  font-size: 11px;
-  color: var(--secondary);
-}
-.harness-menu-heading strong {
-  font-weight: 550;
-}
-.harness-menu-heading small {
-  font-size: 10px;
-  color: var(--tertiary);
-}
-.preset-choice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px 8px 21px;
-  border-radius: 6px;
-  font-size: 12px;
-  width: 100%;
-  text-align: left;
-}
-.preset-choice:hover:not(:disabled) {
-  background: var(--hover);
-}
-.preset-choice svg {
-  color: var(--accent);
 }
 .attachment-tray {
   display: flex;
@@ -330,9 +260,6 @@
   .composer-chip > span:nth-child(2) {
     max-width: 170px;
   }
-  .composer .model-picker select {
-    max-width: 180px;
-  }
 }
 @media (max-width: 700px) {
   .composer-toolbar {
@@ -347,10 +274,6 @@
   .composer-options {
     gap: 1px;
   }
-  .composer .model-picker select {
-    font-size: 12px;
-    max-width: 180px;
-  }
   .composer-model-controls {
     justify-content: flex-end;
   }
@@ -359,9 +282,6 @@
   }
   .welcome {
     padding-top: 30px;
-  }
-  .harness-menu {
-    left: -35px;
   }
   .pending-attachment {
     min-width: 130px;

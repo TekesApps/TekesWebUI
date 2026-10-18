@@ -1,0 +1,157 @@
+/* Independently authored; proportions and elevation informed by open-claude-ui. */
+:root {
+  --menu-radius: 14px;
+  --menu-item-radius: 8px;
+  --menu-padding: 6px;
+  --menu-shadow: 0 12px 32px #24231f14, 0 2px 6px #24231f0a;
+  --menu-selection: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --menu-motion: 140ms;
+}
+:root[data-theme='dark'] {
+  --menu-shadow: 0 12px 32px #0005, 0 2px 6px #0003;
+}
+.ui-menu-anchor {
+  display: contents;
+}
+.ui-menu {
+  width: 236px;
+  max-width: calc(100vw - 24px);
+  max-height: var(--radix-dropdown-menu-content-available-height, 75dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--menu-padding);
+  border: 1px solid var(--border);
+  border-radius: var(--menu-radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--menu-shadow);
+  z-index: 100;
+  outline: none;
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  animation: menu-appear var(--menu-motion) ease-out;
+}
+.ui-menu-wide {
+  width: 304px;
+}
+.ui-menu-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px 6px;
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--secondary);
+}
+.ui-menu-label small {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--tertiary);
+}
+.ui-menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 4px;
+}
+.ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: var(--menu-item-radius);
+  font-size: 13px;
+  line-height: 1.35;
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+.ui-menu-item[data-state='checked'] {
+  background: var(--menu-selection);
+}
+.ui-menu-item[data-highlighted] {
+  background: var(--hover);
+}
+.ui-menu-item[data-disabled] {
+  opacity: 0.45;
+}
+.ui-menu-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+.ui-menu-copy small {
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--secondary);
+}
+.ui-menu-icon {
+  display: flex;
+  color: var(--secondary);
+}
+.ui-menu-check {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--accent);
+  margin-left: auto;
+}
+.ui-menu-danger {
+  color: var(--danger);
+}
+.ui-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--secondary);
+}
+.ui-choice > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-choice > svg {
+  flex-shrink: 0;
+}
+.ui-choice:hover,
+.ui-choice[data-state='open'] {
+  background: var(--hover);
+  color: var(--text);
+}
+.settings-row .ui-choice {
+  border-color: var(--border);
+  min-width: 130px;
+}
+@keyframes menu-appear {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-menu {
+    animation: none;
+  }
+}
+
+.composer .ui-choice.model-picker {
+  max-width: min(240px, 32vw);
+}
+@media (max-width: 600px) {
+  .composer .ui-choice.model-picker {
+    max-width: 135px;
+  }
+}

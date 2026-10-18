@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   ArrowUp,
   Brain,
-  Check,
   ChevronDown,
   FileText,
   Info,
@@ -18,6 +17,13 @@ import { byteSize, effortTitle, presetTitle } from '../composer';
 import { shouldSend } from '../state';
 import { Dialog } from './Dialog';
 import { Tooltip } from './Tooltip';
+import {
+  Menu,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  ChoiceMenu,
+} from './ui/Menu';
 
 export function Composer({
   workspace: w,
@@ -31,10 +37,8 @@ export function Composer({
   onSubmit: () => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null),
-    pickerRoot = useRef<HTMLDivElement>(null),
     composing = useRef(false);
-  const [picker, setPicker] = useState(false),
-    [details, setDetails] = useState(false),
+  const [details, setDetails] = useState(false),
     [configuration, setConfiguration] = useState(''),
     [dragging, setDragging] = useState(false);
   const endpoint = s.endpoints.find(
@@ -62,21 +66,6 @@ export function Composer({
         ? 'DSH'
         : endpoint?.name || 'Harness';
   useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (!pickerRoot.current?.contains(e.target as Node)) setPicker(false);
-    };
-    const escape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPicker(false);
-    };
-    document.addEventListener('click', close);
-    document.addEventListener('keydown', escape);
-    return () => {
-      document.removeEventListener('click', close);
-      document.removeEventListener('keydown', escape);
-    };
-  }, []);
-  useEffect(() => {
-    setPicker(false);
     setDragging(false);
     setDetails(false);
   }, [s.selected?.endpoint, s.selected?.sessionId, s.newEndpoint, s.cwd]);
@@ -216,119 +205,100 @@ export function Composer({
                 <Plus size={19} />
               </button>
             </Tooltip>
-            <div className="harness-picker-root" ref={pickerRoot}>
-              <Tooltip
-                content={
-                  <>
-                    <strong>{endpoint?.name || 'Harness'}</strong>
-                    <span>
-                      {s.selected && !s.preset
-                        ? '未报告初始预设'
-                        : presetTitle(preset)}{' '}
-                      · 版本 {endpoint?.host?.product.version || '未知'}
+            {s.selected ? (
+              <button
+                className="composer-chip harness-chip"
+                type="button"
+                aria-label="查看会话 Harness 与预设"
+                disabled={s.busy}
+                onClick={() => void showDetails()}
+              >
+                <span className={`harness-symbol ${endpoint?.kind || ''}`}>
+                  {endpoint?.kind === 'pi'
+                    ? 'π'
+                    : endpoint?.kind === 'dsh'
+                      ? 'D'
+                      : 'T'}
+                </span>
+                <span>
+                  {harnessName}
+                  {s.preset
+                    ? ` · ${presetTitle(preset || { id: s.preset })}`
+                    : ''}
+                </span>
+                <LockKeyhole size={11} />
+              </button>
+            ) : (
+              <Menu
+                label="选择 Harness 与预设"
+                side="top"
+                align="start"
+                wide
+                trigger={
+                  <button
+                    className="composer-chip harness-chip"
+                    type="button"
+                    aria-label="选择 Harness 与预设"
+                    disabled={s.busy}
+                  >
+                    <span className={`harness-symbol ${endpoint?.kind || ''}`}>
+                      {endpoint?.kind === 'pi'
+                        ? 'π'
+                        : endpoint?.kind === 'dsh'
+                          ? 'D'
+                          : 'T'}
                     </span>
-                    {s.selected && <span>会话的 Harness 与预设已固定</span>}
-                  </>
+                    <span>
+                      {harnessName}
+                      {s.controlsLoading
+                        ? ' · 读取中'
+                        : s.preset
+                          ? ` · ${presetTitle(preset || { id: s.preset })}`
+                          : ''}
+                    </span>
+                    <ChevronDown size={12} />
+                  </button>
                 }
               >
-                <button
-                  className="composer-chip harness-chip"
-                  type="button"
-                  aria-label={
-                    s.selected
-                      ? '查看会话 Harness 与预设'
-                      : '选择 Harness 与预设'
-                  }
-                  aria-expanded={!s.selected && picker}
-                  disabled={s.busy}
-                  onClick={() =>
-                    s.selected ? void showDetails() : setPicker(!picker)
-                  }
-                >
-                  <span className={`harness-symbol ${endpoint?.kind || ''}`}>
-                    {endpoint?.kind === 'pi'
-                      ? 'π'
-                      : endpoint?.kind === 'dsh'
-                        ? 'D'
-                        : 'T'}
-                  </span>
-                  <span>
-                    {harnessName}
-                    {s.controlsLoading
-                      ? ' · 读取中'
-                      : s.preset
-                        ? ` · ${presetTitle(preset || { id: s.preset })}`
-                        : ''}
-                  </span>
-                  {s.selected ? (
-                    <LockKeyhole size={11} />
-                  ) : (
-                    <ChevronDown size={12} />
-                  )}
-                </button>
-              </Tooltip>
-              {picker && !s.selected && (
-                <div
-                  className="harness-menu"
-                  role="dialog"
-                  aria-label="选择 Harness 与预设"
-                >
-                  {s.endpoints.map((agent) => {
-                    const catalog = s.presets.get(agent.id);
-                    return (
-                      <section key={agent.id}>
-                        <div className="harness-menu-heading">
-                          <strong>{agent.name}</strong>
-                          <small>
-                            {agent.host?.product.version || '未连接'}
-                          </small>
-                        </div>
-                        {catalog?.presets.length ? (
-                          catalog.presets.map((p) => (
-                            <button
-                              type="button"
-                              className="preset-choice"
-                              aria-pressed={
-                                agent.id === s.newEndpoint && s.preset === p.id
-                              }
-                              key={p.id}
-                              disabled={!!p.broken || !!p.unavailableReason}
-                              title={
-                                p.description ||
-                                p.broken ||
-                                p.unavailableReason ||
-                                undefined
-                              }
-                              onClick={() => {
-                                if (agent.id !== s.newEndpoint)
-                                  w.newSession(s.cwd, agent.id);
-                                w.choosePreset(p.id);
-                                setPicker(false);
-                              }}
-                            >
-                              <span>{presetTitle(p)}</span>
-                              {agent.id === s.newEndpoint &&
-                                s.preset === p.id && <Check size={14} />}
-                            </button>
-                          ))
-                        ) : (
-                          <button
-                            type="button"
-                            className="preset-choice"
-                            onClick={() => {
+                {s.endpoints.map((agent, index) => (
+                  <div key={agent.id}>
+                    {index > 0 && <MenuSeparator />}
+                    <MenuLabel>
+                      <span>{agent.name}</span>
+                      <small>{agent.host?.product.version || '未连接'}</small>
+                    </MenuLabel>
+                    {s.presets.get(agent.id)?.presets.length ? (
+                      s.presets.get(agent.id)!.presets.map((p) => (
+                        <MenuItem
+                          key={p.id}
+                          selected={
+                            agent.id === s.newEndpoint && s.preset === p.id
+                          }
+                          disabled={!!p.broken || !!p.unavailableReason}
+                          description={
+                            p.broken ||
+                            p.unavailableReason ||
+                            p.description ||
+                            undefined
+                          }
+                          onSelect={() => {
+                            if (agent.id !== s.newEndpoint)
                               w.newSession(s.cwd, agent.id);
-                              setPicker(false);
-                            }}
-                          >
-                            使用 {agent.name}
-                          </button>
-                        )}
-                      </section>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                            w.choosePreset(p.id);
+                          }}
+                        >
+                          {presetTitle(p)}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem onSelect={() => w.newSession(s.cwd, agent.id)}>
+                        使用 {agent.name}
+                      </MenuItem>
+                    )}
+                  </div>
+                ))}
+              </Menu>
+            )}
             <Tooltip content="输入设置 · 预设配置、模型与工作目录">
               <button
                 className="icon-button composer-inspect"
@@ -341,113 +311,62 @@ export function Composer({
             </Tooltip>
           </div>
           <div className="composer-model-controls">
-            <label
-              className="select-control model-picker"
-              title={
-                model?.contextWindow
-                  ? `${model.name || model.id}\n上下文上限：${model.contextWindow.toLocaleString()} tokens`
-                  : '选择模型'
+            <ChoiceMenu
+              label={s.modelLoading ? '读取模型…' : '模型'}
+              value={
+                s.model ? JSON.stringify([s.model.provider, s.model.model]) : ''
               }
-            >
-              <span className="sr-only">模型</span>
-              <select
-                aria-label="模型"
+              disabled={s.busy || s.modelLoading}
+              className="model-picker"
+              options={s.models.map((m) => ({
+                value: JSON.stringify([m.provider, m.id]),
+                label: m.name || m.id,
+                description: `${m.contextWindow ? `${m.contextWindow.toLocaleString()} tokens 上下文` : '当前 Harness 提供的模型'}${s.models.some((other) => other !== m && other.id === m.id) ? ` · ${m.provider}` : ''}`,
+              }))}
+              onChange={(value) => {
+                const [provider, modelID] = JSON.parse(value) as [
+                  string,
+                  string,
+                ];
+                const chosen = s.models.find(
+                  (m) => m.id === modelID && m.provider === provider,
+                );
+                void w.chooseModel({
+                  provider,
+                  model: modelID,
+                  ...(chosen?.reasoning?.defaultEffort
+                    ? { reasoningEffort: chosen.reasoning.defaultEffort }
+                    : {}),
+                });
+              }}
+            />
+            {!!efforts.length && (
+              <ChoiceMenu
+                label="推理强度"
+                icon={<Brain size={14} />}
                 value={
-                  s.model
-                    ? JSON.stringify([s.model.provider, s.model.model])
-                    : ''
+                  s.model?.reasoningEffort ||
+                  model?.reasoning?.defaultEffort ||
+                  efforts[0].id
                 }
                 disabled={s.busy || s.modelLoading}
-                onChange={(e) => {
-                  const [provider, modelID] = JSON.parse(e.target.value) as [
-                    string,
-                    string,
-                  ];
-                  const chosen = s.models.find(
-                    (m) => m.id === modelID && m.provider === provider,
-                  );
-                  void w.chooseModel({
-                    provider,
-                    model: modelID,
-                    ...(chosen?.reasoning?.defaultEffort
-                      ? { reasoningEffort: chosen.reasoning.defaultEffort }
-                      : {}),
-                  });
+                options={efforts.map((e) => ({
+                  value: e.id,
+                  label: effortTitle(e.id),
+                  description:
+                    e.id === 'low'
+                      ? '更快响应，适合日常任务'
+                      : e.id === 'high'
+                        ? '深入思考，适合复杂任务'
+                        : e.id === 'max'
+                          ? '最高推理强度，可能需要更长时间'
+                          : undefined,
+                }))}
+                onChange={(value) => {
+                  if (s.model)
+                    void w.chooseModel({ ...s.model, reasoningEffort: value });
                 }}
-              >
-                <option value="" disabled>
-                  {s.modelLoading ? '读取模型…' : '选择模型'}
-                </option>
-                {s.models.map((m) => (
-                  <option
-                    key={JSON.stringify([m.provider, m.id])}
-                    value={JSON.stringify([m.provider, m.id])}
-                  >
-                    {m.name || m.id}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={12} />
-            </label>
-            {!!efforts.length && (
-              <label className="select-control effort-picker" title="推理强度">
-                <Brain size={14} />
-                <span className="sr-only">推理强度</span>
-                <select
-                  aria-label="推理强度"
-                  value={
-                    s.model?.reasoningEffort ||
-                    model?.reasoning?.defaultEffort ||
-                    efforts[0].id
-                  }
-                  disabled={s.busy || s.modelLoading}
-                  onChange={(e) => {
-                    if (s.model)
-                      void w.chooseModel({
-                        ...s.model,
-                        reasoningEffort: e.target.value,
-                      });
-                  }}
-                >
-                  {efforts.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {effortTitle(e.id)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={11} />
-              </label>
-            )}
-            {s.view?.run.canCancel ? (
-              <Tooltip content="停止当前任务">
-                <button
-                  className="stop-button"
-                  type="button"
-                  aria-label="停止当前任务"
-                  onClick={() => void w.cancel()}
-                >
-                  <Square size={14} fill="currentColor" />
-                </button>
-              </Tooltip>
-            ) : (
-              <Tooltip
-                content={
-                  s.busy ? s.submissionStage || '正在发送' : '发送消息 · Enter'
-                }
-              >
-                <button
-                  className="send-button"
-                  type="submit"
-                  aria-label="发送消息"
-                  disabled={!w.canSend()}
-                >
-                  {s.busy ? (
-                    <LoaderCircle size={17} className="spin" />
-                  ) : (
-                    <ArrowUp size={18} />
-                  )}
-                </button>
-              </Tooltip>
+              />
             )}
           </div>
         </div>

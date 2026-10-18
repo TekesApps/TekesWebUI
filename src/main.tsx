@@ -6,6 +6,7 @@ import './styles.css';
 import './theme/brand.css';
 import './components/composer.css';
 import './components/sidebar.css';
+import './components/ui/menu.css';
 
 const workspace = new Workspace();
 let token = browserStorage()?.getItem('tekes.agentkit.token') || '';

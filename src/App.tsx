@@ -36,6 +36,12 @@ import { ActionCard } from './components/ActionCard';
 import { Dialog } from './components/Dialog';
 import { Composer } from './components/Composer';
 import { Sidebar } from './components/Sidebar';
+import {
+  Menu as PopupMenu,
+  MenuItem,
+  MenuLabel,
+  ChoiceMenu,
+} from './components/ui/Menu';
 
 function BrandMark({ large = false }: { large?: boolean }) {
   return (
@@ -65,8 +71,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const [settings, setSettings] = useState(false),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
-  const [menu, setMenu] = useState(false),
-    [renaming, setRenaming] = useState(false),
+  const [renaming, setRenaming] = useState(false),
     [rename, setRename] = useState(''),
     [renameBusy, setRenameBusy] = useState(false),
     [renameError, setRenameError] = useState('');
@@ -79,8 +84,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const [atBottom, setAtBottom] = useState(true),
     [historyBusy, setHistoryBusy] = useState(false);
   const prompt = useRef<HTMLTextAreaElement>(null),
-    scroll = useRef<HTMLDivElement>(null),
-    menuRoot = useRef<HTMLDivElement>(null);
+    scroll = useRef<HTMLDivElement>(null);
   const followBottom = useRef(true),
     previousKey = useRef('');
   const key = w.key(),
@@ -137,19 +141,11 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         setMobile(true);
       }
       if (event.key === 'Escape') {
-        setMenu(false);
         setMobile(false);
       }
     };
     document.addEventListener('keydown', listener);
     return () => document.removeEventListener('keydown', listener);
-  }, []);
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (!menuRoot.current?.contains(e.target as Node)) setMenu(false);
-    };
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
   }, []);
   useLayoutEffect(() => {
     const node = prompt.current;
@@ -175,7 +171,6 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const newSession = (path?: string, endpoint?: string) => {
     w.newSession(path, endpoint);
     setMobile(false);
-    setMenu(false);
     setDirectory(false);
     requestAnimationFrame(() => prompt.current?.focus());
   };
@@ -223,7 +218,6 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         onNew={newSession}
         onSelect={() => {
           setMobile(false);
-          setMenu(false);
         }}
         onSettings={() => setSettings(true)}
         onHelp={() => setHelp(true)}
@@ -265,49 +259,43 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                   {phaseLabels[s.view?.run.phase || 'loading'] || ''}
                 </span>
                 <span className="harness-badge">{selectedEndpoint?.name}</span>
-                <div className="menu-root" ref={menuRoot}>
-                  <button
-                    className="icon-button"
-                    aria-label="会话操作"
-                    aria-expanded={menu}
-                    onClick={() => setMenu(!menu)}
+                <PopupMenu
+                  label="会话操作"
+                  trigger={
+                    <button className="icon-button" aria-label="会话操作">
+                      <MoreHorizontal size={19} />
+                    </button>
+                  }
+                >
+                  <MenuLabel>会话操作</MenuLabel>
+                  <MenuItem
+                    icon={<Pencil size={15} />}
+                    disabled={
+                      !selectedEndpoint?.capabilities?.methods?.includes(
+                        'session.rename',
+                      )
+                    }
+                    onSelect={() => {
+                      setRename(title);
+                      setRenameError('');
+                      setRenaming(true);
+                    }}
                   >
-                    <MoreHorizontal size={19} />
-                  </button>
-                  {menu && (
-                    <div className="popover">
-                      <button
-                        disabled={
-                          !selectedEndpoint?.capabilities?.methods?.includes(
-                            'session.rename',
-                          )
-                        }
-                        onClick={() => {
-                          setRename(title);
-                          setRenameError('');
-                          setRenaming(true);
-                          setMenu(false);
-                        }}
-                      >
-                        <Pencil size={15} />
-                        重命名
-                      </button>
-                      <button
-                        disabled={
-                          !selectedEndpoint?.capabilities
-                            ?.supportsArchiveSession || !!s.view?.run.canCancel
-                        }
-                        onClick={() => {
-                          setMenu(false);
-                          void w.archive();
-                        }}
-                      >
-                        <Archive size={15} />
-                        归档会话
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    重命名
+                  </MenuItem>
+                  <MenuItem
+                    icon={<Archive size={15} />}
+                    disabled={
+                      !selectedEndpoint?.capabilities?.supportsArchiveSession ||
+                      !!s.view?.run.canCancel
+                    }
+                    onSelect={() => {
+                      void w.archive();
+                    }}
+                  >
+                    归档会话
+                  </MenuItem>
+                </PopupMenu>
               </>
             )}
             {!s.selected && <span className="web-label">WEB WORKSPACE</span>}
@@ -549,17 +537,20 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               </div>
             ))}
           </div>
-          <label className="settings-row">
+          <div className="settings-row">
             外观
-            <select
+            <ChoiceMenu
+              label="外观"
+              side="bottom"
               value={appearance}
-              onChange={(e) => setAppearance(e.target.value)}
-            >
-              <option value="system">跟随系统</option>
-              <option value="light">浅色</option>
-              <option value="dark">深色</option>
-            </select>
-          </label>
+              options={[
+                { value: 'system', label: '跟随系统' },
+                { value: 'light', label: '浅色' },
+                { value: 'dark', label: '深色' },
+              ]}
+              onChange={setAppearance}
+            />
+          </div>
           <p className="dialog-note">
             App 与浏览器通过同一个 AgentKit
             服务访问会话。模型、权限与后台进程由本机宿主管理。

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Check,
   ChevronDown,
   ChevronRight,
   CircleHelp,
@@ -24,6 +23,13 @@ import {
   type SessionSort,
 } from '../state';
 import { Tooltip } from './Tooltip';
+import {
+  Menu as PopupMenu,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  MenuSub,
+} from './ui/Menu';
 
 export function Sidebar({
   workspace: w,
@@ -45,8 +51,7 @@ export function Sidebar({
   onCollapse: () => void;
 }) {
   const [searching, setSearching] = useState(false),
-    [query, setQuery] = useState(''),
-    [options, setOptions] = useState(false);
+    [query, setQuery] = useState('');
   const [sort, setSort] = useState<SessionSort>(() => {
     const saved = preference('tekes.web.sidebar.sort');
     return ['recentActivity', 'titleAscending', 'titleDescending'].includes(
@@ -64,8 +69,7 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState(new Set<string>()),
     [pages, setPages] = useState<Record<string, number>>({});
   const [, tick] = useState(0),
-    search = useRef<HTMLInputElement>(null),
-    optionsRoot = useRef<HTMLDivElement>(null);
+    search = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const timer = setInterval(() => tick((n) => n + 1), 60_000);
     return () => clearInterval(timer);
@@ -87,22 +91,15 @@ export function Sidebar({
         });
       }
       if (event.key === 'Escape') {
-        setOptions(false);
         if (document.activeElement === search.current) {
           if (query) setQuery('');
           else setSearching(false);
         }
       }
     };
-    const outside = (event: MouseEvent) => {
-      if (!optionsRoot.current?.contains(event.target as Node))
-        setOptions(false);
-    };
     document.addEventListener('keydown', keyboard);
-    document.addEventListener('click', outside);
     return () => {
       document.removeEventListener('keydown', keyboard);
-      document.removeEventListener('click', outside);
     };
   }, [query]);
   const inventories = new Map(s.inventories);
@@ -199,85 +196,54 @@ export function Sidebar({
             </div>
           </>
         )}
-        <div className="sidebar-options-root" ref={optionsRoot}>
-          <Tooltip content="列表选项 · 排序、分组与筛选">
-            <button
-              className={`icon-button ${options ? 'active' : ''}`}
-              aria-label="会话列表选项"
-              aria-expanded={options}
-              onClick={() => setOptions(!options)}
-            >
+        <PopupMenu
+          label="会话列表选项"
+          trigger={
+            <button className="icon-button" aria-label="会话列表选项">
               <SlidersHorizontal size={17} />
               {(filter || running) && <span className="option-dot" />}
             </button>
-          </Tooltip>
-          {options && (
-            <div
-              className="sidebar-options"
-              role="dialog"
-              aria-label="会话列表选项"
-            >
-              <div className="menu-section-label">排序</div>
-              {sorts.map(([value, label]) => (
-                <button
-                  className="option-choice"
-                  aria-pressed={sort === value}
-                  key={value}
-                  onClick={() => {
-                    setSort(value);
-                    setOptions(false);
-                  }}
-                >
-                  <span>{label}</span>
-                  {sort === value && <Check size={14} />}
-                </button>
-              ))}
-              <div className="menu-separator" />
-              <div className="menu-section-label">分组</div>
-              {[
-                [true, '按文件夹'],
-                [false, '不分组'],
-              ].map(([value, label]) => (
-                <button
-                  className="option-choice"
-                  aria-pressed={grouping === value}
-                  key={String(value)}
-                  onClick={() => {
-                    setGrouping(value as boolean);
-                    setOptions(false);
-                  }}
-                >
-                  <span>{label}</span>
-                  {grouping === value && <Check size={14} />}
-                </button>
-              ))}
-              <div className="menu-separator" />
-              <label className="option-field">
-                Harness
-                <select
-                  aria-label="筛选 Harness"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                >
-                  <option value="">全部</option>
-                  {s.endpoints.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="option-checkbox">
-                <input
-                  type="checkbox"
-                  checked={running}
-                  onChange={(e) => setRunning(e.target.checked)}
-                />
-                仅运行中
-              </label>
-            </div>
-          )}
-        </div>
+          }
+        >
+          <MenuLabel>会话列表</MenuLabel>
+          <MenuSub label="排序">
+            {sorts.map(([value, label]) => (
+              <MenuItem
+                key={value}
+                selected={sort === value}
+                onSelect={() => setSort(value)}
+              >
+                {label}
+              </MenuItem>
+            ))}
+          </MenuSub>
+          <MenuSub label="分组">
+            <MenuItem selected={grouping} onSelect={() => setGrouping(true)}>
+              按文件夹
+            </MenuItem>
+            <MenuItem selected={!grouping} onSelect={() => setGrouping(false)}>
+              不分组
+            </MenuItem>
+          </MenuSub>
+          <MenuSub label="筛选 Harness">
+            <MenuItem selected={!filter} onSelect={() => setFilter('')}>
+              全部 Harness
+            </MenuItem>
+            {s.endpoints.map((e) => (
+              <MenuItem
+                key={e.id}
+                selected={filter === e.id}
+                onSelect={() => setFilter(e.id)}
+              >
+                {e.name}
+              </MenuItem>
+            ))}
+          </MenuSub>
+          <MenuSeparator />
+          <MenuItem selected={running} onSelect={() => setRunning(!running)}>
+            仅显示运行中
+          </MenuItem>
+        </PopupMenu>
       </div>
       <button className="new-chat" onClick={() => onNew()}>
         <Plus size={17} />

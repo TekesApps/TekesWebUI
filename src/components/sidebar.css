@@ -18,12 +18,9 @@
   gap: 2px;
   margin-left: auto;
 }
-.sidebar-options-root {
+.sidebar-brand > .icon-button {
   position: relative;
   flex-shrink: 0;
-}
-.sidebar-options-root > .tooltip-anchor > .icon-button {
-  position: relative;
 }
 .option-dot {
   position: absolute;
@@ -88,69 +85,6 @@
 .sidebar-search .icon-button {
   width: 24px;
   height: 24px;
-}
-.sidebar-options {
-  position: absolute;
-  top: calc(100% + 5px);
-  right: 0;
-  width: 215px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 30px #00000018;
-  border-radius: 10px;
-  padding: 6px;
-  z-index: 25;
-}
-.menu-section-label {
-  font-size: 10px;
-  color: var(--tertiary);
-  padding: 7px 9px 5px;
-}
-.option-choice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  text-align: left;
-  font-size: 12px;
-  padding: 8px 9px;
-  border-radius: 6px;
-}
-.option-choice:hover {
-  background: var(--hover);
-}
-.option-choice > svg {
-  color: var(--accent);
-}
-.menu-separator {
-  border-top: 1px solid var(--border);
-  margin: 6px 4px;
-}
-.option-field {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 9px;
-  font-size: 11px;
-}
-.option-field select {
-  background: var(--canvas);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 5px;
-  max-width: 127px;
-  font-size: 11px;
-}
-.option-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px;
-  font-size: 12px;
-}
-.option-checkbox input {
-  margin: 0;
 }
 .list-filter-summary {
   display: flex;

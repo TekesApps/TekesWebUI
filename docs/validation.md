@@ -60,6 +60,21 @@ Composer/detail follow-up acceptance:
   host authentication and private-pipe checks, and the independent Swift public-API
   consumer pass after the bridge update.
 
+## Shared menu foundation (2026-10-18)
+
+- Replaced separate Harness, model, effort, sidebar, session and appearance menu
+  implementations with one Radix-based foundation. Removed superseded menu and
+  native-select styling. Details/forms remain native dialogs and form controls.
+- Browser acceptance against the existing authenticated live host: actual Harness
+  presets and DeepSeek models render; Down focuses the first menu item; Right opens
+  the sorting submenu; Left returns to the parent; Escape closes and restores focus
+  to the triggering button. Light and dark menu rendering and appearance selection
+  were checked, then the original system appearance preference was restored.
+  Opening the appearance menu inside Settings works;
+  Escape closes that menu while preserving the Settings dialog and focus.
+- Existing 24 application tests and the strict TypeScript/production build pass.
+  No host restart or Kernel changes were needed for this frontend update.
+
 This is local browser and API acceptance, not full native App parity, a mobile
 device acceptance run, physical IME/VoiceOver acceptance or a performance benchmark.
 The integration retains the earlier host's Kernel 0.9.0 data root; it does not

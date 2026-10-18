@@ -1,0 +1,338 @@
+.sidebar {
+  padding: 0 10px;
+}
+.sidebar-brand {
+  height: 60px;
+  padding: 0 3px 0 8px;
+  gap: 3px;
+  position: relative;
+}
+.sidebar .brand {
+  gap: 8px;
+  font-size: 21px;
+  letter-spacing: -0.7px;
+  min-width: 0;
+}
+.sidebar-header-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+.sidebar-options-root {
+  position: relative;
+  flex-shrink: 0;
+}
+.sidebar-options-root > .tooltip-anchor > .icon-button {
+  position: relative;
+}
+.option-dot {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.sidebar .new-chat {
+  border: 0;
+  box-shadow: none;
+  background: none;
+  height: 35px;
+  border-radius: 7px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.sidebar .new-chat:hover {
+  background: var(--hover);
+}
+.sidebar .new-chat > svg {
+  color: var(--accent);
+}
+.sidebar .new-chat kbd {
+  opacity: 0;
+}
+.sidebar .new-chat:hover kbd,
+.sidebar .new-chat:focus-visible kbd {
+  opacity: 1;
+}
+.sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 2px 0 9px;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex: 1;
+  color: var(--secondary);
+}
+.sidebar-search:focus-within {
+  border-color: var(--tertiary);
+}
+.sidebar-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font-size: 12px;
+}
+.sidebar-search input:focus-visible {
+  outline: none;
+}
+.sidebar-search .icon-button {
+  width: 24px;
+  height: 24px;
+}
+.sidebar-options {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  width: 215px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 30px #00000018;
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 25;
+}
+.menu-section-label {
+  font-size: 10px;
+  color: var(--tertiary);
+  padding: 7px 9px 5px;
+}
+.option-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+  padding: 8px 9px;
+  border-radius: 6px;
+}
+.option-choice:hover {
+  background: var(--hover);
+}
+.option-choice > svg {
+  color: var(--accent);
+}
+.menu-separator {
+  border-top: 1px solid var(--border);
+  margin: 6px 4px;
+}
+.option-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  font-size: 11px;
+}
+.option-field select {
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px;
+  max-width: 127px;
+  font-size: 11px;
+}
+.option-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px;
+  font-size: 12px;
+}
+.option-checkbox input {
+  margin: 0;
+}
+.list-filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin: 0 8px 8px;
+  font-size: 10px;
+  color: var(--secondary);
+}
+.list-filter-summary > button {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+}
+.sidebar .folder-group {
+  margin-bottom: 9px;
+}
+.sidebar .folder-heading {
+  height: 28px;
+}
+.sidebar .folder-toggle {
+  padding: 5px 4px;
+  gap: 6px;
+}
+.sidebar .folder-toggle > span {
+  font-size: 12px;
+}
+.sidebar .thread-list {
+  padding-bottom: 12px;
+}
+.sidebar .thread {
+  position: relative;
+  height: 31px;
+  padding-left: 26px;
+  font-size: 12.5px;
+}
+.sidebar .thread-label {
+  padding-right: 0;
+}
+.sidebar .thread:hover .thread-label,
+.sidebar .thread:focus-visible .thread-label {
+  padding-right: 65px;
+}
+.thread-time {
+  position: absolute;
+  right: 8px;
+  font-size: 10px;
+  color: var(--tertiary);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+.thread:hover .thread-time,
+.thread:focus-visible .thread-time {
+  opacity: 1;
+}
+.thread .running-dot {
+  margin-left: auto;
+}
+.ungrouped .thread {
+  padding-left: 10px;
+}
+.ungrouped {
+  padding-top: 0;
+}
+.sidebar .list-more {
+  margin-left: 26px;
+  margin-top: 2px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.sidebar .more-folders {
+  margin-left: 10px;
+}
+.sidebar-bottom {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 0;
+  min-height: 52px;
+}
+.sidebar-bottom > .tooltip-anchor:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  width: 100%;
+  border-radius: 7px;
+  font-size: 11px;
+  color: var(--secondary);
+}
+.sidebar-settings:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.sidebar-settings svg {
+  margin-left: auto;
+}
+.tooltip-anchor {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.tooltip-anchor.block {
+  display: block;
+  width: 100%;
+}
+.tooltip {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  width: max-content;
+  max-width: 290px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 18px #00000018;
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.tooltip-top {
+  transform: translate(-50%, -100%);
+}
+.tooltip-bottom {
+  transform: translateX(-50%);
+}
+.tooltip > strong {
+  display: block;
+  font-weight: 550;
+  margin-bottom: 3px;
+}
+.tooltip > span {
+  display: block;
+  color: var(--secondary);
+}
+.tooltip .tooltip-path {
+  font-size: 10px;
+  margin-top: 4px;
+}
+.message-time {
+  color: var(--tertiary);
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.message:hover .message-time,
+.message:focus-within .message-time {
+  opacity: 1;
+}
+.message-author .message-time {
+  margin-left: 5px;
+}
+.message.user {
+  position: relative;
+}
+.message.user > .message-time {
+  position: absolute;
+  right: 3px;
+  bottom: -20px;
+}
+@media (max-width: 700px) {
+  .sidebar {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .thread-time {
+    display: none;
+  }
+  .sidebar .thread:hover .thread-label {
+    padding-right: 0;
+  }
+  .sidebar .new-chat kbd {
+    opacity: 0.6;
+  }
+}

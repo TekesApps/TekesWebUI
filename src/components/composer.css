@@ -1,0 +1,370 @@
+/* Compact controls follow the native App: add, Harness/preset, model and thinking. */
+.composer {
+  border-radius: 18px;
+  padding: 15px 15px 11px;
+}
+.composer.dragging {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-seed) 22%, transparent);
+}
+.composer textarea {
+  min-height: 58px;
+  padding: 1px 3px 10px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.composer-toolbar {
+  min-height: 32px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.composer-options {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.composer-add {
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 29px;
+  height: 29px;
+  color: var(--text);
+  margin-right: 4px;
+}
+.composer-add:hover {
+  background: var(--hover);
+}
+.composer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px;
+  height: 31px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--secondary);
+  min-width: 0;
+}
+.composer-chip:hover {
+  background: var(--canvas);
+  color: var(--text);
+}
+.composer-chip > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 190px;
+}
+.harness-symbol {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 650;
+}
+.harness-symbol.pi {
+  font-family: Georgia, serif;
+  font-size: 17px;
+}
+.harness-symbol.dsh {
+  color: var(--secondary);
+}
+.harness-picker-root {
+  position: relative;
+  min-width: 0;
+}
+.composer-model-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+.composer .model-picker select {
+  font-size: 12px;
+  max-width: 190px;
+  padding-left: 7px;
+}
+.effort-picker {
+  padding-left: 5px;
+  color: var(--secondary);
+}
+.effort-picker > svg:first-child {
+  position: static;
+}
+.effort-picker select {
+  font-size: 11px;
+  padding-left: 5px;
+}
+.composer-inspect {
+  width: 27px;
+  height: 27px;
+}
+.composer .send-button,
+.composer .stop-button {
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  margin-left: 4px;
+}
+.harness-menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: 250px;
+  max-height: min(390px, 65dvh);
+  overflow: auto;
+  z-index: 20;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px #00000018;
+  background: var(--surface);
+}
+.harness-menu > section + section {
+  border-top: 1px solid var(--border);
+  margin-top: 5px;
+  padding-top: 5px;
+}
+.harness-menu-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 5px;
+  font-size: 11px;
+  color: var(--secondary);
+}
+.harness-menu-heading strong {
+  font-weight: 550;
+}
+.harness-menu-heading small {
+  font-size: 10px;
+  color: var(--tertiary);
+}
+.preset-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px 21px;
+  border-radius: 6px;
+  font-size: 12px;
+  width: 100%;
+  text-align: left;
+}
+.preset-choice:hover:not(:disabled) {
+  background: var(--hover);
+}
+.preset-choice svg {
+  color: var(--accent);
+}
+.attachment-tray {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 1px 12px;
+}
+.transcript-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.transcript-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 9px 12px;
+  border-radius: 9px;
+  min-width: 150px;
+  max-width: 100%;
+}
+.transcript-attachment > svg {
+  color: var(--accent);
+}
+.transcript-attachment > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+.transcript-attachment strong {
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.transcript-attachment small {
+  font-size: 10px;
+  color: var(--tertiary);
+}
+.pending-attachment {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border);
+  background: var(--canvas);
+  padding: 8px 7px 8px 10px;
+  border-radius: 10px;
+  max-width: min(270px, 100%);
+  min-width: 150px;
+}
+.attachment-file-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 30px;
+  color: var(--accent);
+}
+.attachment-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+}
+.attachment-file-info > span {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.attachment-file-info > small {
+  color: var(--tertiary);
+  font-size: 10px;
+}
+.pending-attachment .icon-button {
+  width: 23px;
+  height: 23px;
+}
+.composer-feedback {
+  font-size: 10px;
+  color: var(--secondary);
+  padding: 9px 3px 0;
+}
+.composer-feedback.error {
+  color: var(--danger);
+}
+.composer-details {
+  margin: 0;
+  font-size: 12px;
+}
+.composer-details > div {
+  display: grid;
+  grid-template-columns: 85px minmax(0, 1fr);
+  gap: 13px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.6;
+}
+.composer-details dt {
+  color: var(--secondary);
+}
+.composer-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.composer-details small {
+  display: block;
+  margin-top: 4px;
+  color: var(--tertiary);
+  font-size: 10px;
+}
+.preset-configuration {
+  margin-top: 20px;
+}
+.preset-configuration > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.preset-configuration > summary > svg:last-child {
+  margin-left: auto;
+}
+.preset-configuration pre {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 300px;
+  overflow: auto;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.welcome {
+  padding-top: 30px;
+  padding-bottom: 45px;
+}
+.brand-mark.large {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 20px;
+}
+.welcome-heading {
+  margin-bottom: 25px;
+}
+.welcome h1 {
+  font-size: clamp(30px, 3vw, 38px);
+  margin-bottom: 10px;
+}
+.welcome-note {
+  margin-top: 22px;
+}
+.workspace-context {
+  margin-bottom: 20px;
+}
+.suggestions button {
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+@media (max-width: 1000px) {
+  .composer-chip > span:nth-child(2) {
+    max-width: 170px;
+  }
+  .composer .model-picker select {
+    max-width: 180px;
+  }
+}
+@media (max-width: 700px) {
+  .composer-toolbar {
+    row-gap: 7px;
+  }
+  .composer-chip {
+    font-size: 12px;
+  }
+  .composer-inspect {
+    width: 25px;
+  }
+  .composer-options {
+    gap: 1px;
+  }
+  .composer .model-picker select {
+    font-size: 12px;
+    max-width: 180px;
+  }
+  .composer-model-controls {
+    justify-content: flex-end;
+  }
+  .composer textarea {
+    font-size: 16px;
+  }
+  .welcome {
+    padding-top: 30px;
+  }
+  .harness-menu {
+    left: -35px;
+  }
+  .pending-attachment {
+    min-width: 130px;
+    max-width: 100%;
+  }
+}

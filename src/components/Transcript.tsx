@@ -10,8 +10,42 @@ import {
   Sparkles,
   Terminal,
 } from 'lucide-react';
-import { safeLink } from '../state';
+import { safeLink, formatTimestamp, timestampMillis } from '../state';
 import type { Item, Json, Tool, View } from '../types';
+import { byteSize } from '../composer';
+
+function AttachmentCards({ attachments }: { attachments: Json[] }) {
+  return (
+    <div className="transcript-attachments">
+      {attachments.map((part, index) => {
+        const value =
+          part && typeof part === 'object' && !Array.isArray(part) ? part : {};
+        const nested = value.attachment || value.file;
+        const metadata =
+          nested && typeof nested === 'object' && !Array.isArray(nested)
+            ? nested
+            : value;
+        const name =
+          typeof metadata.name === 'string'
+            ? metadata.name
+            : value.type === 'image'
+              ? '图片附件'
+              : '文件附件';
+        return (
+          <div className="transcript-attachment" key={index}>
+            <FileText size={18} />
+            <span>
+              <strong>{name}</strong>
+              {typeof metadata.bytes === 'number' && (
+                <small>{byteSize(metadata.bytes)}</small>
+              )}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false),
@@ -39,10 +73,24 @@ function CopyButton({ text }: { text: string }) {
 }
 const Message = memo(function Message({ item }: { item: Item }) {
   return (
-    <article className={`message ${item.kind}`}>
+    <article
+      className={`message ${item.kind}`}
+      title={formatTimestamp(item.time) || undefined}
+    >
       {item.kind === 'assistant' && (
         <div className="message-author">
           <span className="mini-mark">T</span>Tekes
+          {item.time && (
+            <time
+              className="message-time"
+              dateTime={new Date(timestampMillis(item.time)).toISOString()}
+            >
+              {new Date(timestampMillis(item.time)).toLocaleTimeString(
+                'zh-CN',
+                { hour: '2-digit', minute: '2-digit', hour12: false },
+              )}
+            </time>
+          )}
         </div>
       )}
       {item.reasoning && (
@@ -56,7 +104,22 @@ const Message = memo(function Message({ item }: { item: Item }) {
         </details>
       )}
       {item.kind === 'user' ? (
-        <div className="user-bubble">{item.text}</div>
+        <>
+          <div className="user-bubble">
+            {item.text && <div>{item.text}</div>}
+            {!!item.attachments?.length && (
+              <AttachmentCards attachments={item.attachments} />
+            )}
+          </div>
+          {item.time && (
+            <time
+              className="message-time"
+              dateTime={new Date(timestampMillis(item.time)).toISOString()}
+            >
+              {formatTimestamp(item.time)}
+            </time>
+          )}
+        </>
       ) : (
         <div className="markdown">
           <Markdown
@@ -88,11 +151,8 @@ const Message = memo(function Message({ item }: { item: Item }) {
           </Markdown>
         </div>
       )}
-      {!!item.attachments?.length && (
-        <div className="attachment-note">
-          <FileText size={14} />
-          {item.attachments.length} 个附件 · 请在 App 中查看
-        </div>
+      {item.kind !== 'user' && !!item.attachments?.length && (
+        <AttachmentCards attachments={item.attachments} />
       )}
       {item.text && item.kind !== 'user' && (
         <div className="message-actions">

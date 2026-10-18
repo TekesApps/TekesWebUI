@@ -13,7 +13,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  CircleHelp,
   Folder,
   FolderOpen,
   LoaderCircle,
@@ -21,28 +20,22 @@ import {
   Menu,
   MoreHorizontal,
   Pencil,
-  Plus,
-  Search,
-  Settings2,
-  SlidersHorizontal,
   Sparkles,
-  Square,
   X,
 } from 'lucide-react';
 import {
-  addressKey,
   displayError,
   folderName,
-  groupSessions,
   preference,
   savePreference,
   scrollPolicy,
-  shouldSend,
 } from './state';
 import type { Workspace } from './workspace';
 import { Transcript } from './components/Transcript';
 import { ActionCard } from './components/ActionCard';
 import { Dialog } from './components/Dialog';
+import { Composer } from './components/Composer';
+import { Sidebar } from './components/Sidebar';
 
 function BrandMark({ large = false }: { large?: boolean }) {
   return (
@@ -69,16 +62,9 @@ const phaseLabels: Record<string, string> = {
 
 export default function App({ workspace: w }: { workspace: Workspace }) {
   const s = useSyncExternalStore(w.subscribe, w.snapshot);
-  const [query, setQuery] = useState(''),
-    [filter, setFilter] = useState(''),
-    [running, setRunning] = useState(false);
-  const [filters, setFilters] = useState(false),
-    [settings, setSettings] = useState(false),
+  const [settings, setSettings] = useState(false),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
-  const [collapsed, setCollapsed] = useState(new Set<string>()),
-    [limits, setLimits] = useState<Record<string, number>>({}),
-    [groupLimit, setGroupLimit] = useState(8);
   const [menu, setMenu] = useState(false),
     [renaming, setRenaming] = useState(false),
     [rename, setRename] = useState(''),
@@ -93,11 +79,9 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const [atBottom, setAtBottom] = useState(true),
     [historyBusy, setHistoryBusy] = useState(false);
   const prompt = useRef<HTMLTextAreaElement>(null),
-    search = useRef<HTMLInputElement>(null),
     scroll = useRef<HTMLDivElement>(null),
     menuRoot = useRef<HTMLDivElement>(null);
-  const composing = useRef(false),
-    followBottom = useRef(true),
+  const followBottom = useRef(true),
     previousKey = useRef('');
   const key = w.key(),
     selectedEndpoint = s.endpoints.find(
@@ -112,42 +96,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     ? w.titles.title(s.selected.endpoint, s.selected.sessionId, row || {})
     : '新建会话';
   const cwd = s.selected ? row?.cwd || s.hostWorkspace : s.cwd;
-  // A fresh selected run can settle before the inventory summary push catches up.
-  const displayInventories = new Map(s.inventories);
-  if (
-    s.selected &&
-    s.view?.run.connection.phase === 'connected' &&
-    !s.view.transcript?.isStale
-  ) {
-    const address = s.selected,
-      active =
-        s.view.run.canCancel ||
-        ['running', 'waitingForInput'].includes(s.view.run.phase);
-    displayInventories.set(
-      address.endpoint,
-      (s.inventories.get(address.endpoint) || []).map((entry) =>
-        entry.sessionId === address.sessionId && entry.summary
-          ? { ...entry, summary: { ...entry.summary, running: active } }
-          : entry,
-      ),
-    );
-  }
-  const groups = groupSessions(
-    s.endpoints,
-    displayInventories,
-    query,
-    filter,
-    running,
-    (endpoint, entry) =>
-      w.titles.title(endpoint, entry.sessionId, entry.summary),
-  );
   const ready = s.endpoints.filter((e) => e.connection === 'ready').length;
-  const total = [...s.inventories.values()]
-    .flat()
-    .filter(
-      (e) =>
-        e.summary && !e.summary.ephemeral && e.summary.status !== 'archived',
-    ).length;
   const health = !s.authenticated
     ? '尚未连接'
     : ready === s.endpoints.length && ready
@@ -186,15 +135,10 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         event.preventDefault();
         setSidebar(true);
         setMobile(true);
-        requestAnimationFrame(() => {
-          search.current?.focus();
-          search.current?.select();
-        });
       }
       if (event.key === 'Escape') {
         setMenu(false);
         setMobile(false);
-        if (document.activeElement === search.current) setQuery('');
       }
     };
     document.addEventListener('keydown', listener);
@@ -258,118 +202,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     setHistoryBusy(false);
   }
   const composer = (
-    <form className="composer" onSubmit={submit}>
-      <label className="sr-only" htmlFor="prompt">
-        消息
-      </label>
-      <textarea
-        ref={prompt}
-        id="prompt"
-        rows={2}
-        placeholder={
-          s.selected ? '继续对话…' : '描述一个想法，或交给我一项任务…'
-        }
-        value={s.draft}
-        onChange={(e) => w.setDraft(e.target.value)}
-        onCompositionStart={() => {
-          composing.current = true;
-        }}
-        onCompositionEnd={() => {
-          composing.current = false;
-        }}
-        onKeyDown={(event) => {
-          if (
-            !composing.current &&
-            shouldSend({ ...event, isComposing: event.nativeEvent.isComposing })
-          ) {
-            event.preventDefault();
-            submit();
-          }
-        }}
-      />
-      <div className="composer-toolbar">
-        <div className="composer-options">
-          {!s.selected && (
-            <label className="select-control agent-picker">
-              <span className="agent-glyph">T</span>
-              <span className="sr-only">Agent</span>
-              <select
-                aria-label="新会话 Agent"
-                value={s.newEndpoint}
-                disabled={s.busy}
-                onChange={(e) => newSession(s.cwd, e.target.value)}
-              >
-                {s.endpoints.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={12} />
-            </label>
-          )}
-          <label className="select-control model-picker">
-            <span className="sr-only">模型</span>
-            <select
-              aria-label="模型"
-              value={s.model ? JSON.stringify(s.model) : ''}
-              disabled={s.busy || s.modelLoading}
-              onChange={(e) => {
-                if (e.target.value)
-                  void w.chooseModel(JSON.parse(e.target.value));
-              }}
-            >
-              <option value="" disabled>
-                {s.modelLoading ? '读取模型…' : '选择模型'}
-              </option>
-              {s.models.map((model) => (
-                <option
-                  key={`${model.provider}:${model.id}`}
-                  value={JSON.stringify({
-                    provider: model.provider,
-                    model: model.id,
-                  })}
-                >
-                  {model.name || model.id}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={12} />
-          </label>
-          {s.busy && (
-            <span className="submitting">
-              <LoaderCircle size={13} className="spin" />
-              正在发送
-            </span>
-          )}
-        </div>
-        {s.view?.run.canCancel ? (
-          <button
-            className="stop-button"
-            type="button"
-            aria-label="停止当前任务"
-            title="停止当前任务"
-            onClick={() => void w.cancel()}
-          >
-            <Square size={15} fill="currentColor" />
-          </button>
-        ) : (
-          <button
-            className="send-button"
-            type="submit"
-            aria-label="发送消息"
-            title="发送消息 Enter"
-            disabled={!w.canSend()}
-          >
-            {s.busy ? (
-              <LoaderCircle size={18} className="spin" />
-            ) : (
-              <ArrowUp size={19} />
-            )}
-          </button>
-        )}
-      </div>
-    </form>
+    <Composer workspace={w} state={s} prompt={prompt} onSubmit={submit} />
   );
 
   return (
@@ -383,222 +216,22 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
           onClick={() => setMobile(false)}
         />
       )}
-      <aside className="sidebar" aria-label="会话导航">
-        <div className="sidebar-brand">
-          <button className="brand" onClick={() => newSession()}>
-            <BrandMark />
-            <span>Tekes</span>
-          </button>
-          <button
-            className="icon-button sidebar-collapse"
-            aria-label="收起侧栏"
-            onClick={() => {
-              setSidebar(false);
-              setMobile(false);
-            }}
-          >
-            <Menu size={17} />
-          </button>
-        </div>
-        <div className="sidebar-actions">
-          <button className="new-chat" onClick={() => newSession()}>
-            <Plus size={17} />
-            <span>新建会话</span>
-            <kbd>⌘ ↵</kbd>
-          </button>
-          <label className="search">
-            <Search size={16} />
-            <input
-              ref={search}
-              type="search"
-              aria-label="搜索会话"
-              placeholder="搜索会话"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <kbd>⌘ K</kbd>
-          </label>
-        </div>
-        <div className="sidebar-section-heading">
-          <span>
-            {query ? '搜索结果' : '工作空间'}
-            <small>
-              {query ? groups.reduce((n, g) => n + g.entries.length, 0) : total}
-            </small>
-          </span>
-          <button
-            className={`icon-button ${filters ? 'active' : ''}`}
-            title="筛选会话"
-            aria-label="筛选会话"
-            aria-expanded={filters}
-            onClick={() => setFilters(!filters)}
-          >
-            <SlidersHorizontal size={14} />
-          </button>
-        </div>
-        {filters && (
-          <div className="filters">
-            <select
-              aria-label="筛选 Agent"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="">所有 Agent</option>
-              {s.endpoints.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-            <label>
-              <input
-                type="checkbox"
-                checked={running}
-                onChange={(e) => setRunning(e.target.checked)}
-              />
-              仅运行中
-            </label>
-          </div>
-        )}
-        <nav className="thread-list" aria-label="按文件夹分组的会话">
-          {groups.slice(0, query ? groups.length : groupLimit).map((group) => (
-            <section className="folder-group" key={group.key}>
-              <div className="folder-heading">
-                <button
-                  className="folder-toggle"
-                  title={group.path}
-                  aria-expanded={!collapsed.has(group.key) || !!query}
-                  onClick={() => {
-                    const next = new Set(collapsed);
-                    next.has(group.key)
-                      ? next.delete(group.key)
-                      : next.add(group.key);
-                    setCollapsed(next);
-                  }}
-                >
-                  {collapsed.has(group.key) && !query ? (
-                    <ChevronRight size={12} />
-                  ) : (
-                    <ChevronDown size={12} />
-                  )}
-                  <Folder size={15} />
-                  <span>{group.name}</span>
-                </button>
-                <button
-                  className="icon-button folder-add"
-                  aria-label={`在 ${group.name} 新建会话`}
-                  title="在此文件夹新建会话"
-                  onClick={() =>
-                    newSession(
-                      group.path || s.hostWorkspace,
-                      group.entries[0]?.endpoint,
-                    )
-                  }
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-              {(!collapsed.has(group.key) || !!query) && (
-                <>
-                  {group.entries
-                    .slice(
-                      0,
-                      query ? group.entries.length : limits[group.key] || 5,
-                    )
-                    .map((entry) => (
-                      <button
-                        className={`thread ${s.selected?.endpoint === entry.endpoint && s.selected.sessionId === entry.sessionId ? 'selected' : ''}`}
-                        key={addressKey(entry.endpoint, entry.sessionId)}
-                        aria-current={
-                          s.selected?.endpoint === entry.endpoint &&
-                          s.selected.sessionId === entry.sessionId
-                            ? 'page'
-                            : undefined
-                        }
-                        title={`${entry.title}\n${entry.agent}\n${entry.row.cwd || ''}`}
-                        onClick={() => {
-                          void w.select({
-                            endpoint: entry.endpoint,
-                            sessionId: entry.sessionId,
-                          });
-                          setMobile(false);
-                          setMenu(false);
-                        }}
-                      >
-                        <span className="thread-label">{entry.title}</span>
-                        {entry.row.running ? (
-                          <span className="running-dot" aria-label="运行中" />
-                        ) : (
-                          <span className="thread-agent">
-                            {entry.agent === 'DeepSeek Harness'
-                              ? 'DSH'
-                              : entry.agent === 'TekesKernel'
-                                ? 'Kernel'
-                                : entry.agent}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  {group.entries.length > (limits[group.key] || 5) &&
-                    !query && (
-                      <button
-                        className="list-more"
-                        onClick={() =>
-                          setLimits({
-                            ...limits,
-                            [group.key]: (limits[group.key] || 5) + 15,
-                          })
-                        }
-                      >
-                        更多会话 <ChevronDown size={11} />
-                      </button>
-                    )}
-                </>
-              )}
-            </section>
-          ))}
-          {!groups.length && (
-            <p className="list-empty">
-              {s.connecting
-                ? '正在读取会话…'
-                : query
-                  ? '没有找到匹配的会话'
-                  : '你的会话会出现在这里'}
-            </p>
-          )}
-          {!query && groups.length > groupLimit && (
-            <button
-              className="list-more more-folders"
-              onClick={() => setGroupLimit(groupLimit + 12)}
-            >
-              显示更多工作空间
-            </button>
-          )}
-        </nav>
-        <div className="sidebar-bottom">
-          <button
-            className="connection"
-            onClick={() => setSettings(true)}
-            title="连接与设置"
-          >
-            <span
-              className={`health-dot ${ready !== s.endpoints.length || !ready ? 'warning' : ''}`}
-            />
-            <span>{health}</span>
-            <Settings2 size={15} />
-          </button>
-          <div className="sidebar-footnote">
-            <span>你的工作，持续进行。</span>
-            <button
-              className="icon-button"
-              aria-label="使用帮助"
-              onClick={() => setHelp(true)}
-            >
-              <CircleHelp size={14} />
-            </button>
-          </div>
-        </div>
-      </aside>
+      <Sidebar
+        workspace={w}
+        state={s}
+        health={health}
+        onNew={newSession}
+        onSelect={() => {
+          setMobile(false);
+          setMenu(false);
+        }}
+        onSettings={() => setSettings(true)}
+        onHelp={() => setHelp(true)}
+        onCollapse={() => {
+          setSidebar(false);
+          setMobile(false);
+        }}
+      />
       <main className="main">
         <header className="topbar">
           <button

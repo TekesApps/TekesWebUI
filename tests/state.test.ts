@@ -114,6 +114,8 @@ test('Enter respects composition, legacy IME 229, Shift and Alt', () => {
     { keyCode: 229 },
     { shiftKey: true },
     { altKey: true },
+    { metaKey: true },
+    { ctrlKey: true },
   ])
     assert.equal(shouldSend({ key: 'Enter', ...flags }), false);
 });

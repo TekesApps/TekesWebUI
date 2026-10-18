@@ -52,15 +52,37 @@ files committed to Git. Model credentials never enter the frontend.
 ## Current scope
 
 - Kernel, Pi and DSH connection health and shared inventories
-- Search, folder grouping, running filter, rename and archive when supported
+- Compact sidebar with expandable search, persisted activity/title sorting, optional folder grouping and running/Harness filters
+- Hover/focus timestamps, local absolute dates, consistent control tooltips and keyboard shortcuts
 - Create a thread, select a configured real model, send, queue and cancel
 - Streaming transcript, tool results, reasoning, earlier history, approvals and questions
 - Per-destination drafts, mutation receipts, reconnecting observations and theme preferences
+- Add/remove files, drag and paste attachments, destination-scoped pending files and real Harness uploads
+- Harness-specific initial presets and configuration text, model reasoning effort and input details
 
-File uploads, rendered artifact previews, native permission panels and complete
+Rendered artifact previews, native permission panels and complete
 App feature parity are not implemented. Existing Harness version compatibility and
 data migration remain host/adapter responsibilities. The UI does not convert older
 Kernel ledgers into a newer format.
+
+The `+` opens the browser's file chooser. Files stay with their draft destination
+when switching Harnesses, and upload through the selected Harness before prompt
+admission. Failed submissions retain pending files; acknowledged input clears only
+the submitted files and text. Pending local files are memory-only and must be added
+again after reloading or closing the tab. Uploads currently use the public file
+receipt contract, including images as files; inline image preview/editing is not
+implemented. The UI uses advertised limits, with an 8 MB per-file transport bound.
+
+Presets come from `session.initialPresets`, or DSH's public roster/document APIs.
+New Kernel choices use `identityProfile`; Pi/DSH choices use `agentPreset`. An
+existing thread's Harness and initial preset remain locked. If a Harness does not
+report an older thread's preset, input details say so instead of inferring it.
+
+Real-host opt-in acceptance uses `tests/live-composer.ts`. Supply `TEKES_HOST_URL`
+and `TEKES_BROWSER_TOKEN` privately, then run `npx tsx tests/live-composer.ts`.
+It creates temporary threads, uploads known test bytes, asks the configured real
+DeepSeek Flash model to read them, and archives its own threads. It never runs
+as part of ordinary unit tests or CI.
 
 ## Design reference
 

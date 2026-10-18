@@ -18,6 +18,38 @@ export function timestampMillis(value?: string | number) {
     ? number * (number < 100000000000 ? 1000 : 1)
     : 0;
 }
+export function formatTimestamp(value?: string | number, timeZone?: string) {
+  const millis = timestampMillis(value);
+  return millis
+    ? new Intl.DateTimeFormat('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+        timeZone,
+      }).format(millis)
+    : '';
+}
+export function shortAge(value?: string | number, now = Date.now()) {
+  const millis = timestampMillis(value);
+  if (!millis) return '';
+  const elapsed = Math.max(0, now - millis);
+  if (elapsed < 60_000) return '刚刚';
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)} 分钟前`;
+  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)} 小时前`;
+  const date = new Date(millis),
+    current = new Date(now);
+  const days =
+    (Date.UTC(current.getFullYear(), current.getMonth(), current.getDate()) -
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())) /
+    86_400_000;
+  if (days === 1) return '昨天';
+  if (days < 7) return `${days} 天前`;
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
 interface Entry {
   endpoint: string;
   sessionId: string;
@@ -32,6 +64,12 @@ interface Group {
   updatedAt: number;
   entries: Entry[];
 }
+export type SessionSort =
+  'recentActivity' | 'titleAscending' | 'titleDescending';
+export interface ListOptions {
+  sort?: SessionSort;
+  grouping?: boolean;
+}
 export function groupSessions(
   endpoints: Pick<Endpoint, 'id' | 'name'>[],
   inventories: Map<string, Session[]>,
@@ -39,6 +77,7 @@ export function groupSessions(
   harness = '',
   runningOnly = false,
   titleFor = (_endpoint: string, entry: Session) => sessionTitle(entry.summary),
+  options: ListOptions = {},
 ) {
   const groups = new Map<string, Group>(),
     needle = query.trim().toLocaleLowerCase();
@@ -63,12 +102,18 @@ export function groupSessions(
           .includes(needle)
       )
         continue;
-      const key = path || `endpoint:${endpoint.id}`;
+      const key =
+        options.grouping === false ? 'all' : path || `endpoint:${endpoint.id}`;
       if (!groups.has(key))
         groups.set(key, {
           key,
           path,
-          name: path ? folderName(path) : endpoint.name,
+          name:
+            options.grouping === false
+              ? '所有会话'
+              : path
+                ? folderName(path)
+                : endpoint.name,
           updatedAt: 0,
           entries: [],
         });
@@ -86,13 +131,26 @@ export function groupSessions(
       });
     }
   }
+  const direction = options.sort === 'titleDescending' ? -1 : 1;
+  const titleSort =
+    options.sort === 'titleAscending' || options.sort === 'titleDescending';
   return [...groups.values()]
-    .sort((a, b) => b.updatedAt - a.updatedAt || a.key.localeCompare(b.key))
+    .sort((a, b) =>
+      titleSort
+        ? direction *
+            a.name.localeCompare(b.name, 'zh-CN', { numeric: true }) ||
+          a.key.localeCompare(b.key)
+        : b.updatedAt - a.updatedAt || a.key.localeCompare(b.key),
+    )
     .map((group) => ({
       ...group,
       entries: group.entries.sort(
         (a, b) =>
-          timestampMillis(b.row.updatedAt) - timestampMillis(a.row.updatedAt) ||
+          (titleSort
+            ? direction *
+              a.title.localeCompare(b.title, 'zh-CN', { numeric: true })
+            : timestampMillis(b.row.updatedAt) -
+              timestampMillis(a.row.updatedAt)) ||
           a.sessionId.localeCompare(b.sessionId),
       ),
     }));
@@ -182,13 +240,17 @@ export function shouldSend(event: {
   isComposing?: boolean;
   keyCode?: number;
   altKey?: boolean;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
 }) {
   return (
     event.key === 'Enter' &&
     !event.shiftKey &&
     !event.isComposing &&
     event.keyCode !== 229 &&
-    !event.altKey
+    !event.altKey &&
+    !event.metaKey &&
+    !event.ctrlKey
   );
 }
 export function scrollPolicy(

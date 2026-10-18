@@ -16,6 +16,11 @@ export interface Summary {
   running?: boolean;
   ephemeral?: boolean;
   status?: string;
+  agentPreset?: string;
+  initialPresetID?: string;
+  identityProfile?: string;
+  preset?: { base?: string; layers?: { id: string }[] };
+  createdAt?: string | number;
   updatedAt?: string | number;
   projections?: {
     asOfSeq?: number;
@@ -37,11 +42,47 @@ export interface Inventory {
 export interface ModelChoice {
   provider: string;
   model: string;
+  reasoningEffort?: string;
 }
 export interface Model {
   id: string;
   name?: string;
   provider: string;
+  contextWindow?: number;
+  reasoning?: {
+    defaultEffort?: string;
+    efforts: { id: string; name?: string }[];
+  };
+}
+export interface Preset {
+  id: string;
+  title?: string;
+  name?: string;
+  description?: string;
+  configurationText?: string | null;
+  isDefault?: boolean;
+  broken?: string | null;
+  unavailableReason?: string | null;
+}
+export interface PresetCatalog {
+  presets: Preset[];
+  defaultID?: string | null;
+}
+export interface AttachmentPolicy {
+  inlineMediaTypes: string[];
+  maxAttachmentBytes?: number;
+  maxAttachmentsPerMessage?: number;
+  maxMessageAttachmentBytes?: number;
+  maxImagePixels?: number;
+  maxImageDimension?: number;
+}
+export interface PendingAttachment {
+  id: string;
+  file: File;
+}
+export interface UploadReceipt {
+  receiptId: string;
+  file: { attachmentId: string; name: string; bytes: number };
 }
 export interface Catalog {
   groups?: { id: string; models?: Omit<Model, 'provider'>[] }[];
@@ -59,6 +100,7 @@ export interface Item {
   isFinal: boolean;
   isProvisional: boolean;
   attachments?: Json[];
+  time?: number;
 }
 export interface Tool {
   id: string;

@@ -4,6 +4,8 @@ import { Workspace } from './workspace';
 import { browserStorage } from './state';
 import './styles.css';
 import './theme/brand.css';
+import './components/composer.css';
+import './components/sidebar.css';
 
 const workspace = new Workspace();
 let token = browserStorage()?.getItem('tekes.agentkit.token') || '';

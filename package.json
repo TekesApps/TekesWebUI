@@ -1,6 +1,6 @@
 {
   "name": "tekes-web-ui",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "2.2.1",
+    "@tekesagentkit/annotations": "https://codeload.github.com/TekesApps/TekesAgentKit/tar.gz/89bc9d030a2b243d95f436628e9b010e45229491",
     "@tekesui/icons": "https://codeload.github.com/TekesApps/TekesUI/tar.gz/80d6b05649234f953ea452d42e1cbed369fdddbb",
     "react": "19.3.1",
     "react-dom": "19.3.1",

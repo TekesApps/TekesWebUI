@@ -12,6 +12,9 @@ import remarkGfm from 'remark-gfm';
 import { Check, ChevronDown, FileText, LoaderCircle } from './ui/Icons';
 import { safeLink, formatTimestamp, timestampMillis } from '../state';
 import type { Item, View } from '../types';
+import type { Address } from '../types';
+import type { Annotation } from '../annotations';
+import { AnnotationList, ComposerAnnotations } from './Annotations';
 import { AttachmentCards } from './ui/AttachmentCards';
 import { RevealText, TextMotion } from './ui/RevealText';
 import { CopyButton } from './ui/CopyButton';
@@ -77,15 +80,33 @@ const Message = memo(function Message({
   fresh,
   streaming,
   process = false,
+  address,
+  annotations,
+  onSaveAnnotation,
+  onRemoveAnnotation,
 }: {
   item: Item;
   fresh: boolean;
   streaming: boolean;
   process?: boolean;
+  address: Address;
+  annotations?: Annotation[];
+  onSaveAnnotation?: (annotation: Annotation) => void;
+  onRemoveAnnotation?: (id: string) => void;
 }) {
+  const input =
+    item.kind === 'user'
+      ? {
+          body: item.inputPresentation?.text ?? item.text,
+          annotations: item.inputPresentation?.annotations || [],
+        }
+      : null;
   return (
     <TextMotion.Provider value={{ streaming, fresh }}>
       <article
+        data-message-id={item.id}
+        data-turn-id={item.turnId}
+        data-message-kind={item.kind}
         className={`message ${item.kind} ${fresh ? 'message-enter' : ''} ${process ? 'message-narration' : ''}`}
         title={formatTimestamp(item.time) || undefined}
       >
@@ -107,7 +128,16 @@ const Message = memo(function Message({
         {item.kind === 'user' ? (
           <>
             <div className="user-bubble">
-              {item.text && <div>{item.text}</div>}
+              {!!input?.annotations.length && (
+                <details className="message-annotations">
+                  <summary>批注 · {input.annotations.length}</summary>
+                  <AnnotationList
+                    annotations={input.annotations}
+                    address={address}
+                  />
+                </details>
+              )}
+              {input?.body && <div data-annotation-text>{input.body}</div>}
               {!!item.attachments?.length && (
                 <AttachmentCards attachments={item.attachments} />
               )}
@@ -122,7 +152,7 @@ const Message = memo(function Message({
             )}
           </>
         ) : (
-          <div className="markdown">
+          <div className="markdown" data-annotation-text>
             <Markdown
               remarkPlugins={[remarkGfm]}
               urlTransform={(url) => safeLink(url) || ''}
@@ -161,11 +191,31 @@ const Message = memo(function Message({
             <CopyButton text={item.text} />
           </div>
         )}
+        {onSaveAnnotation && onRemoveAnnotation && (
+          <ComposerAnnotations
+            annotations={(annotations || []).filter(
+              (a) =>
+                a.sourceLocator?.itemId === item.id &&
+                a.sourceLocator?.turnId === item.turnId &&
+                a.sourceLocator?.endpoint === address.endpoint &&
+                a.sourceLocator?.sessionId === address.sessionId,
+            )}
+            address={address}
+            onSave={onSaveAnnotation}
+            onRemove={onRemoveAnnotation}
+          />
+        )}
       </article>
     </TextMotion.Provider>
   );
 });
-export function Transcript({ view }: { view: View | null }) {
+interface TranscriptProps {
+  view: View | null;
+  annotations?: Annotation[];
+  onSaveAnnotation?: (annotation: Annotation) => void;
+  onRemoveAnnotation?: (id: string) => void;
+}
+export function Transcript({ view, ...annotations }: TranscriptProps) {
   if (!view?.transcript)
     return (
       <div className="loading-state">
@@ -173,9 +223,12 @@ export function Transcript({ view }: { view: View | null }) {
         正在读取会话…
       </div>
     );
-  return <TranscriptContents view={view} />;
+  return <TranscriptContents view={view} {...annotations} />;
 }
-function TranscriptContents({ view }: { view: View }) {
+function TranscriptContents({
+  view,
+  ...annotations
+}: TranscriptProps & { view: View }) {
   const [baseline] = useState(
     () => new Set(view.transcript?.items.map((item) => item.id)),
   );
@@ -203,7 +256,9 @@ function TranscriptContents({ view }: { view: View }) {
       return <Information key={item.id} item={item} />;
     return (
       <Message
+        {...annotations}
         key={item.id}
+        address={view}
         item={item}
         process={process || item.kind === 'narration'}
         fresh={!reduced && item.turnId === liveID && !baseline.has(item.id)}

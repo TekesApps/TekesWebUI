@@ -1,4 +1,5 @@
 /** Read-only projections of the AgentKit public service contract. */
+import type { AnnotationInputPresentation } from '@tekesagentkit/annotations';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface Endpoint {
@@ -106,6 +107,7 @@ export interface Item {
     | 'unknown'
     | (string & {});
   text: string;
+  inputPresentation?: AnnotationInputPresentation;
   reasoning?: string;
   reasoningEnded?: boolean;
   sourceSequence?: number;

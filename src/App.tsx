@@ -32,6 +32,7 @@ import {
 } from './state';
 import type { Workspace } from './workspace';
 import { Transcript } from './components/Transcript';
+import { AnnotationCapture } from './components/Annotations';
 import { ActionCard } from './components/ActionCard';
 import { Dialog } from './components/Dialog';
 import { Composer } from './components/Composer';
@@ -45,15 +46,11 @@ import {
 
 function BrandMark({ large = false }: { large?: boolean }) {
   return (
-    <span
+    <img
       className={large ? 'brand-mark large' : 'brand-mark'}
-      aria-hidden="true"
-    >
-      <span />
-      <span />
-      <span />
-      <span />
-    </span>
+      src="/app-icon.png"
+      alt=""
+    />
   );
 }
 const phaseLabels: Record<string, string> = {
@@ -431,7 +428,18 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                     {historyBusy ? '读取中…' : '加载更早消息'}
                   </button>
                 )}
-                <Transcript key={key} view={s.view} />
+                <AnnotationCapture
+                  key={key}
+                  address={s.selected}
+                  onAdd={w.saveAnnotation}
+                >
+                  <Transcript
+                    view={s.view}
+                    annotations={s.annotations}
+                    onSaveAnnotation={w.saveAnnotation}
+                    onRemoveAnnotation={w.removeAnnotation}
+                  />
+                </AnnotationCapture>
                 {s.view?.run.actionables.map((action) => (
                   <ActionCard
                     key={`${action.id}:${action.revision}`}

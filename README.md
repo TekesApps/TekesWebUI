@@ -6,6 +6,9 @@ TypeScript and Vite**, published under the **MIT license**.
 Warm paper surfaces and a soft Sage green brand, a folder-based thread sidebar, readable Markdown, live tool
 activity, and a focused composer. Light, dark and system appearance; responsive
 navigation; keyboard search; IME-aware submission; drafts scoped to each thread.
+Select text in a message to pin an annotation, optionally add a comment, and send
+it with your message. Multiple annotations share one counted Composer badge.
+See [annotations](docs/annotations.md) for persistence and compatibility boundaries.
 
 ## Boundaries
 

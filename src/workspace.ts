@@ -1,5 +1,15 @@
 import { AgentClient, AuthenticationError, observe } from './api';
 import {
+  AnnotationDraftStore,
+  annotationLimit,
+  isAnnotation,
+  type Annotation,
+} from './annotations';
+import type {
+  AnnotationInput,
+  AnnotationCompilation,
+} from '@tekesagentkit/annotations';
+import {
   creationPreset,
   fileBase64,
   readPresets,
@@ -52,6 +62,7 @@ export interface WorkspaceState {
   controlsError: string;
   attachmentPolicy: AttachmentPolicy | null;
   attachments: PendingAttachment[];
+  annotations: Annotation[];
   submissionStage: string;
 }
 
@@ -79,6 +90,7 @@ export class Workspace {
     controlsError: '',
     attachmentPolicy: null,
     attachments: [],
+    annotations: [],
     submissionStage: '',
   };
   private listeners = new Set<() => void>();
@@ -97,6 +109,7 @@ export class Workspace {
   private uploadReceipts = new Map<string, UploadReceipt>();
   readonly titles = new TitleReceipts();
   readonly drafts = new DraftStore(browserStorage());
+  readonly annotationDrafts = new AnnotationDraftStore(browserStorage());
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {
@@ -135,11 +148,38 @@ export class Workspace {
     this.drafts.set(this.key(), draft);
     this.update({ draft });
   };
+  saveAnnotation = (annotation: Annotation) => {
+    if (!isAnnotation(annotation)) {
+      this.update({ error: '批注内容无效或过长，请重新选择。' });
+      return;
+    }
+    const current = this.annotationDrafts.get(this.key());
+    if (
+      current.length >= annotationLimit &&
+      !current.some((a) => a.id === annotation.id)
+    ) {
+      this.update({ error: '最多添加 50 条批注。' });
+      return;
+    }
+    const annotations = current.some((a) => a.id === annotation.id)
+      ? current.map((a) => (a.id === annotation.id ? annotation : a))
+      : [...current, annotation];
+    this.annotationDrafts.set(this.key(), annotations);
+    this.update({ annotations });
+  };
+  removeAnnotation = (id: string) => {
+    const annotations = this.annotationDrafts
+      .get(this.key())
+      .filter((a) => a.id !== id);
+    this.annotationDrafts.set(this.key(), annotations);
+    this.update({ annotations });
+  };
   private restoreDraft() {
     this.update({
       draft: this.drafts.get(this.key()),
       busy: this.pending.has(this.key()),
       attachments: this.attachmentDrafts.get(this.key()) || [],
+      annotations: this.annotationDrafts.get(this.key()),
     });
   }
   dispose() {
@@ -391,7 +431,7 @@ export class Workspace {
       !s.controlsLoading &&
       !s.controlsError &&
       !!s.model &&
-      (!!s.draft.trim() || !!s.attachments.length) &&
+      (!!s.draft.trim() || !!s.attachments.length || !!s.annotations.length) &&
       (s.selected ? !!s.view?.run.canSubmit : s.cwd.startsWith('/'))
     );
   }
@@ -402,6 +442,7 @@ export class Workspace {
       desiredModel = this.state.model;
     const files = [...this.state.attachments],
       desiredPreset = this.state.preset;
+    const annotations = [...this.state.annotations];
     const endpoint = this.state.endpoints.find(
       (e) => e.id === (this.state.selected?.endpoint || this.state.newEndpoint),
     )!;
@@ -419,6 +460,13 @@ export class Workspace {
       submissionStage: target.sessionId ? '正在发送' : '正在创建会话',
     });
     try {
+      if (
+        annotations.length &&
+        !endpoint.capabilities?.methods?.includes('composer.compileAnnotations')
+      )
+        throw new Error(
+          '当前 AgentKit 尚未提供批注接口，请升级并重新连接。批注仍保留在输入框中。',
+        );
       if (!target.sessionId) {
         if (!this.creationIDs.has(key))
           this.creationIDs.set(key, crypto.randomUUID());
@@ -436,6 +484,8 @@ export class Workspace {
         this.drafts.clearIfUnchanged(key, text);
         this.pending.add(targetKey);
         this.attachmentDrafts.set(targetKey, files);
+        this.annotationDrafts.set(targetKey, annotations);
+        this.annotationDrafts.acknowledge(key, annotations);
         const submittedIDs = new Set(files.map((f) => f.id));
         this.attachmentDrafts.set(
           key,
@@ -452,8 +502,17 @@ export class Workspace {
         if (this.key() === targetKey)
           await this.loadModels(target.endpoint, target.sessionId, this.epoch);
       }
-      const content: Record<string, unknown>[] = text.trim()
-        ? [{ type: 'text', text }]
+      const compiledText = annotations.length
+        ? (
+            await client.call<AnnotationCompilation>(
+              target.endpoint,
+              'composer.compileAnnotations',
+              { text, annotations } satisfies AnnotationInput,
+            )
+          ).text
+        : text;
+      const content: Record<string, unknown>[] = compiledText.trim()
+        ? [{ type: 'text', text: compiledText }]
         : [];
       for (let i = 0; i < files.length; i++) {
         const attachment = files[i],
@@ -484,7 +543,7 @@ export class Workspace {
       }
       if (this.key() === targetKey)
         this.update({ submissionStage: '正在发送' });
-      const signature = JSON.stringify([text, files.map((f) => f.id)]);
+      const signature = JSON.stringify([compiledText, files.map((f) => f.id)]);
       let receipt = this.submissionIDs.get(targetKey);
       if (!receipt || receipt.signature !== signature) {
         receipt = { signature, id: crypto.randomUUID() };
@@ -502,6 +561,7 @@ export class Workspace {
         receipt.id,
       );
       this.drafts.clearIfUnchanged(targetKey, text);
+      this.annotationDrafts.acknowledge(targetKey, annotations);
       this.submissionIDs.delete(targetKey);
       const submittedIDs = new Set(files.map((f) => f.id));
       this.attachmentDrafts.set(

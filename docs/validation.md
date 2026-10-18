@@ -157,3 +157,18 @@ device acceptance run, physical IME/VoiceOver acceptance or a performance benchm
 The integration retains the earlier host's Kernel 0.9.0 data root; it does not
 migrate incompatible older Kernel ledgers. Provider secrets and private connection
 descriptors are not part of this repository.
+# v0.1.6 release
+
+- Web: 47 tests pass; TypeScript and production build pass. Existing Vite chunk-size
+  advisory remains unchanged.
+- AgentKit v0.3.1: contract/presentation/service checks pass (42 tests); shared
+  annotation bindings are generated from Rust and consumed through the public
+  immutable commit archive, with package-lock integrity.
+- Annotation selection, counted list, edit/remove, source navigation, draft reload,
+  real-model response and post-reload history recovery were verified in the browser.
+  The real-model acceptance response was `AGENTKIT_ANNOTATION_OK`.
+- The AppIcon is included in the public Web checkout. Annotation controls use the
+  shared TekesUI bubble glyph. No local icon-directory import is required.
+- Browser screenshots, credentials and runtime connection files are excluded from
+  this public source release. Pi/DSH live model acceptance was not repeated.
+

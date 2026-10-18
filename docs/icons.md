@@ -5,6 +5,11 @@ package in TekesUI. All 176 canonical SVGs live in TekesUI's
 `crates/tekes-ui-icons/assets`; Web has no copied SVG catalog, external directory,
 manual import step or generic missing-icon fallback.
 
+The Tekes product mark is `public/app-icon.png`, the unchanged 256px AppIcon
+from Tekes's `Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png`.
+The sidebar, welcome screen and favicon use this checked-in asset; building Web
+does not require a local Tekes checkout. Its original colors are preserved.
+
 The dependency is an immutable HTTPS archive of the public TekesUI commit, pinned
 in `package.json` and by SHA512 integrity in `package-lock.json`. Installing it
 requires neither an SSH key, a private repository, a local TekesUI checkout nor a

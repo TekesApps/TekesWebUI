@@ -150,30 +150,14 @@ button {
   font-weight: 650;
 }
 .brand-mark {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
+  display: block;
+  object-fit: contain;
   width: 23px;
   height: 23px;
-  transform: rotate(-8deg);
-}
-.brand-mark span {
-  background: var(--brand-seed);
-  border-radius: 50% 50% 2px 50%;
-}
-.brand-mark span:nth-child(2) {
-  transform: rotate(90deg);
-}
-.brand-mark span:nth-child(3) {
-  transform: rotate(-90deg);
-}
-.brand-mark span:nth-child(4) {
-  transform: rotate(180deg);
 }
 .brand-mark.large {
   width: 39px;
   height: 39px;
-  gap: 3px;
   margin-bottom: 26px;
 }
 .icon-button {

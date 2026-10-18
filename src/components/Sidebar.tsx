@@ -181,7 +181,7 @@ export function Sidebar({
               title={`${total} 个活动会话`}
               onClick={() => onNew()}
             >
-              <img src="/favicon.svg" width={22} height={22} alt="" />
+              <img src="/app-icon.png" width={22} height={22} alt="" />
               <span>Tekes</span>
             </button>
             <div className="sidebar-header-actions">

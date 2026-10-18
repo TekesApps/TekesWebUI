@@ -9,6 +9,7 @@ import './components/sidebar.css';
 import './components/transcript.css';
 import './components/ui/menu.css';
 import './components/ui/motion.css';
+import './components/annotations.css';
 
 const workspace = new Workspace();
 let token = browserStorage()?.getItem('tekes.agentkit.token') || '';

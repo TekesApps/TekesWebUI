@@ -29,4 +29,5 @@ export const interfaceIcons = {
   ShieldCheck: 'tekes-approval',
   MessageCircleQuestion: 'tekes-ask-user',
   Copy: 'tekes-copy',
+  Annotation: 'tekes-side-chat',
 } as const satisfies Record<string, IconName>;

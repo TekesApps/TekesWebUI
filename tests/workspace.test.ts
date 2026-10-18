@@ -2,6 +2,7 @@ import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { Workspace } from '../src/workspace';
 import type { Endpoint } from '../src/types';
+import { textFingerprint, type Annotation } from '../src/annotations';
 
 type Call = {
   op: string;
@@ -37,6 +38,7 @@ function fixture(
         'session.initialPresets',
         'session.uploadFile',
         'attachments.policy',
+        'composer.compileAnnotations',
       ],
       supportsArchiveSession: true,
     },
@@ -135,11 +137,13 @@ function fixture(
             bytes: Buffer.from(call.payload.data as string, 'base64').length,
           },
         };
+      else if (call.method === 'composer.compileAnnotations')
+        value = { text: 'AgentKit compiled annotation input' };
       else if (call.method === 'session.prompt') value = await prompt(call);
       return Response.json({ value });
     },
   );
-  return { calls, w: new Workspace() };
+  return { calls, endpoints, w: new Workspace() };
 }
 test('pending files and preset choices remain scoped to a Harness destination', async (t) => {
   const { w, calls } = fixture(t);
@@ -239,6 +243,114 @@ test('uncertain admission retains files and reuses confirmed upload receipts on 
       1,
     );
     assert.equal(calls.filter((c) => c.method === 'session.create').length, 1);
+  } finally {
+    w.dispose();
+  }
+});
+
+const quote: Annotation = {
+  id: 'quote',
+  excerpt: '原文',
+  comment: '解释',
+  source: 'Reply',
+  sourceLocator: {
+    endpoint: 'tekes',
+    sessionId: 'source',
+    itemId: 'reply',
+    turnId: 't',
+    kind: 'assistant',
+    start: 0,
+    end: 2,
+    fingerprint: textFingerprint('原文'),
+  },
+};
+test('missing AgentKit annotation capability preserves the draft without creating a session or sending a private fallback', async (t) => {
+  const { w, calls, endpoints } = fixture(t);
+  endpoints[0].capabilities!.methods =
+    endpoints[0].capabilities!.methods!.filter(
+      (method) => method !== 'composer.compileAnnotations',
+    );
+  try {
+    await w.connect('browser');
+    await ready(w);
+    w.saveAnnotation(quote);
+    await w.submit();
+    assert.deepEqual(w.snapshot().annotations, [quote]);
+    assert.match(w.snapshot().error, /AgentKit.*批注接口/);
+    assert.equal(
+      calls.filter(
+        (c) => c.method === 'session.create' || c.method === 'session.prompt',
+      ).length,
+      0,
+    );
+  } finally {
+    w.dispose();
+  }
+});
+test('annotation-only prompts survive creation, failure and explicit retry with one durable payload and identity', async (t) => {
+  let attempts = 0;
+  const { w, calls } = fixture(t, async () => {
+    if (++attempts === 1) throw new Error('timeout');
+    return { accepted: true };
+  });
+  try {
+    await w.connect('browser');
+    await ready(w);
+    w.saveAnnotation(quote);
+    w.newSession('/authorized', 'pi');
+    await ready(w);
+    assert.equal(w.snapshot().annotations.length, 0);
+    w.newSession('/authorized', 'tekes');
+    await ready(w);
+    assert.equal(w.canSend(), true);
+    await w.submit();
+    assert.equal(attempts, 1);
+    assert.deepEqual(w.snapshot().annotations, [quote]);
+    await w.submit();
+    assert.equal(w.snapshot().annotations.length, 0);
+    const prompts = calls.filter((c) => c.method === 'session.prompt');
+    assert.equal(prompts.length, 2);
+    assert.equal(prompts[0].rpcId, prompts[1].rpcId);
+    const content = prompts[0].payload.content as { text: string }[];
+    assert.equal(content[0].text, 'AgentKit compiled annotation input');
+    assert.deepEqual(
+      calls.find((c) => c.method === 'composer.compileAnnotations')!.payload,
+      { text: '', annotations: [quote] },
+    );
+  } finally {
+    w.dispose();
+  }
+});
+test('old prompt acknowledgement cannot remove a newer annotation edit or a different destination draft', async (t) => {
+  let acknowledge!: (value: unknown) => void;
+  const pending = new Promise((resolve) => {
+    acknowledge = resolve;
+  });
+  const { w, calls } = fixture(t, async () => pending);
+  try {
+    await w.connect('browser');
+    await ready(w);
+    w.saveAnnotation(quote);
+    const sending = w.submit();
+    await ready(w, () => calls.some((c) => c.method === 'session.prompt'));
+    const target = w.snapshot().selected!;
+    w.saveAnnotation({ ...quote, comment: 'new edit' });
+    w.saveAnnotation({ ...quote, id: 'added' });
+    w.newSession('/other', 'pi');
+    await ready(w);
+    w.saveAnnotation({ ...quote, id: 'other' });
+    acknowledge({ accepted: true });
+    await sending;
+    assert.equal(w.snapshot().annotations[0].id, 'other');
+    await w.select(target);
+    await ready(w);
+    assert.deepEqual(
+      w.snapshot().annotations.map((a) => [a.id, a.comment]),
+      [
+        ['quote', 'new edit'],
+        ['added', '解释'],
+      ],
+    );
   } finally {
     w.dispose();
   }

@@ -33,6 +33,7 @@ export const ArrowDown = icon('ArrowDown'),
   Info = icon('Info'),
   ShieldCheck = icon('ShieldCheck'),
   MessageCircleQuestion = icon('MessageCircleQuestion'),
-  Copy = icon('Copy');
+  Copy = icon('Copy'),
+  AnnotationIcon = icon('Annotation');
 
 export const Search = icon('Search');

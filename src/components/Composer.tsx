@@ -16,6 +16,7 @@ import type { Workspace, WorkspaceState } from '../workspace';
 import { byteSize, effortTitle, presetTitle } from '../composer';
 import { shouldSend } from '../state';
 import { Dialog } from './Dialog';
+import { ComposerAnnotations } from './Annotations';
 import { Tooltip } from './Tooltip';
 import {
   Menu,
@@ -101,6 +102,13 @@ export function Composer({
           }
         }}
       >
+        <ComposerAnnotations
+          key={w.key()}
+          annotations={s.annotations}
+          address={s.selected}
+          onSave={w.saveAnnotation}
+          onRemove={w.removeAnnotation}
+        />
         {!!s.attachments.length && (
           <div className="attachment-tray" aria-label="待发送附件">
             {s.attachments.map((attachment) => (

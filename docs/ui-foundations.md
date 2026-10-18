@@ -18,7 +18,8 @@ wash and checkmark. Changing the theme changes every menu together.
 Shared dimensions: 14px panel radius, 8px row radius, 6px panel padding, 34px minimum
 row height, 13px labels and 11px supporting text. Panels use 236px width, or 304px
 for descriptive choices, bounded by the viewport with 12px collision padding.
-Motion is 140ms and disabled under reduced-motion preferences.
+Menu entrance uses the shared 150ms motion role and a 100ms exit. Both are disabled
+under reduced-motion preferences.
 
 Harness presets remain real catalog choices. Models retain provider/model identity;
 internal provider IDs are only shown when needed to distinguish duplicate model IDs.
@@ -29,3 +30,27 @@ For a menu change, check pointer and keyboard opening, arrow navigation, Enter,
 Escape and focus restoration, outside dismissal, checked/disabled states, dialog
 containment, long labels, viewport boundaries, and light/dark themes. Do not treat
 static screenshots as proof of keyboard or assistive-technology acceptance.
+
+## Text and motion
+
+`motion.css` owns duration/easing roles for menus, dialogs, tooltips, message
+entrance, attachments, disclosure expansion, button feedback and working status.
+Its vocabulary follows the reference's text reveal, message rise, quiet dots and
+status shimmer; it is independently implemented with the existing Sage theme.
+
+`RevealText` immediately renders the full authoritative string. Only appended text
+in live assistant Markdown/reasoning receives a 320ms opacity/3px blur reveal,
+with at most 60ms staggering. It uses grapheme boundaries (including emoji/ZWJ),
+groups three graphemes per span, bounds each range to 120 graphemes and retains at
+most four active ranges per leaf. Spans are removed after settling. Reconciled
+replacement strings appear immediately. Code stays plain and selectable.
+
+Initial history does not enter again. Transcript presentation resets on a session
+change; loading older turns does not trigger latest-message entrance. The browser
+reduced-motion preference disables new reveal work, and CSS also disables blur,
+translation, shimmer and animated dots. Increased contrast keeps text fully solid.
+No typing queue, mutation replay, or animation-driven auto-scroll is introduced.
+
+Disclosure height transitions use progressive enhancement; browsers lacking
+`interpolate-size` retain the native instant expansion. This is a presentation
+fallback, not a dependency on a particular browser engine.

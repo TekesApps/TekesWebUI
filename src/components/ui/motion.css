@@ -1,0 +1,224 @@
+/* Motion vocabulary informed by open-claude-ui; independently authored implementation. */
+:root {
+  --motion-fast: 150ms;
+  --motion-enter: 240ms;
+  --motion-text: 320ms;
+  --ease-swift: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-expand: cubic-bezier(0.19, 1, 0.22, 1);
+  --motion-reveal-blur: 3px;
+}
+.text-reveal {
+  animation: text-emerge var(--motion-text) var(--ease-enter) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+@keyframes text-emerge {
+  from {
+    opacity: 0.32;
+    filter: blur(var(--motion-reveal-blur));
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.message-enter {
+  animation: message-emerge var(--motion-enter) var(--ease-enter) both;
+}
+@keyframes message-emerge {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.welcome-heading {
+  animation: message-emerge 400ms var(--ease-enter) both;
+}
+.dialog[open] {
+  animation: panel-emerge 200ms var(--ease-enter) both;
+}
+.dialog[open]::backdrop {
+  animation: backdrop-emerge var(--motion-fast) ease-out both;
+}
+@keyframes panel-emerge {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes backdrop-emerge {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.tooltip {
+  animation: tooltip-emerge var(--motion-fast) var(--ease-swift) both;
+}
+@keyframes tooltip-emerge {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.pending-attachment,
+.queued,
+.inline-error {
+  animation: message-emerge var(--motion-enter) var(--ease-enter) both;
+}
+button {
+  transition:
+    background-color var(--motion-fast) var(--ease-swift),
+    color var(--motion-fast) var(--ease-swift),
+    box-shadow var(--motion-fast) var(--ease-swift),
+    transform 100ms var(--ease-swift);
+}
+.send-button:not(:disabled):active,
+.composer-add:not(:disabled):active {
+  transform: scale(0.94);
+}
+.message-actions,
+.message-time {
+  transition: opacity var(--motion-fast) var(--ease-swift);
+}
+.thinking summary > svg:last-child,
+.work-summary summary > svg:last-child {
+  transition: transform 200ms var(--ease-expand);
+}
+.thinking[open] summary > svg:last-child,
+.work-summary[open] summary > svg:last-child {
+  transform: rotate(180deg);
+}
+@supports (interpolate-size: allow-keywords) {
+  .thinking,
+  .work-summary,
+  .tool {
+    interpolate-size: allow-keywords;
+  }
+  .thinking::details-content,
+  .work-summary::details-content,
+  .tool::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size 200ms var(--ease-expand),
+      content-visibility 200ms allow-discrete;
+  }
+  .thinking[open]::details-content,
+  .work-summary[open]::details-content,
+  .tool[open]::details-content {
+    block-size: auto;
+  }
+}
+.working {
+  animation: message-emerge var(--motion-enter) var(--ease-enter) both;
+}
+.working-label {
+  color: var(--secondary);
+}
+@supports (background-clip: text) {
+  .working-label {
+    background: linear-gradient(
+      100deg,
+      var(--secondary) 30%,
+      var(--text) 48%,
+      var(--secondary) 65%
+    );
+    background-size: 250% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: status-shine 3s ease-in-out infinite;
+  }
+}
+@keyframes status-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.working-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+}
+.working-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--secondary);
+  animation: quiet-dot 1900ms ease-in-out infinite;
+}
+.working-dots i:nth-child(2) {
+  animation-delay: 140ms;
+}
+.working-dots i:nth-child(3) {
+  animation-delay: 280ms;
+}
+@keyframes quiet-dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .send-button:not(:disabled):active,
+  .composer-add:not(:disabled):active {
+    transform: none;
+  }
+  .text-reveal,
+  .message-enter,
+  .welcome-heading,
+  .dialog[open],
+  .dialog[open]::backdrop,
+  .tooltip,
+  .pending-attachment,
+  .queued,
+  .inline-error,
+  .working,
+  .working-label,
+  .working-dots i {
+    animation: none;
+    filter: none;
+    opacity: 1;
+    transform: none;
+  }
+  .working-label {
+    background: none;
+    color: var(--secondary);
+  }
+  .thinking::details-content,
+  .work-summary::details-content,
+  .tool::details-content {
+    transition: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .text-reveal {
+    animation: none;
+  }
+  .working-label {
+    background: none;
+    color: var(--text);
+  }
+}

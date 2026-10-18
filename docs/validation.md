@@ -75,6 +75,26 @@ Composer/detail follow-up acceptance:
 - Existing 24 application tests and the strict TypeScript/production build pass.
   No host restart or Kernel changes were needed for this frontend update.
 
+## Text reveal and motion (2026-10-18)
+
+- Inspected the pinned reference's grapheme blur/opacity reveal, message rise,
+  quiet dots, status shimmer and easing roles. Independently implemented the
+  applicable effects in one CSS motion layer; no upstream code or assets copied.
+- Thirty tests pass, including incremental text ranges, large/rapid frame bounds,
+  split emoji and combining marks, replacement reconciliation and reduced motion.
+  A React DOM integration checks real Markdown rendering: history stays solid,
+  appended spans preserve existing strong markup and full selectable text, spans
+  are cleaned up, links/code remain semantic, and changing reduced motion prevents
+  subsequent reveal spans. Strict TypeScript and production build pass.
+- The authenticated browser used the configured real DeepSeek Flash model on
+  Kernel 0.9.0 for two rounds: a Chinese ten-paragraph response with bold/list
+  content, then a longer plant-description response. Both completed and rendered
+  in the updated transcript. No synthetic model or backend restart was used.
+- These are functional/local presentation checks. Screenshots show the completed
+  text, not animation cadence or frame-rate measurements; browser/OS-specific
+  reduced-motion rendering and disclosure height enhancement still need broader
+  device acceptance. Unsupported disclosure animation falls back to native details.
+
 This is local browser and API acceptance, not full native App parity, a mobile
 device acceptance run, physical IME/VoiceOver acceptance or a performance benchmark.
 The integration retains the earlier host's Kernel 0.9.0 data root; it does not

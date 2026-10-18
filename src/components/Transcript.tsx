@@ -1,4 +1,12 @@
-import { memo, useState } from 'react';
+import {
+  Children,
+  createElement,
+  memo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
+import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -13,6 +21,55 @@ import {
 import { safeLink, formatTimestamp, timestampMillis } from '../state';
 import type { Item, Json, Tool, View } from '../types';
 import { byteSize } from '../composer';
+import { RevealText, TextMotion } from './ui/RevealText';
+
+function revealChildren(children: ReactNode) {
+  return Children.map(children, (child) =>
+    typeof child === 'string' && child.trim() ? (
+      <RevealText text={child} />
+    ) : (
+      child
+    ),
+  );
+}
+// Stable component identities prevent a growing Markdown leaf from remounting.
+const textComponents = Object.fromEntries(
+  [
+    'p',
+    'li',
+    'strong',
+    'em',
+    'del',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'th',
+    'td',
+    'blockquote',
+  ].map((tag) => [
+    tag,
+    ({
+      children,
+      node: _node,
+      ...props
+    }: {
+      children?: ReactNode;
+      node?: unknown;
+    }) => createElement(tag, props, revealChildren(children)),
+  ]),
+) as Components;
+const reducedQuery = '(prefers-reduced-motion: reduce)';
+function subscribeMotion(listener: () => void) {
+  const media = window.matchMedia(reducedQuery);
+  media.addEventListener('change', listener);
+  return () => media.removeEventListener('change', listener);
+}
+function motionSnapshot() {
+  return window.matchMedia(reducedQuery).matches;
+}
 
 function AttachmentCards({ attachments }: { attachments: Json[] }) {
   return (
@@ -71,95 +128,108 @@ function CopyButton({ text }: { text: string }) {
     </button>
   );
 }
-const Message = memo(function Message({ item }: { item: Item }) {
+const Message = memo(function Message({
+  item,
+  fresh,
+  streaming,
+}: {
+  item: Item;
+  fresh: boolean;
+  streaming: boolean;
+}) {
   return (
-    <article
-      className={`message ${item.kind}`}
-      title={formatTimestamp(item.time) || undefined}
-    >
-      {item.kind === 'assistant' && (
-        <div className="message-author">
-          <span className="mini-mark">T</span>Tekes
-          {item.time && (
-            <time
-              className="message-time"
-              dateTime={new Date(timestampMillis(item.time)).toISOString()}
-            >
-              {new Date(timestampMillis(item.time)).toLocaleTimeString(
-                'zh-CN',
-                { hour: '2-digit', minute: '2-digit', hour12: false },
-              )}
-            </time>
-          )}
-        </div>
-      )}
-      {item.reasoning && (
-        <details className="thinking">
-          <summary>
-            <Sparkles size={14} />
-            思考过程
-            <ChevronDown size={14} />
-          </summary>
-          <div>{item.reasoning}</div>
-        </details>
-      )}
-      {item.kind === 'user' ? (
-        <>
-          <div className="user-bubble">
-            {item.text && <div>{item.text}</div>}
-            {!!item.attachments?.length && (
-              <AttachmentCards attachments={item.attachments} />
+    <TextMotion.Provider value={{ streaming, fresh }}>
+      <article
+        className={`message ${item.kind} ${fresh ? 'message-enter' : ''}`}
+        title={formatTimestamp(item.time) || undefined}
+      >
+        {item.kind === 'assistant' && (
+          <div className="message-author">
+            <span className="mini-mark">T</span>Tekes
+            {item.time && (
+              <time
+                className="message-time"
+                dateTime={new Date(timestampMillis(item.time)).toISOString()}
+              >
+                {new Date(timestampMillis(item.time)).toLocaleTimeString(
+                  'zh-CN',
+                  { hour: '2-digit', minute: '2-digit', hour12: false },
+                )}
+              </time>
             )}
           </div>
-          {item.time && (
-            <time
-              className="message-time"
-              dateTime={new Date(timestampMillis(item.time)).toISOString()}
-            >
-              {formatTimestamp(item.time)}
-            </time>
-          )}
-        </>
-      ) : (
-        <div className="markdown">
-          <Markdown
-            remarkPlugins={[remarkGfm]}
-            urlTransform={(url) => safeLink(url) || ''}
-            components={{
-              a: ({ href, children }) =>
-                href ? (
-                  <a href={href} target="_blank" rel="noopener noreferrer">
-                    {children}
-                  </a>
-                ) : (
-                  <span>{children}</span>
+        )}
+        {item.reasoning && (
+          <details className="thinking">
+            <summary>
+              <Sparkles size={14} />
+              思考过程
+              <ChevronDown size={14} />
+            </summary>
+            <div>
+              <RevealText text={item.reasoning} />
+            </div>
+          </details>
+        )}
+        {item.kind === 'user' ? (
+          <>
+            <div className="user-bubble">
+              {item.text && <div>{item.text}</div>}
+              {!!item.attachments?.length && (
+                <AttachmentCards attachments={item.attachments} />
+              )}
+            </div>
+            {item.time && (
+              <time
+                className="message-time"
+                dateTime={new Date(timestampMillis(item.time)).toISOString()}
+              >
+                {formatTimestamp(item.time)}
+              </time>
+            )}
+          </>
+        ) : (
+          <div className="markdown">
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              urlTransform={(url) => safeLink(url) || ''}
+              components={{
+                ...textComponents,
+                a: ({ href, children }) =>
+                  href ? (
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {revealChildren(children)}
+                    </a>
+                  ) : (
+                    <span>{children}</span>
+                  ),
+                img: ({ alt }) => (
+                  <span className="attachment-note">
+                    <FileText size={14} />
+                    {alt || '图片附件'}
+                  </span>
                 ),
-              img: ({ alt }) => (
-                <span className="attachment-note">
-                  <FileText size={14} />
-                  {alt || '图片附件'}
-                </span>
-              ),
-              pre: ({ children }) => (
-                <div className="code-block">
-                  <pre>{children}</pre>
-                </div>
-              ),
-            }}
-          >
-            {item.text}
-          </Markdown>
-        </div>
-      )}
-      {item.kind !== 'user' && !!item.attachments?.length && (
-        <AttachmentCards attachments={item.attachments} />
-      )}
-      {item.text && item.kind !== 'user' && (
-        <div className="message-actions">
-          <CopyButton text={item.text} />
-        </div>
-      )}
-    </article>
+                pre: ({ children }) => (
+                  <div className="code-block">
+                    <pre>{children}</pre>
+                  </div>
+                ),
+              }}
+            >
+              {item.text}
+            </Markdown>
+          </div>
+        )}
+        {item.kind !== 'user' && !!item.attachments?.length && (
+          <AttachmentCards attachments={item.attachments} />
+        )}
+        {item.text && item.kind !== 'user' && (
+          <div className="message-actions">
+            <CopyButton text={item.text} />
+          </div>
+        )}
+      </article>
+    </TextMotion.Provider>
   );
 });
 function output(value: Json | undefined): string {
@@ -230,18 +300,32 @@ function Tools({ tools }: { tools: Tool[] }) {
   );
 }
 export function Transcript({ view }: { view: View | null }) {
-  if (!view)
+  if (!view?.transcript)
     return (
       <div className="loading-state">
         <LoaderCircle size={18} className="spin" />
         正在读取会话…
       </div>
     );
+  return <TranscriptContents view={view} />;
+}
+function TranscriptContents({ view }: { view: View }) {
+  const [baseline] = useState(
+    () => new Set(view.transcript?.items.map((item) => item.id)),
+  );
+  const reduced = useSyncExternalStore(
+    subscribeMotion,
+    motionSnapshot,
+    () => true,
+  );
   const items = view.transcript?.items.filter((i) => i.isVisible) || [],
     tools = view.transcript?.tools || [];
   const turns = [
     ...new Set([...items.map((i) => i.turnId), ...tools.map((t) => t.turnId)]),
   ];
+  const latestTurn = items.at(-1)?.turnId;
+  const live =
+    !view.transcript?.isStale && view.run.connection.phase === 'connected';
   return (
     <>
       {turns.map((turn) => (
@@ -249,7 +333,23 @@ export function Transcript({ view }: { view: View | null }) {
           {items
             .filter((i) => i.turnId === turn && i.kind === 'user')
             .map((item) => (
-              <Message key={item.id} item={item} />
+              <Message
+                key={item.id}
+                item={item}
+                fresh={
+                  !reduced &&
+                  live &&
+                  turn === latestTurn &&
+                  !baseline.has(item.id)
+                }
+                streaming={
+                  !reduced &&
+                  live &&
+                  turn === latestTurn &&
+                  item.kind === 'assistant' &&
+                  !item.isFinal
+                }
+              />
             ))}
           {tools.some((t) => t.turnId === turn) && (
             <Tools tools={tools.filter((t) => t.turnId === turn)} />
@@ -257,14 +357,35 @@ export function Transcript({ view }: { view: View | null }) {
           {items
             .filter((i) => i.turnId === turn && i.kind !== 'user')
             .map((item) => (
-              <Message key={item.id} item={item} />
+              <Message
+                key={item.id}
+                item={item}
+                fresh={
+                  !reduced &&
+                  live &&
+                  turn === latestTurn &&
+                  !baseline.has(item.id)
+                }
+                streaming={
+                  !reduced &&
+                  live &&
+                  turn === latestTurn &&
+                  item.kind === 'assistant' &&
+                  !item.isFinal
+                }
+              />
             ))}
         </section>
       ))}
       {view.run.phase === 'running' && (
         <div className="working" role="status">
           <span className="working-orbit" />
-          正在工作<span className="ellipsis">…</span>
+          <span className="working-label">正在工作</span>
+          <span className="working-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
         </div>
       )}
       {view.run.phase !== 'running' && !items.length && (

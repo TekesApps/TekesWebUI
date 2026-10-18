@@ -431,7 +431,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                     {historyBusy ? '读取中…' : '加载更早消息'}
                   </button>
                 )}
-                <Transcript view={s.view} />
+                <Transcript key={key} view={s.view} />
                 {s.view?.run.actionables.map((action) => (
                   <ActionCard
                     key={`${action.id}:${action.revision}`}

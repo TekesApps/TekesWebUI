@@ -26,5 +26,9 @@ model, session or attachment simulations. We make no claim that upstream is a
 fully tested production application.
 
 No upstream source, branding, fonts, audio or other assets are vendored here.
+Menu and motion foundations also use this reference visually: grouped panels,
+text blur/opacity reveal, message rise, quiet status dots, shimmer and easing
+roles. The implementation keeps our own real session and incremental text state,
+bounded temporary spans and system reduced-motion handling.
 The reference's MIT license permits code reuse with its notice retained if future
 contributions choose to copy code. Dependencies retain their respective licenses.

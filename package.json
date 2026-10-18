@@ -1,6 +1,6 @@
 {
   "name": "tekes-web-ui",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -30,10 +30,12 @@
     "remark-gfm": "4.0.1"
   },
   "devDependencies": {
+    "@types/jsdom": "30.0.0",
     "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
+    "jsdom": "27.0.1",
     "prettier": "3.9.10",
     "tsx": "4.23.15",
     "typescript": "7.0.2",

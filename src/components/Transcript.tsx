@@ -145,7 +145,9 @@ const Message = memo(function Message({
       >
         {item.kind === 'assistant' && (
           <div className="message-author">
-            <span className="mini-mark">T</span>Tekes
+            <span className="mini-mark" aria-hidden="true">
+              T
+            </span>
             {item.time && (
               <time
                 className="message-time"

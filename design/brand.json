@@ -1,0 +1,64 @@
+{
+  "format": "tekeswebui-brand/1",
+  "source": "https://github.com/TekesApps/TekesUI",
+  "sourceFile": "design/gallery/brands.json",
+  "sourceSHA256": "68f15a7b4015dddad56c7c15587b14bea6f6273c6f195f2a8b9a9a662c326ff2",
+  "preset": "sage",
+  "seed": "#7FA27B",
+  "inputsSHA256": {
+    "design/brand/apricot.json": "07442028268d7673e89fd1287b9b235e9765418610d73205650f627a049d12ce",
+    "design/brand/config.json": "155eceec64c3aa33f4bc6b58a6ef7a1b071384b1dbbb55075a223e460d16e8a8",
+    "design/brand/gallery.json": "ba7cc2b8678d71fa397f99faa51f03733d5ae68ff384f5ce822bd07cd52d5e14",
+    "design/brand/heather.json": "5aa3f8498da5dcb13810816ae24129ea14046f2ce55c57033c42bb8758d1e11c",
+    "design/brand/mist-blue.json": "b3485d1104e10cb10faf9b49790fb1974f46d1272d070d83ed60946b1590dbf8",
+    "design/brand/policy.json": "8ab0d7c6c9605a72ace5af335cf90ffa8abe3243534ac9c4ca68f3fc39bf488c",
+    "design/brand/rose.json": "b5ed8911d1caf79c76a0d16127212e63139f3494f32f5e86a843ba7321f4b09c",
+    "design/brand/sage.json": "6e7fafedf0766dfa98f35631778846c16cc44ef4671df0dbb62da4e174c00fc9",
+    "design/brand/sea-glass.json": "4f9c77586a09c8ce2b8284d7581cfdfdc0cdeb96f8a757a88dbff5c9bf9b556b",
+    "design/brand/warm-sand.json": "08d379e0e4fdc4ccb8d9239f42ce112ca535e719787e4feea56280b0f5c08bd9",
+    "design/brand/warm-stone.json": "39dd02e76b0617babeef0f89081ea94536f1d3b13466370978b5201f8c18df5c",
+    "design/brand/warm-taupe.json": "e4ee17d8634f49c2e8f78c33df87d6048a604023e32d1e8eb98dabafb440cd10",
+    "design/brand/wheat.json": "a998867d0ea6926465d7f82a3e0e03239ac358b93a76e5edadc51a8ad672b11a",
+    "design/imports/v0.3.0-proposal1/upstream/TekesUI-Design-System-v0.3.0-proposal1/design/brand/examples/example-blue.json": "e89eb95c16e4e2c964588b2a7eab7e24364e183b493cf3859f7bc7da7ab230bd",
+    "design/imports/v0.3.0-proposal1/upstream/TekesUI-Design-System-v0.3.0-proposal1/design/brand/examples/example-clay.json": "c5a2160d582d90e0488810e66a6b7185c6bb3ff84876eed468c84a1d7e85ca52",
+    "design/imports/v0.3.0-proposal1/upstream/TekesUI-Design-System-v0.3.0-proposal1/tools/brand.py": "3da13fcc221ed488d383af75dc84f77930306368632b7f48fb38476dc78f6586",
+    "design/imports/v0.3.0-proposal1/upstream/TekesUI-Design-System-v0.3.0-proposal1/tools/brand_color.py": "f7395f04cbd8cf0215326345929d76f6d8e263bdff69c6aede1a417bccc82516",
+    "design/source/base.tokens.json": "f7d3a739b023fb72a7e137290d72abb58545d443751bbac969148e53a9a6c95a",
+    "design/source/token-metadata.json": "0e9108b59a26b560087fe31c0bfc80dcfdceea67a65dd7fd4c541a4e0f46c9e5",
+    "scripts/generate-gallery-brands.py": "0a169997cc3edca32aa93d7a3f089e66c7f5a5b2ba2acce272b07a5d44013497"
+  },
+  "themes": {
+    "light": {
+      "accent": "#395936",
+      "action": "#52734E",
+      "action-hover": "#456642",
+      "action-pressed": "#395936",
+      "accent-foreground": "#FFFFFF",
+      "accent-subtle": "#ECFAEB"
+    },
+    "dark": {
+      "accent": "#A5C9A1",
+      "action": "#93B68E",
+      "action-hover": "#A0C59C",
+      "action-pressed": "#AFD3AA",
+      "accent-foreground": "#000000",
+      "accent-subtle": "#141D13"
+    },
+    "light-ic": {
+      "accent": "#21411F",
+      "action": "#395936",
+      "action-hover": "#2D4D2A",
+      "action-pressed": "#21411F",
+      "accent-foreground": "#FFFFFF",
+      "accent-subtle": "#E9F6E7"
+    },
+    "dark-ic": {
+      "accent": "#BEE4BA",
+      "action": "#AFD3AA",
+      "action-hover": "#BDE2B9",
+      "action-pressed": "#CBF1C7",
+      "accent-foreground": "#000000",
+      "accent-subtle": "#10190F"
+    }
+  }
+}

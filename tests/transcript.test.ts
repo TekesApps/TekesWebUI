@@ -379,21 +379,27 @@ test('live answer is outside tools before finality; explicit tool narration stay
   );
 });
 
-test('recovered worker launch notice keeps original text and renders recovery status', () => {
+test('historical errors show only their original text without later recovery decoration', () => {
   const message = 'The worker could not be started: worker hello timed out';
-  const html = renderToStaticMarkup(
-    createElement(Transcript, {
-      view: view([
-        item('notice', message, {
-          metadata: { classification: 'worker_launch', status: 'recovered' },
-        }),
-      ]),
-    }),
+  const render = (status: string) =>
+    renderToStaticMarkup(
+      createElement(Transcript, {
+        view: view([
+          item('notice', message, {
+            metadata: { classification: 'worker_launch', status },
+          }),
+        ]),
+      }),
+    );
+  const html = render('recovered');
+  const dom = new JSDOM(html);
+  assert.equal(
+    dom.window.document.querySelector('[role="note"]')!.textContent,
+    message,
   );
-  assert.ok(html.includes('已恢复'));
-  assert.ok(html.includes(message));
-  assert.ok(html.includes('transcript-notice recovered'));
-  assert.ok(!html.includes('transcript-notice failure'));
+  assert.equal(html, render('error'));
+  assert.ok(!html.includes('已恢复'));
+  assert.ok(!html.includes('transcript-notice recovered'));
 });
 
 test('session errors stay between their original turns as later turns arrive and recovery changes', () => {
@@ -466,7 +472,7 @@ test('session errors stay between their original turns as later turns arrive and
   const order = rendered(later, ['t1', 't2', 't3']);
   assert.equal(order.length, 7);
   assert.ok(order[2]!.includes(message));
-  assert.ok(order[2]!.includes('已恢复'));
+  assert.equal(order[2], message);
   assert.deepEqual(order.slice(3), [
     'second input',
     'second answer',

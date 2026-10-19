@@ -1,3 +1,4 @@
+import { t, useLocale, setLocale } from './i18n';
 import {
   useEffect,
   useLayoutEffect,
@@ -54,7 +55,7 @@ function BrandMark({ large = false }: { large?: boolean }) {
 }
 const phaseLabels: Record<string, string> = {
   loading: '读取中',
-  idle: '已完成',
+  idle: '未运行',
   running: '正在工作',
   waitingForInput: '等待确认',
   interrupted: '已中断',
@@ -63,7 +64,8 @@ const phaseLabels: Record<string, string> = {
 };
 
 export default function App({ workspace: w }: { workspace: Workspace }) {
-  const s = useSyncExternalStore(w.subscribe, w.snapshot);
+  const language = useLocale();
+  const s = useSyncExternalStore(w.subscribe, w.snapshot, w.snapshot);
   const [settings, setSettings] = useState(false),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
@@ -97,16 +99,16 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
       ?.find((e) => e.sessionId === s.selected?.sessionId)?.summary;
   const title = s.selected
     ? w.titles.title(s.selected.endpoint, s.selected.sessionId, row || {})
-    : '新建会话';
+    : t('新建会话');
   const cwd = s.selected ? row?.cwd || s.hostWorkspace : s.cwd;
   const ready = s.endpoints.filter((e) => e.connection === 'ready').length;
   const health = !s.authenticated
-    ? '尚未连接'
+    ? t('尚未连接')
     : ready === s.endpoints.length && ready
-      ? '所有 Agent 已连接'
+      ? t('所有 Agent 已连接')
       : ready
-        ? `${ready}/${s.endpoints.length} 个 Agent 已连接`
-        : '正在重新连接';
+        ? t('{0}/{1} 个 Agent 已连接', ready, s.endpoints.length)
+        : t('正在重新连接');
   const selectedModel = s.models.find(
     (m) => m.provider === s.model?.provider && m.id === s.model.model,
   );
@@ -214,7 +216,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
       {mobile && (
         <button
           className="scrim"
-          aria-label="关闭侧栏"
+          aria-label={t('关闭侧栏')}
           onClick={() => setMobile(false)}
         />
       )}
@@ -238,7 +240,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         <header className="topbar">
           <button
             className="icon-button show-sidebar"
-            aria-label="切换侧栏"
+            aria-label={t('切换侧栏')}
             onClick={() => {
               setSidebar(!sidebar);
               setMobile(!mobile);
@@ -249,7 +251,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
           <div className="breadcrumb">
             <FolderOpen size={15} />
             <span title={cwd}>
-              {s.selected ? folderName(cwd) : '个人工作空间'}
+              {s.selected ? folderName(cwd) : t('个人工作空间')}
             </span>
             {s.selected && (
               <>
@@ -264,7 +266,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 <span
                   className={`run-status ${s.view?.run.phase === 'running' ? 'active' : ''}`}
                 >
-                  {phaseLabels[s.view?.run.phase || 'loading'] || ''}
+                  {t(phaseLabels[s.view?.run.phase || 'loading'] || '')}
                 </span>
                 <span className="harness-badge">{selectedEndpoint?.name}</span>
                 <SessionActions
@@ -281,10 +283,10 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         </header>
         {s.error && s.authenticated && (
           <div className="error-banner" role="alert">
-            <span>{s.error}</span>
+            <span>{t(s.error)}</span>
             <button
               className="icon-button"
-              aria-label="关闭错误提示"
+              aria-label={t('关闭错误提示')}
               onClick={w.dismissError}
             >
               <X size={16} />
@@ -296,9 +298,9 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
             <section className="welcome">
               <div className="welcome-heading">
                 <BrandMark large />
-                <div className="eyebrow">留出空间，专注创造</div>
-                <h1>把想法，变成进展。</h1>
-                <p>从一个问题开始，也可以交给我一项完整的工作。</p>
+                <div className="eyebrow">{t('留出空间，专注创造')}</div>
+                <h1>{t('把想法，变成进展。')}</h1>
+                <p>{t('从一个问题开始，也可以交给我一项完整的工作。')}</p>
               </div>
               {composer}
               <div className="workspace-context">
@@ -312,14 +314,14 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                   <ChevronDown size={12} />
                 </button>
                 <span className="context-separator" />
-                本地工作空间
+                {t('本地工作空间')}
               </div>
               {directory && (
                 <div className="directory-editor">
-                  <label htmlFor="cwd">工作目录</label>
+                  <label htmlFor="cwd">{t('工作目录')}</label>
                   <input
                     id="cwd"
-                    aria-label="工作目录"
+                    aria-label={t('工作目录')}
                     defaultValue={s.cwd}
                     key={s.cwd}
                     onBlur={(e) => {
@@ -330,54 +332,59 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                       if (e.key === 'Enter') e.currentTarget.blur();
                     }}
                   />
-                  <small>使用当前 Agent 获授权访问的目录。</small>
+                  <small>{t('使用当前 Agent 获授权访问的目录。')}</small>
                 </div>
               )}
               <div className="suggestions">
                 <button
                   onClick={() => {
                     w.setDraft(
-                      '请先了解当前项目的结构，概括它的用途，并指出接下来值得关注的地方。',
+                      t(
+                        '请先了解当前项目的结构，概括它的用途，并指出接下来值得关注的地方。',
+                      ),
                     );
                     prompt.current?.focus();
                   }}
                 >
                   <FolderOpen size={17} />
-                  <span>了解一个项目</span>
+                  <span>{t('了解一个项目')}</span>
                   <ArrowUp size={13} />
                 </button>
                 <button
                   onClick={() => {
                     w.setDraft(
-                      '帮我把下面的想法整理成一个清晰、可执行的计划：\n\n',
+                      t('帮我把下面的想法整理成一个清晰、可执行的计划：\n\n'),
                     );
                     prompt.current?.focus();
                   }}
                 >
                   <Sparkles size={17} />
-                  <span>梳理一个想法</span>
+                  <span>{t('梳理一个想法')}</span>
                   <ArrowUp size={13} />
                 </button>
                 <button
                   onClick={() => {
                     w.setDraft(
-                      '请帮我检查当前项目，找出一个有实际影响的问题，说明原因并提出修复建议。',
+                      t(
+                        '请帮我检查当前项目，找出一个有实际影响的问题，说明原因并提出修复建议。',
+                      ),
                     );
                     prompt.current?.focus();
                   }}
                 >
                   <Check size={17} />
-                  <span>解决一个问题</span>
+                  <span>{t('解决一个问题')}</span>
                   <ArrowUp size={13} />
                 </button>
               </div>
               <p className="welcome-note">
                 <span className="health-dot" />
-                关闭浏览器后，任务仍在后台继续。
+                {t('关闭浏览器后，任务仍在后台继续。')}
               </p>
             </section>
             <div className="welcome-footer">
-              TekesWebUI <span>·</span> 为专注的工作而建
+              TekesWebUI <span>·</span>
+              {t(' 为专注的工作而建')}
             </div>
           </div>
         ) : (
@@ -386,7 +393,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               className="conversation-scroll"
               ref={scroll}
               tabIndex={0}
-              aria-label="会话内容"
+              aria-label={t('会话内容')}
               onScroll={() => {
                 if (!scroll.current) return;
                 const selection = window.getSelection();
@@ -406,7 +413,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                     disabled={historyBusy}
                     onClick={() => void loadEarlier()}
                   >
-                    {historyBusy ? '读取中…' : '加载更早消息'}
+                    {historyBusy ? t('读取中…') : t('加载更早消息')}
                   </button>
                 )}
                 <AnnotationCapture
@@ -434,7 +441,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               {!atBottom && (
                 <button
                   className="jump-bottom icon-button"
-                  aria-label="回到最新消息"
+                  aria-label={t('回到最新消息')}
                   onClick={() => {
                     followBottom.current = true;
                     setAtBottom(true);
@@ -449,10 +456,13 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 {composer}
                 <div className="composer-caption">
                   <span>
-                    Enter 发送 <span>·</span> Shift Enter 换行
+                    {t('Enter 发送 ')}
+                    <span>·</span>
+                    {t(' Shift Enter 换行')}
                   </span>
                   <span title={selectedModel?.id}>
-                    {selectedEndpoint?.name} <span>·</span> 后台持续运行
+                    {selectedEndpoint?.name} <span>·</span>
+                    {t(' 后台持续运行')}
                   </span>
                 </div>
               </div>
@@ -461,12 +471,25 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         )}
       </main>
       {!s.authenticated && (
-        <Dialog title="连接到你的工作空间">
+        <Dialog title={t('连接到你的工作空间')}>
+          <div className="settings-row">
+            {t('语言')}
+            <ChoiceMenu
+              label={t('语言')}
+              side="bottom"
+              value={language}
+              options={[
+                { value: 'zh-CN', label: '中文' },
+                { value: 'en', label: 'English' },
+              ]}
+              onChange={(value) => setLocale(value as 'zh-CN' | 'en')}
+            />
+          </div>
           <div className="auth-mark">
             <LockKeyhole size={24} />
           </div>
           <p className="dialog-description">
-            通过本机宿主安全连接到 Agent。会话和任务将在后台持续运行。
+            {t('通过本机宿主安全连接到 Agent。会话和任务将在后台持续运行。')}
           </p>
           <form
             onSubmit={(e) => {
@@ -474,40 +497,53 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               void w.connect(token);
             }}
           >
-            <label htmlFor="token">浏览器访问令牌</label>
+            <label htmlFor="token">{t('浏览器访问令牌')}</label>
             <input
               id="token"
               type="password"
               autoComplete="off"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="输入访问令牌"
+              placeholder={t('输入访问令牌')}
               required
               disabled={s.connecting}
             />
             {s.error && (
               <p className="inline-error" role="alert">
-                {s.error}
+                {t(s.error)}
               </p>
             )}
             <button className="primary full-width" disabled={s.connecting}>
               {s.connecting ? (
                 <>
                   <LoaderCircle size={15} className="spin" />
-                  正在连接…
+                  {t('正在连接…')}
                 </>
               ) : (
-                '连接工作空间'
+                t('连接工作空间')
               )}
             </button>
           </form>
           <p className="dialog-note">
-            从 CLI 启动入口打开页面，可自动完成认证。
+            {t('从 CLI 启动入口打开页面，可自动完成认证。')}
           </p>
         </Dialog>
       )}
       {settings && (
-        <Dialog title="连接与设置" onClose={() => setSettings(false)}>
+        <Dialog title={t('连接与设置')} onClose={() => setSettings(false)}>
+          <div className="settings-row">
+            {t('语言')}
+            <ChoiceMenu
+              label={t('语言')}
+              side="bottom"
+              value={language}
+              options={[
+                { value: 'zh-CN', label: '中文' },
+                { value: 'en', label: 'English' },
+              ]}
+              onChange={(value) => setLocale(value as 'zh-CN' | 'en')}
+            />
+          </div>
           <div className="connections">
             {s.endpoints.map((e) => (
               <div className="connection-row" key={e.id}>
@@ -517,8 +553,8 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 <strong>{e.name}</strong>
                 <span>
                   {e.connection === 'ready'
-                    ? e.host?.product.version || '已连接'
-                    : '重新连接中'}
+                    ? e.host?.product.version || t('已连接')
+                    : t('重新连接中')}
                 </span>
                 {typeof e.connection === 'object' && (
                   <small>{e.connection.failed}</small>
@@ -527,41 +563,46 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
             ))}
           </div>
           <div className="settings-row">
-            外观
+            {t('外观')}
             <ChoiceMenu
-              label="外观"
+              label={t('外观')}
               side="bottom"
               value={appearance}
               options={[
-                { value: 'system', label: '跟随系统' },
-                { value: 'light', label: '浅色' },
-                { value: 'dark', label: '深色' },
+                { value: 'system', label: t('跟随系统') },
+                { value: 'light', label: t('浅色') },
+                { value: 'dark', label: t('深色') },
               ]}
               onChange={setAppearance}
             />
           </div>
           <p className="dialog-note">
-            App 与浏览器通过同一个 AgentKit
-            服务访问会话。模型、权限与后台进程由本机宿主管理。
+            {t(
+              'App 与浏览器通过同一个 AgentKit 服务访问会话。模型、权限与后台进程由本机宿主管理。',
+            )}
           </p>
         </Dialog>
       )}
       {help && (
-        <Dialog title="在浏览器中工作" onClose={() => setHelp(false)}>
+        <Dialog title={t('在浏览器中工作')} onClose={() => setHelp(false)}>
           <div className="help-copy">
             <p>
-              使用左侧文件夹查找 App 中的会话，也可以切换 Agent 创建新会话。
+              {t(
+                '使用左侧文件夹查找 App 中的会话，也可以切换 Agent 创建新会话。',
+              )}
             </p>
             <p>
-              发送前选择真实模型。任务由后台宿主运行，关闭页面不会停止执行；回来后选择同一会话即可查看进展。
+              {t(
+                '发送前选择真实模型。任务由后台宿主运行，关闭页面不会停止执行；回来后选择同一会话即可查看进展。',
+              )}
             </p>
-            <p>⌘K 搜索会话，Enter 发送，Shift Enter 换行。</p>
+            <p>{t('⌘K 搜索会话，Enter 发送，Shift Enter 换行。')}</p>
           </div>
         </Dialog>
       )}
       {renaming && (
         <Dialog
-          title="重命名会话"
+          title={t('重命名会话')}
           onClose={() => {
             if (!renameBusy) setRenaming(false);
           }}
@@ -586,7 +627,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               }
             }}
           >
-            <label htmlFor="rename">会话名称</label>
+            <label htmlFor="rename">{t('会话名称')}</label>
             <input
               id="rename"
               autoFocus
@@ -606,10 +647,10 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 disabled={renameBusy}
                 onClick={() => setRenaming(false)}
               >
-                取消
+                {t('取消')}
               </button>
               <button className="primary" disabled={renameBusy}>
-                保存
+                {t('保存')}
               </button>
             </div>
           </form>

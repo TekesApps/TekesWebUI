@@ -332,7 +332,7 @@ test('Web owns status grouping, stale presentation, grouping migration and pin s
   });
   assert.deepEqual(
     groups.map((g) => g.name),
-    ['置顶', '运行中', '已完成', '空闲', '状态未知', '状态待更新'],
+    ['置顶', '运行中', '已完成', '未运行', '状态未知', '状态待更新'],
   );
   assert.deepEqual(
     groups[0].entries.map((e) => e.sessionId),

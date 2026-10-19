@@ -1,3 +1,4 @@
+import { t, tContext } from '../i18n';
 import { useEffect, useState } from 'react';
 import type { ThreadActionDefinition } from '@tekesagentkit/client-contract';
 import type { Address } from '../types';
@@ -34,17 +35,17 @@ export function SessionActions({
     return () => clearTimeout(timer);
   }, [copied]);
   useEffect(() => setCopied(false), [key]);
-  const label = compact ? `会话操作：${title}` : '会话操作';
+  const label = compact ? t('会话操作：{0}', title) : t('会话操作');
   function activate(action: ThreadActionDefinition) {
     if (action.interaction === 'rename')
       onRename({ ...address }, title, action.id);
     else if (action.interaction === 'copy') {
       if (typeof action.copyText !== 'string') {
-        w.actionFailed(new Error('AgentKit 未提供复制内容。'));
+        w.actionFailed(new Error(t('AgentKit 未提供复制内容。')));
         return;
       }
       if (!navigator.clipboard?.writeText) {
-        w.actionFailed(new Error('当前浏览器无法写入剪贴板。'));
+        w.actionFailed(new Error(t('当前浏览器无法写入剪贴板。')));
         return;
       }
       void navigator.clipboard
@@ -64,8 +65,8 @@ export function SessionActions({
         <button
           type="button"
           className={`icon-button ${compact ? 'thread-menu-trigger' : ''}`}
-          aria-label={copied ? '已复制会话 ID' : label}
-          title={copied ? '已复制会话 ID' : '会话操作'}
+          aria-label={copied ? t('已复制会话 ID') : label}
+          title={copied ? t('已复制会话 ID') : t('会话操作')}
         >
           {copied ? (
             <Check size={compact ? 16 : 19} />
@@ -75,10 +76,14 @@ export function SessionActions({
         </button>
       }
     >
-      <MenuLabel>{definition?.label || '会话操作'}</MenuLabel>
+      <MenuLabel>{t(definition?.label || '会话操作')}</MenuLabel>
       {error ? (
-        <MenuItem disabled onSelect={() => {}} description={error}>
-          无法读取操作
+        <MenuItem
+          disabled
+          onSelect={() => {}}
+          description={error ? t(error) : undefined}
+        >
+          {t('无法读取操作')}
         </MenuItem>
       ) : definition ? (
         definition.items.map((action) => (
@@ -91,15 +96,17 @@ export function SessionActions({
               />
             }
             disabled={!action.enabled}
-            description={action.disabledReason}
+            description={
+              action.disabledReason ? t(action.disabledReason) : undefined
+            }
             onSelect={() => activate(action)}
           >
-            {action.label}
+            {tContext('threadAction', action.label)}
           </MenuItem>
         ))
       ) : (
         <MenuItem disabled onSelect={() => {}}>
-          正在读取操作…
+          {t('正在读取操作…')}
         </MenuItem>
       )}
     </Menu>

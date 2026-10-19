@@ -1,3 +1,4 @@
+import { t, intlLocale } from './i18n';
 import type { Catalog, Endpoint, Session, Summary } from './types';
 
 export const addressKey = (endpoint: string, session = '', cwd = '') =>
@@ -6,10 +7,11 @@ export function sessionTitle(row: Summary = {}) {
   const value = row.projections?.values?.title;
   const title =
     row.title || (typeof value === 'string' ? value : value?.title) || row.name;
-  return typeof title === 'string' && title.trim() ? title.trim() : '新会话';
+  return typeof title === 'string' && title.trim() ? title.trim() : t('新会话');
 }
 export const folderName = (path = '') =>
-  path.split('/').filter(Boolean).at(-1) || (path === '/' ? '/' : '其他会话');
+  path.split('/').filter(Boolean).at(-1) ||
+  (path === '/' ? '/' : t('其他会话'));
 export function timestampMillis(value?: string | number) {
   if (typeof value === 'string' && !/^\d+(\.\d+)?$/.test(value))
     return Date.parse(value) || 0;
@@ -21,7 +23,7 @@ export function timestampMillis(value?: string | number) {
 export function formatTimestamp(value?: string | number, timeZone?: string) {
   const millis = timestampMillis(value);
   return millis
-    ? new Intl.DateTimeFormat('zh-CN', {
+    ? new Intl.DateTimeFormat(intlLocale(), {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -37,17 +39,18 @@ export function shortAge(value?: string | number, now = Date.now()) {
   const millis = timestampMillis(value);
   if (!millis) return '';
   const elapsed = Math.max(0, now - millis);
-  if (elapsed < 60_000) return '刚刚';
-  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)} 分钟前`;
-  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)} 小时前`;
+  if (elapsed < 60_000) return t('刚刚');
+  if (elapsed < 3_600_000) return t('{0} 分钟前', Math.floor(elapsed / 60_000));
+  if (elapsed < 86_400_000)
+    return t('{0} 小时前', Math.floor(elapsed / 3_600_000));
   const date = new Date(millis),
     current = new Date(now);
   const days =
     (Date.UTC(current.getFullYear(), current.getMonth(), current.getDate()) -
       Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())) /
     86_400_000;
-  if (days === 1) return '昨天';
-  if (days < 7) return `${days} 天前`;
+  if (days === 1) return t('昨天');
+  if (days < 7) return t('{0} 天前', days);
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 interface Entry {
@@ -85,7 +88,7 @@ const statusGroups = {
   notStarted: '未开始',
   failed: '失败',
   cancelled: '已取消',
-  idle: '空闲',
+  idle: '未运行',
   unknown: '状态未知',
   stale: '状态待更新',
 };
@@ -144,11 +147,11 @@ export function groupSessions(
           key,
           path: pinned || mode !== 'folder' ? '' : path,
           name: pinned
-            ? '置顶'
+            ? t('置顶')
             : mode === 'status'
-              ? statusGroups[status]
+              ? t(statusGroups[status])
               : mode === 'none'
-                ? '所有会话'
+                ? t('所有会话')
                 : path
                   ? folderName(path)
                   : endpoint.name,
@@ -184,8 +187,9 @@ export function groupSessions(
               Object.keys(statusGroups).indexOf(b.key.slice(7))
             : titleSort
               ? direction *
-                  a.name.localeCompare(b.name, 'zh-CN', { numeric: true }) ||
-                a.key.localeCompare(b.key)
+                  a.name.localeCompare(b.name, intlLocale(), {
+                    numeric: true,
+                  }) || a.key.localeCompare(b.key)
               : b.updatedAt - a.updatedAt || a.key.localeCompare(b.key),
     )
     .map((group) => ({
@@ -194,7 +198,7 @@ export function groupSessions(
         (a, b) =>
           (titleSort
             ? direction *
-              a.title.localeCompare(b.title, 'zh-CN', { numeric: true })
+              a.title.localeCompare(b.title, intlLocale(), { numeric: true })
             : timestampMillis(b.row.updatedAt) -
               timestampMillis(a.row.updatedAt)) ||
           addressKey(a.endpoint, a.sessionId).localeCompare(
@@ -269,13 +273,15 @@ export function safeLink(raw: string) {
 export function displayError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes('execution directory must match'))
-    return '当前 Agent 仅允许使用宿主配置的默认工作目录。';
+    return t('当前 Agent 仅允许使用宿主配置的默认工作目录。');
   if (/timed out|timeout|reconcile mutation/i.test(message))
-    return '请求未能确认完成。操作可能已经提交，请先检查会话和结果，再决定是否重试。';
+    return t(
+      '请求未能确认完成。操作可能已经提交，请先检查会话和结果，再决定是否重试。',
+    );
   if (message.startsWith('remote: ')) {
     try {
       const details = JSON.parse(message.slice(8));
-      return String(details.message || 'Agent 未能完成请求，请稍后重试。');
+      return String(details.message || t('Agent 未能完成请求，请稍后重试。'));
     } catch {
       /* Already readable. */
     }

@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { FileText } from './Icons';
 import type { Json } from '../../types';
 import { byteSize } from '../../composer';
@@ -16,8 +17,8 @@ export function AttachmentCards({ attachments }: { attachments: Json[] }) {
           typeof metadata.name === 'string'
             ? metadata.name
             : value.type === 'image'
-              ? '图片附件'
-              : '文件附件';
+              ? t('图片附件')
+              : t('文件附件');
         return (
           <div className="transcript-attachment" key={index}>
             <FileText size={18} />

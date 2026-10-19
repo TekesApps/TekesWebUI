@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   AlertCircle,
@@ -27,7 +28,7 @@ export function Information({ item }: { item: Item }) {
         {item.text && (
           <details className="transcript-information">
             <summary>
-              产物
+              {t('产物')}
               <ChevronDown size={14} />
             </summary>
             <pre>{item.text}</pre>
@@ -42,7 +43,7 @@ export function Information({ item }: { item: Item }) {
     return (
       <details className="transcript-information">
         <summary>
-          系统提示
+          {t('系统提示')}
           <ChevronDown size={14} />
         </summary>
         <pre>{item.text}</pre>
@@ -64,7 +65,9 @@ export function Information({ item }: { item: Item }) {
   return (
     <details className="transcript-information">
       <summary>
-        {item.kind === 'artifact' ? '产物' : `事件 · ${humanize(item.kind)}`}
+        {item.kind === 'artifact'
+          ? t('产物')
+          : t('事件 · {0}', humanize(item.kind))}
         <ChevronDown size={14} />
       </summary>
       <pre>{item.text}</pre>
@@ -92,13 +95,13 @@ export function Activity({
   useEffect(() => setOpen(live || failed || stopped), [live, failed, stopped]);
   const label = live
     ? status === 'waitingForInput'
-      ? '等待确认'
-      : '正在工作'
+      ? t('等待确认')
+      : t('正在工作')
     : failed
-      ? '执行失败'
+      ? t('执行失败')
       : stopped
-        ? '已停止'
-        : '已完成';
+        ? t('已停止')
+        : t('已完成');
   return (
     <details
       className="work-summary"
@@ -120,7 +123,7 @@ export function Activity({
         )}
         <span>
           {label}
-          {tools.length ? ` · ${tools.length} 项操作` : ''}
+          {tools.length ? t(' · {0} 项操作', tools.length) : ''}
         </span>
         <ChevronDown size={14} />
       </summary>
@@ -135,7 +138,7 @@ function Detail({ title, text }: { title: string; text: string }) {
         <span>{title}</span>
         {text && <CopyButton text={text} />}
       </header>
-      <pre>{text || '暂无内容'}</pre>
+      <pre>{text || t('暂无内容')}</pre>
     </section>
   );
 }
@@ -159,20 +162,20 @@ export function ToolRows({ tools, live }: { tools: Tool[]; live: boolean }) {
               <ToolIcon name={tool.name} />
               <strong>{humanize(tool.name)}</strong>
               <span>{summary}</span>
-              <small>{toolStateLabels[state]}</small>
-              {failed && <AlertCircle size={13} aria-label="工具失败" />}
+              <small>{t(toolStateLabels[state])}</small>
+              {failed && <AlertCircle size={13} aria-label={t('工具失败')} />}
               <ChevronDown className="tool-chevron" size={13} />
             </summary>
-            <Detail title="输入" text={formatted(tool.arguments)} />
+            <Detail title={t('输入')} text={formatted(tool.arguments)} />
             <Detail
-              title={failed ? '输出 · 失败' : '输出'}
+              title={failed ? t('输出 · 失败') : t('输出')}
               text={resultText(tool.result)}
             />
             {tool.callView != null && (
-              <Detail title="调用视图" text={formatted(tool.callView)} />
+              <Detail title={t('调用视图')} text={formatted(tool.callView)} />
             )}
             {tool.resultView != null && (
-              <Detail title="结果视图" text={formatted(tool.resultView)} />
+              <Detail title={t('结果视图')} text={formatted(tool.resultView)} />
             )}
           </details>
         );

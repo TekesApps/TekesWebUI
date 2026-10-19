@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { useState } from 'react';
 import { Check, Copy } from './Icons';
 export function CopyButton({ text }: { text: string }) {
@@ -6,9 +7,13 @@ export function CopyButton({ text }: { text: string }) {
   return (
     <button
       className="icon-button copy-button"
-      aria-label={error ? '复制失败，请选择文本复制' : '复制内容'}
+      aria-label={error ? t('复制失败，请选择文本复制') : t('复制内容')}
       title={
-        copied ? '已复制' : error ? '复制失败，请选择文本复制' : '复制内容'
+        copied
+          ? t('已复制')
+          : error
+            ? t('复制失败，请选择文本复制')
+            : t('复制内容')
       }
       onClick={async () => {
         try {

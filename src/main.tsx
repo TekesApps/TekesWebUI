@@ -1,3 +1,4 @@
+import { initializeLocale } from './i18n';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { Workspace } from './workspace';
@@ -11,6 +12,7 @@ import './components/ui/menu.css';
 import './components/ui/motion.css';
 import './components/annotations.css';
 
+initializeLocale();
 const workspace = new Workspace();
 let token = browserStorage()?.getItem('tekes.agentkit.token') || '';
 if (location.hash.length > 1) {

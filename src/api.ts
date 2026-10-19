@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type { Json } from './types';
 
 export class AuthenticationError extends Error {}
@@ -17,8 +18,11 @@ export class AgentClient {
       body: JSON.stringify(request),
     });
     if (response.status === 401)
-      throw new AuthenticationError('访问令牌已过期，请从启动入口重新打开。');
-    if (!response.ok) throw new Error(`连接请求失败（${response.status}）`);
+      throw new AuthenticationError(
+        t('访问令牌已过期，请从启动入口重新打开。'),
+      );
+    if (!response.ok)
+      throw new Error(t('连接请求失败（{0}）', response.status));
     return response;
   }
   async unary<T>(request: Request): Promise<T> {
@@ -42,7 +46,7 @@ export class AgentClient {
     signal: AbortSignal,
   ) {
     const response = await this.request({ op: 'follow', ...request }, signal);
-    if (!response.body) throw new Error('服务没有返回数据流。');
+    if (!response.body) throw new Error(t('服务没有返回数据流。'));
     const reader = response.body
       .pipeThrough(new TextDecoderStream())
       .getReader();
@@ -53,7 +57,7 @@ export class AgentClient {
         if (done) break;
         partial += value;
         if (partial.length > 16 * 1024 * 1024)
-          throw new Error('接收内容过大，请重新连接。');
+          throw new Error(t('接收内容过大，请重新连接。'));
         let cut: number;
         while ((cut = partial.indexOf('\n')) >= 0) {
           const line = partial.slice(0, cut);
@@ -64,7 +68,7 @@ export class AgentClient {
           if (frame.value !== undefined) receive(frame.value);
         }
       }
-      if (!signal.aborted) throw new Error('连接已断开，正在重新连接。');
+      if (!signal.aborted) throw new Error(t('连接已断开，正在重新连接。'));
     } finally {
       await reader.cancel().catch(() => {});
       reader.releaseLock();

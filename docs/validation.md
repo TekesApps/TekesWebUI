@@ -219,3 +219,20 @@ descriptors are not part of this repository.
   to v2 with all relationships preserved. Browser 分组 → 按状态 rendered completed,
   not-started and idle groups, with the preference retained after reload. No model
   prompts or native Mac interactions were used for this acceptance.
+
+# v0.1.10 release
+
+- Web displays idle as 未运行 / Not running. Explicit completed, failed and
+  cancelled results retain their groups. AgentKit's contract is unchanged.
+- Chinese and English cover connection/auth, sidebar, settings, menus, composer,
+  annotations, transcript chrome and known interface errors. Language selection
+  is available before connecting and in settings, follows the browser on first
+  use and is saved locally after manual selection.
+- Original messages, quotations, paths, model names and tool data are preserved.
+- 56 tests, strict TypeScript and production build pass; the existing bundle-size
+  advisory remains. Localization tests cover rendered English chrome, original
+  Chinese message preservation, interpolation and dictionary completeness.
+- Local browser acceptance: switched Chinese → English through settings, reloaded
+  and confirmed English preference persistence, English thread-action menu and
+  Not running status group. Chinese conversation content stayed unchanged. The
+  pre-authentication language selector was verified in both languages.

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type { Item, Json, Tool, View } from './types';
 
 // Semantic roles mirror ClientKit TranscriptToolDisplay. Browser glyphs use the TekesUI Gallery SVG catalog.
@@ -76,11 +77,11 @@ export function toolRole(name: string): ToolRole {
 export function humanize(name: string): string {
   const action = name.startsWith('mcp__') ? name.split('__').at(-1)! : name;
   const drawing: Record<string, string> = {
-    dxf_context: '读取图纸上下文',
-    dxf_move: '移动图元',
-    dxf_delete: '删除图元',
-    dxf_create_line: '绘制直线',
-    dxf_change_text: '修改图纸文字',
+    dxf_context: t('读取图纸上下文'),
+    dxf_move: t('移动图元'),
+    dxf_delete: t('删除图元'),
+    dxf_create_line: t('绘制直线'),
+    dxf_change_text: t('修改图纸文字'),
   };
   return (
     drawing[action] ||

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type {
   ComposerAnnotation,
   TranscriptAnnotationSource,
@@ -72,7 +73,8 @@ export class AnnotationDraftStore {
               if (value && typeof value.source === 'object') {
                 const migrated = {
                   ...value,
-                  source: value.source.kind === 'user' ? '你的消息' : '回复',
+                  source:
+                    value.source.kind === 'user' ? t('你的消息') : t('回复'),
                   sourceLocator: value.source,
                 };
                 if (isAnnotation(migrated)) return migrated;

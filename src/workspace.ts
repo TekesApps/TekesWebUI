@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type {
   ThreadActionsPresentation,
   ThreadActionRequest,
@@ -140,7 +141,7 @@ export class Workspace {
       : addressKey(s.newEndpoint, '', s.cwd);
   }
   private clientOrThrow() {
-    if (!this.client) throw new AuthenticationError('请先连接本机服务。');
+    if (!this.client) throw new AuthenticationError(t('请先连接本机服务。'));
     return this.client;
   }
   private fail = (error: unknown) => {
@@ -162,7 +163,7 @@ export class Workspace {
   };
   saveAnnotation = (annotation: Annotation) => {
     if (!isAnnotation(annotation)) {
-      this.update({ error: '批注内容无效或过长，请重新选择。' });
+      this.update({ error: t('批注内容无效或过长，请重新选择。') });
       return;
     }
     const current = this.annotationDrafts.get(this.key());
@@ -170,7 +171,7 @@ export class Workspace {
       current.length >= annotationLimit &&
       !current.some((a) => a.id === annotation.id)
     ) {
-      this.update({ error: '最多添加 50 条批注。' });
+      this.update({ error: t('最多添加 50 条批注。') });
       return;
     }
     const annotations = current.some((a) => a.id === annotation.id)
@@ -281,7 +282,7 @@ export class Workspace {
             this.update({
               endpoints: this.state.endpoints.map((e) =>
                 e.id === endpoint.id
-                  ? { ...e, connection: { failed: '连接已断开，正在重连' } }
+                  ? { ...e, connection: { failed: t('连接已断开，正在重连') } }
                   : e,
               ),
             });
@@ -472,7 +473,7 @@ export class Workspace {
     this.update({
       busy: true,
       error: '',
-      submissionStage: target.sessionId ? '正在发送' : '正在创建会话',
+      submissionStage: target.sessionId ? t('正在发送') : t('正在创建会话'),
     });
     try {
       if (
@@ -480,7 +481,9 @@ export class Workspace {
         !endpoint.capabilities?.methods?.includes('composer.compileAnnotations')
       )
         throw new Error(
-          '当前 AgentKit 尚未提供批注接口，请升级并重新连接。批注仍保留在输入框中。',
+          t(
+            '当前 AgentKit 尚未提供批注接口，请升级并重新连接。批注仍保留在输入框中。',
+          ),
         );
       if (!target.sessionId) {
         if (!this.creationIDs.has(key))
@@ -509,7 +512,7 @@ export class Workspace {
           ),
         );
         if (epoch === this.epoch) await this.select(target);
-        if (!desiredModel) throw new Error('会话已创建，请选择模型后发送。');
+        if (!desiredModel) throw new Error(t('会话已创建，请选择模型后发送。'));
         await client.call(target.endpoint, 'session.selectModel', {
           sessionId: target.sessionId,
           ...desiredModel,
@@ -533,7 +536,9 @@ export class Workspace {
         const attachment = files[i],
           uploadKey = `${targetKey}:${attachment.id}`;
         if (this.key() === targetKey)
-          this.update({ submissionStage: `上传附件 ${i + 1}/${files.length}` });
+          this.update({
+            submissionStage: t('上传附件 {0}/{1}', i + 1, files.length),
+          });
         let uploaded = this.uploadReceipts.get(uploadKey);
         if (!uploaded) {
           uploaded = await client.call<UploadReceipt>(
@@ -551,13 +556,13 @@ export class Workspace {
             !uploaded.receiptId ||
             uploaded.file.bytes !== attachment.file.size
           )
-            throw new Error('附件上传回执无效，文件仍保留在输入框中。');
+            throw new Error(t('附件上传回执无效，文件仍保留在输入框中。'));
           this.uploadReceipts.set(uploadKey, uploaded);
         }
         content.push({ type: 'file', receiptId: uploaded.receiptId });
       }
       if (this.key() === targetKey)
-        this.update({ submissionStage: '正在发送' });
+        this.update({ submissionStage: t('正在发送') });
       const signature = JSON.stringify([compiledText, files.map((f) => f.id)]);
       let receipt = this.submissionIDs.get(targetKey);
       if (!receipt || receipt.signature !== signature) {
@@ -691,11 +696,11 @@ export class Workspace {
       .get(endpoint)
       ?.presets.find((p) => p.id === id);
     if (this.state.selected && !id)
-      return '当前 Harness 没有报告此会话的初始预设。';
+      return t('当前 Harness 没有报告此会话的初始预设。');
     return (
       preset?.configurationText ||
       preset?.description ||
-      '此 Harness 没有提供该预设的配置文本。'
+      t('此 Harness 没有提供该预设的配置文本。')
     );
   }
   addFiles = (files: File[]) => {
@@ -704,7 +709,7 @@ export class Workspace {
       (e) => e.id === (this.state.selected?.endpoint || this.state.newEndpoint),
     );
     if (!endpoint?.capabilities?.methods?.includes('session.uploadFile')) {
-      this.fail(new Error('当前 Harness 不支持附件上传。'));
+      this.fail(new Error(t('当前 Harness 不支持附件上传。')));
       return;
     }
     try {
@@ -757,7 +762,7 @@ export class Workspace {
           (e) => e.id === target.endpoint,
         );
         if (!endpoint?.capabilities?.methods?.includes('thread.actions'))
-          throw new Error('AgentKit 未提供会话操作接口，请升级服务。');
+          throw new Error(t('AgentKit 未提供会话操作接口，请升级服务。'));
         const definition =
           await this.clientOrThrow().call<ThreadActionsPresentation>(
             target.endpoint,
@@ -768,7 +773,7 @@ export class Workspace {
           definition.endpoint !== target.endpoint ||
           definition.sessionId !== target.sessionId
         )
-          throw new Error('会话操作目标不匹配。');
+          throw new Error(t('会话操作目标不匹配。'));
         if (epoch === this.bootEpoch) {
           const actions = new Map(this.state.threadActions);
           actions.set(key, definition);

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   ArrowUp,
@@ -72,7 +73,7 @@ export function Composer({
   }, [s.selected?.endpoint, s.selected?.sessionId, s.newEndpoint, s.cwd]);
   async function showDetails() {
     setDetails(true);
-    setConfiguration('正在读取配置…');
+    setConfiguration(t('正在读取配置…'));
     setConfiguration(await w.presetConfiguration());
   }
   return (
@@ -110,7 +111,7 @@ export function Composer({
           onRemove={w.removeAnnotation}
         />
         {!!s.attachments.length && (
-          <div className="attachment-tray" aria-label="待发送附件">
+          <div className="attachment-tray" aria-label={t('待发送附件')}>
             {s.attachments.map((attachment) => (
               <div className="pending-attachment" key={attachment.id}>
                 <span className="attachment-file-icon">
@@ -125,8 +126,8 @@ export function Composer({
                 <button
                   className="icon-button"
                   type="button"
-                  aria-label={`移除附件 ${attachment.file.name}`}
-                  title="移除附件"
+                  aria-label={t('移除附件 {0}', attachment.file.name)}
+                  title={t('移除附件')}
                   disabled={s.busy}
                   onClick={() => w.removeFile(attachment.id)}
                 >
@@ -137,7 +138,7 @@ export function Composer({
           </div>
         )}
         <label className="sr-only" htmlFor="prompt">
-          消息
+          {t('消息')}
         </label>
         <textarea
           ref={prompt}
@@ -145,10 +146,10 @@ export function Composer({
           rows={2}
           placeholder={
             dragging
-              ? '松开以添加附件'
+              ? t('松开以添加附件')
               : s.selected
-                ? '继续对话…'
-                : '描述一个想法，或交给我一项任务…'
+                ? t('继续对话…')
+                : t('描述一个想法，或交给我一项任务…')
           }
           value={s.draft}
           onChange={(e) => w.setDraft(e.target.value)}
@@ -189,7 +190,7 @@ export function Composer({
               type="file"
               multiple
               hidden
-              aria-label="选择附件文件"
+              aria-label={t('选择附件文件')}
               onChange={(e) => {
                 w.addFiles(Array.from(e.target.files || []));
                 e.target.value = '';
@@ -199,14 +200,14 @@ export function Composer({
             <Tooltip
               content={
                 canAttach
-                  ? '添加附件 · 也可拖入文件或粘贴图片'
-                  : '当前 Harness 不支持附件'
+                  ? t('添加附件 · 也可拖入文件或粘贴图片')
+                  : t('当前 Harness 不支持附件')
               }
             >
               <button
                 className="composer-add icon-button"
                 type="button"
-                aria-label="添加附件"
+                aria-label={t('添加附件')}
                 disabled={s.busy || s.controlsLoading || !canAttach}
                 onClick={() => fileInput.current?.click()}
               >
@@ -217,7 +218,7 @@ export function Composer({
               <button
                 className="composer-chip harness-chip"
                 type="button"
-                aria-label="查看会话 Harness 与预设"
+                aria-label={t('查看会话 Harness 与预设')}
                 disabled={s.busy}
                 onClick={() => void showDetails()}
               >
@@ -238,7 +239,7 @@ export function Composer({
               </button>
             ) : (
               <Menu
-                label="选择 Harness 与预设"
+                label={t('选择 Harness 与预设')}
                 side="top"
                 align="start"
                 wide
@@ -246,7 +247,7 @@ export function Composer({
                   <button
                     className="composer-chip harness-chip"
                     type="button"
-                    aria-label="选择 Harness 与预设"
+                    aria-label={t('选择 Harness 与预设')}
                     disabled={s.busy}
                   >
                     <span className={`harness-symbol ${endpoint?.kind || ''}`}>
@@ -259,7 +260,7 @@ export function Composer({
                     <span>
                       {harnessName}
                       {s.controlsLoading
-                        ? ' · 读取中'
+                        ? t(' · 读取中')
                         : s.preset
                           ? ` · ${presetTitle(preset || { id: s.preset })}`
                           : ''}
@@ -273,7 +274,9 @@ export function Composer({
                     {index > 0 && <MenuSeparator />}
                     <MenuLabel>
                       <span>{agent.name}</span>
-                      <small>{agent.host?.product.version || '未连接'}</small>
+                      <small>
+                        {agent.host?.product.version || t('未连接')}
+                      </small>
                     </MenuLabel>
                     {s.presets.get(agent.id)?.presets.length ? (
                       s.presets.get(agent.id)!.presets.map((p) => (
@@ -300,18 +303,19 @@ export function Composer({
                       ))
                     ) : (
                       <MenuItem onSelect={() => w.newSession(s.cwd, agent.id)}>
-                        使用 {agent.name}
+                        {t('使用 ')}
+                        {agent.name}
                       </MenuItem>
                     )}
                   </div>
                 ))}
               </Menu>
             )}
-            <Tooltip content="输入设置 · 预设配置、模型与工作目录">
+            <Tooltip content={t('输入设置 · 预设配置、模型与工作目录')}>
               <button
                 className="icon-button composer-inspect"
                 type="button"
-                aria-label="查看输入设置"
+                aria-label={t('查看输入设置')}
                 onClick={() => void showDetails()}
               >
                 <SlidersHorizontal size={15} />
@@ -320,7 +324,7 @@ export function Composer({
           </div>
           <div className="composer-model-controls">
             <ChoiceMenu
-              label={s.modelLoading ? '读取模型…' : '模型'}
+              label={s.modelLoading ? t('读取模型…') : t('模型')}
               value={
                 s.model ? JSON.stringify([s.model.provider, s.model.model]) : ''
               }
@@ -329,7 +333,7 @@ export function Composer({
               options={s.models.map((m) => ({
                 value: JSON.stringify([m.provider, m.id]),
                 label: m.name || m.id,
-                description: `${m.contextWindow ? `${m.contextWindow.toLocaleString()} tokens 上下文` : '当前 Harness 提供的模型'}${s.models.some((other) => other !== m && other.id === m.id) ? ` · ${m.provider}` : ''}`,
+                description: `${m.contextWindow ? t('{0} tokens 上下文', m.contextWindow.toLocaleString()) : t('当前 Harness 提供的模型')}${s.models.some((other) => other !== m && other.id === m.id) ? ` · ${m.provider}` : ''}`,
               }))}
               onChange={(value) => {
                 const [provider, modelID] = JSON.parse(value) as [
@@ -350,7 +354,7 @@ export function Composer({
             />
             {!!efforts.length && (
               <ChoiceMenu
-                label="推理强度"
+                label={t('推理强度')}
                 icon={<Brain size={14} />}
                 value={
                   s.model?.reasoningEffort ||
@@ -363,11 +367,11 @@ export function Composer({
                   label: effortTitle(e.id),
                   description:
                     e.id === 'low'
-                      ? '更快响应，适合日常任务'
+                      ? t('更快响应，适合日常任务')
                       : e.id === 'high'
-                        ? '深入思考，适合复杂任务'
+                        ? t('深入思考，适合复杂任务')
                         : e.id === 'max'
-                          ? '最高推理强度，可能需要更长时间'
+                          ? t('最高推理强度，可能需要更长时间')
                           : undefined,
                 }))}
                 onChange={(value) => {
@@ -383,48 +387,48 @@ export function Composer({
             className={`composer-feedback ${s.controlsError ? 'error' : ''}`}
             role="status"
           >
-            {s.controlsError || s.submissionStage}
+            {t(s.controlsError || s.submissionStage || '')}
           </div>
         )}
       </form>
       {details && (
-        <Dialog title="输入设置" onClose={() => setDetails(false)}>
+        <Dialog title={t('输入设置')} onClose={() => setDetails(false)}>
           <dl className="composer-details">
             <div>
               <dt>Harness</dt>
               <dd>
                 {endpoint?.name} ·{' '}
-                {endpoint?.host?.product.version || '未知版本'}
+                {endpoint?.host?.product.version || t('未知版本')}
               </dd>
             </div>
             <div>
-              <dt>预设</dt>
+              <dt>{t('预设')}</dt>
               <dd>
                 {s.selected && !s.preset
-                  ? 'Harness 未报告'
+                  ? t('Harness 未报告')
                   : presetTitle(
                       preset || (s.preset ? { id: s.preset } : undefined),
                     )}
-                {s.selected && <small>此会话创建时的预设</small>}
+                {s.selected && <small>{t('此会话创建时的预设')}</small>}
               </dd>
             </div>
             <div>
-              <dt>工作目录</dt>
+              <dt>{t('工作目录')}</dt>
               <dd>{cwd || s.hostWorkspace}</dd>
             </div>
             <div>
-              <dt>模型</dt>
-              <dd>{model?.name || s.model?.model || '尚未选择'}</dd>
+              <dt>{t('模型')}</dt>
+              <dd>{model?.name || s.model?.model || t('尚未选择')}</dd>
             </div>
             {model?.contextWindow && (
               <div>
-                <dt>上下文上限</dt>
+                <dt>{t('上下文上限')}</dt>
                 <dd>{model.contextWindow.toLocaleString()} tokens</dd>
               </div>
             )}
             {!!efforts.length && (
               <div>
-                <dt>推理强度</dt>
+                <dt>{t('推理强度')}</dt>
                 <dd>
                   {effortTitle(
                     s.model?.reasoningEffort ||
@@ -438,14 +442,15 @@ export function Composer({
           <details className="preset-configuration" open>
             <summary>
               <Info size={14} />
-              预设配置
+              {t('预设配置')}
               <ChevronDown size={13} />
             </summary>
             <pre>{configuration}</pre>
           </details>
           <p className="dialog-note">
-            选择的预设会用于新会话的初始配置。已有会话的 Harness
-            与初始预设由会话自身保存。
+            {t(
+              '选择的预设会用于新会话的初始配置。已有会话的 Harness 与初始预设由会话自身保存。',
+            )}
           </p>
         </Dialog>
       )}

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type { AgentClient } from './api';
 import type {
   AttachmentPolicy,
@@ -11,24 +12,24 @@ export const presetTitle = (preset?: Preset) =>
   preset?.title ||
   preset?.name ||
   {
-    standard: '标准',
+    standard: t('标准'),
     ptc: 'PTC',
-    minimal: '精简',
+    minimal: t('精简'),
     cordis: 'Creative',
     coding: 'Coding',
     general: 'General',
-    default: '默认',
+    default: t('默认'),
   }[preset?.id || ''] ||
   preset?.id ||
-  '默认';
+  t('默认');
 export const effortTitle = (value: string) =>
   ({
-    low: '低',
-    medium: '中',
-    high: '高',
-    max: '最高',
-    minimal: '最低',
-    off: '关闭',
+    low: t('低'),
+    medium: t('中'),
+    high: t('高'),
+    max: t('最高'),
+    minimal: t('最低'),
+    off: t('关闭'),
   })[value] || value;
 export function sameModel(a: ModelChoice | null, b: ModelChoice | null) {
   return a?.provider === b?.provider && a?.model === b?.model;
@@ -81,22 +82,26 @@ export function validateFiles(
 ) {
   const all = [...existing, ...files];
   if (all.length > Math.min(policy?.maxAttachmentsPerMessage || 8, 20))
-    throw new Error('附件数量超过当前 Harness 的限制，请移除一部分后再试。');
+    throw new Error(t('附件数量超过当前 Harness 的限制，请移除一部分后再试。'));
   for (const file of files) {
-    if (!file.size) throw new Error(`${file.name} 是空文件。`);
+    if (!file.size) throw new Error(t('{0} 是空文件。', file.name));
     const limit = file.type.startsWith('image/')
       ? Math.min(UPLOAD_LIMIT, policy?.maxAttachmentBytes || UPLOAD_LIMIT)
       : UPLOAD_LIMIT;
     if (file.size > limit)
       throw new Error(
-        `${file.name} 超过附件大小限制（${Math.floor(limit / 1024 / 1024)} MB）。`,
+        t(
+          '{0} 超过附件大小限制（{1} MB）。',
+          file.name,
+          Math.floor(limit / 1024 / 1024),
+        ),
       );
   }
   if (
     all.reduce((sum, file) => sum + file.size, 0) >
     (policy?.maxMessageAttachmentBytes || 16 * 1024 * 1024)
   )
-    throw new Error('附件总大小超过当前 Harness 的限制。');
+    throw new Error(t('附件总大小超过当前 Harness 的限制。'));
 }
 export async function fileBase64(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());

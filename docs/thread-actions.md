@@ -44,7 +44,7 @@ grouping values migrate locally. No group labels, order or preferences are sent
 to AgentKit. The Web list menu exposes the choices under 分组 and 排序.
 
 AgentKit's generated `ThreadActivity` provides status facts with an `isStale`
-flag. Web assigns group names and visual order. Idle and unknown are separate
+flag. Web assigns group names and visual order. Idle is displayed as 未运行; unknown remains separate
 from completed, and stale facts appear under 状态待更新. It does not infer completion
 from absence of running work. Waiting, queued, failure and cancellation retain
 separate groups. Pinning does not change a thread's underlying activity.

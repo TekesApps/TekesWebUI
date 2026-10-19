@@ -5,11 +5,14 @@ TypeScript and Vite**, published under the **MIT license**.
 
 Warm paper surfaces and a soft Sage green brand, a thread sidebar with folder/status grouping and browser-owned sorting, readable Markdown, live tool
 activity, and a focused composer. Light, dark and system appearance; responsive
-navigation; keyboard search; IME-aware submission; drafts scoped to each thread.
+navigation; Chinese and English with a saved language choice; keyboard search; IME-aware submission; drafts scoped to each thread.
 Select text in a message to pin an annotation, optionally add a comment, and send
 it with your message. Multiple annotations share one counted Composer badge.
 See [annotations](docs/annotations.md) for persistence and compatibility boundaries.
 Sidebar and header menus render [AgentKit's shared thread action definitions](docs/thread-actions.md).
+
+Language is available on the connection screen and in Connection & settings.
+See [localization](docs/localization.md) for interface and content boundaries.
 
 ## Boundaries
 

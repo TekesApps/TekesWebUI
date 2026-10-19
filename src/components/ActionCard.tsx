@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useState } from 'react';
 import { ShieldCheck, MessageCircleQuestion } from './ui/Icons';
 import type { Actionable } from '../types';
@@ -38,7 +39,9 @@ export function ActionCard({
         )}
         <strong>
           {payload.title ||
-            (action.kind === 'approval' ? '需要你的确认' : '需要你的回答')}
+            (action.kind === 'approval'
+              ? t('需要你的确认')
+              : t('需要你的回答'))}
         </strong>
       </div>
       {payload.description && <p>{payload.description}</p>}
@@ -54,7 +57,7 @@ export function ActionCard({
               })
             }
           >
-            拒绝
+            {t('拒绝')}
           </button>
           <button
             className="primary"
@@ -67,7 +70,7 @@ export function ActionCard({
               })
             }
           >
-            允许一次
+            {t('允许一次')}
           </button>
         </div>
       ) : action.kind === 'question' && payload.questions ? (
@@ -122,7 +125,7 @@ export function ActionCard({
                       aria-label={q.question || q.id}
                       type={q.isSecret ? 'password' : 'text'}
                       autoComplete="off"
-                      placeholder="输入回答"
+                      placeholder={t('输入回答')}
                       value={answer.custom}
                       onChange={(e) =>
                         setAnswers({
@@ -136,12 +139,12 @@ export function ActionCard({
               );
             })}
             <button className="primary" type="submit">
-              {busy ? '正在提交…' : '提交回答'}
+              {busy ? t('正在提交…') : t('提交回答')}
             </button>
           </fieldset>
         </form>
       ) : (
-        <p>请在 App 中处理此请求。</p>
+        <p>{t('请在 App 中处理此请求。')}</p>
       )}
       {error && (
         <p className="inline-error" role="alert">

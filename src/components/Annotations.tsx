@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Address } from '../types';
@@ -15,18 +16,18 @@ export function revealAnnotation(
   address: Address | null,
 ) {
   const s = annotation.sourceLocator;
-  if (!s) return '来源未提供可定位地址，引用内容已完整保留。';
+  if (!s) return t('来源未提供可定位地址，引用内容已完整保留。');
   if (address?.endpoint !== s.endpoint || address.sessionId !== s.sessionId)
-    return '来源属于另一个会话，请先打开原会话。';
+    return t('来源属于另一个会话，请先打开原会话。');
   const article = [
     ...document.querySelectorAll<HTMLElement>('[data-message-id]'),
   ].find(
     (el) => el.dataset.messageId === s.itemId && el.dataset.turnId === s.turnId,
   );
   const text = article?.querySelector<HTMLElement>('[data-annotation-text]');
-  if (!text) return '来源尚未加载或已不可用，请先加载更早消息。';
+  if (!text) return t('来源尚未加载或已不可用，请先加载更早消息。');
   if (!sourceMatches(annotation, text.textContent || ''))
-    return '原文已变化，无法准确定位。批注仍保留捕获时的引用。';
+    return t('原文已变化，无法准确定位。批注仍保留捕获时的引用。');
   // Walk text nodes so Markdown formatting and repeated excerpts keep exact UTF-16 offsets.
   const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
@@ -45,7 +46,7 @@ export function revealAnnotation(
     }
     offset = end;
   }
-  if (!started || !node) return '原文已变化，无法准确定位。';
+  if (!started || !node) return t('原文已变化，无法准确定位。');
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);
@@ -80,9 +81,10 @@ function AnnotationEditor({
     input.current?.focus();
   }, []);
   return createPortal(
-    <Dialog title={creating ? '添加批注' : '编辑批注'} onClose={onClose}>
+    <Dialog title={creating ? t('添加批注') : t('编辑批注')} onClose={onClose}>
       <div className="annotation-source-label">
-        {annotation.source} · 原文引用
+        {annotation.source}
+        {t(' · 原文引用')}
       </div>
       <blockquote className="annotation-excerpt">
         {annotation.excerpt}
@@ -97,7 +99,7 @@ function AnnotationEditor({
             else onClose();
           }}
         >
-          定位原文
+          {t('定位原文')}
         </button>
       )}
       {notice && (
@@ -106,7 +108,8 @@ function AnnotationEditor({
         </p>
       )}
       <label className="annotation-comment-label" htmlFor="annotation-comment">
-        批注 <span>可选</span>
+        {t('批注 ')}
+        <span>{t('可选')}</span>
       </label>
       <textarea
         ref={input}
@@ -115,24 +118,24 @@ function AnnotationEditor({
         rows={3}
         maxLength={100000}
         value={comment}
-        placeholder="对这段文字有什么想法？"
+        placeholder={t('对这段文字有什么想法？')}
         onChange={(e) => setComment(e.target.value)}
       />
       <div className="dialog-actions annotation-editor-actions">
         {onRemove && (
           <button type="button" onClick={onRemove}>
-            删除批注
+            {t('删除批注')}
           </button>
         )}
         <button type="button" className="secondary-button" onClick={onClose}>
-          取消
+          {t('取消')}
         </button>
         <button
           type="button"
           className="primary"
           onClick={() => onSave({ ...annotation, comment })}
         >
-          {creating ? '添加到消息' : '保存批注'}
+          {creating ? t('添加到消息') : t('保存批注')}
         </button>
       </div>
     </Dialog>,
@@ -188,7 +191,7 @@ export function AnnotationCapture({
       }
       if (excerpt.length > 100000) {
         setCapture(null);
-        setNotice('选中文本过长，请分段添加批注。');
+        setNotice(t('选中文本过长，请分段添加批注。'));
         return;
       }
       const before = range.cloneRange();
@@ -203,7 +206,7 @@ export function AnnotationCapture({
           id: crypto.randomUUID(),
           excerpt,
           comment: '',
-          source: kind === 'user' ? '你的消息' : '回复',
+          source: kind === 'user' ? t('你的消息') : t('回复'),
           sourceLocator: {
             ...address,
             itemId: article.dataset.messageId!,
@@ -250,7 +253,7 @@ export function AnnotationCapture({
             }}
           >
             <AnnotationIcon size={14} />
-            添加批注
+            {t('添加批注')}
           </button>,
           document.body,
         )}
@@ -292,14 +295,15 @@ export function AnnotationList({
           <div className="annotation-entry-heading">
             <span>
               <AnnotationIcon size={13} />
-              批注 {i + 1}
+              {t('批注 ')}
+              {i + 1}
             </span>
             <div>
               {onEdit && (
                 <button
                   type="button"
                   className="icon-button"
-                  aria-label={`编辑批注 ${i + 1}`}
+                  aria-label={t('编辑批注 {0}', i + 1)}
                   onClick={() => onEdit(a)}
                 >
                   <Pencil size={13} />
@@ -309,7 +313,7 @@ export function AnnotationList({
                 <button
                   type="button"
                   className="icon-button"
-                  aria-label={`删除批注 ${i + 1}`}
+                  aria-label={t('删除批注 {0}', i + 1)}
                   onClick={() => onRemove(a.id)}
                 >
                   <X size={13} />
@@ -328,7 +332,7 @@ export function AnnotationList({
               if (!result) onRevealed?.();
             }}
           >
-            定位原文
+            {t('定位原文')}
           </button>
         </div>
       ))}
@@ -369,13 +373,14 @@ export function ComposerAnnotations({
         }
       >
         <AnnotationIcon size={14} />
-        批注 <span>{annotations.length}</span>
+        {t('批注 ')}
+        <span>{annotations.length}</span>
       </button>
       {open &&
         !editing &&
         createPortal(
           <Dialog
-            title={`批注 · ${annotations.length}`}
+            title={t('批注 · {0}', annotations.length)}
             onClose={() => setOpen(false)}
           >
             <AnnotationList
@@ -408,7 +413,7 @@ export function ComposerAnnotations({
         <button
           type="button"
           className="icon-button"
-          aria-label="删除批注 1"
+          aria-label={t('删除批注 1')}
           onClick={() => onRemove(annotations[0].id)}
         >
           <X size={12} />

@@ -1,3 +1,4 @@
+import { t, useLocale, intlLocale } from '../i18n';
 import {
   Children,
   createElement,
@@ -94,6 +95,7 @@ const Message = memo(function Message({
   onSaveAnnotation?: (annotation: Annotation) => void;
   onRemoveAnnotation?: (id: string) => void;
 }) {
+  useLocale();
   const input =
     item.kind === 'user'
       ? {
@@ -118,7 +120,7 @@ const Message = memo(function Message({
                 dateTime={new Date(timestampMillis(item.time)).toISOString()}
               >
                 {new Date(timestampMillis(item.time)).toLocaleTimeString(
-                  'zh-CN',
+                  intlLocale(),
                   { hour: '2-digit', minute: '2-digit', hour12: false },
                 )}
               </time>
@@ -130,7 +132,10 @@ const Message = memo(function Message({
             <div className="user-bubble">
               {!!input?.annotations.length && (
                 <details className="message-annotations">
-                  <summary>批注 · {input.annotations.length}</summary>
+                  <summary>
+                    {t('批注 · ')}
+                    {input.annotations.length}
+                  </summary>
                   <AnnotationList
                     annotations={input.annotations}
                     address={address}
@@ -169,7 +174,7 @@ const Message = memo(function Message({
                 img: ({ alt }) => (
                   <span className="attachment-note">
                     <FileText size={14} />
-                    {alt || '图片附件'}
+                    {alt || t('图片附件')}
                   </span>
                 ),
                 pre: ({ children }) => (
@@ -220,7 +225,7 @@ export function Transcript({ view, ...annotations }: TranscriptProps) {
     return (
       <div className="loading-state">
         <LoaderCircle size={18} className="spin" />
-        正在读取会话…
+        {t('正在读取会话…')}
       </div>
     );
   return <TranscriptContents view={view} {...annotations} />;
@@ -311,7 +316,7 @@ function TranscriptContents({
         <div className="working" role="status">
           <span className="working-orbit" />
           <span className="working-label">
-            {thinkingStatus(view) ? '正在思考' : '正在工作'}
+            {thinkingStatus(view) ? t('正在思考') : t('正在工作')}
           </span>
           <span className="working-dots" aria-hidden="true">
             <i />
@@ -321,11 +326,11 @@ function TranscriptContents({
         </div>
       )}
       {view.run.phase !== 'running' && !items.length && !tools.length && (
-        <p className="loading-state">会话已准备好，发送消息开始。</p>
+        <p className="loading-state">{t('会话已准备好，发送消息开始。')}</p>
       )}
       {view.run.queue.map((queued, i) => (
         <div className="queued" key={i}>
-          <small>等待执行</small>
+          <small>{t('等待执行')}</small>
           <p>
             {queued.content
               ?.filter((c) => c.type === 'text')

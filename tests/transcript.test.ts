@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { JSDOM } from 'jsdom';
 import { Transcript } from '../src/components/Transcript';
 import {
   toolFamilies,
@@ -11,6 +12,7 @@ import {
   partitionTurn,
   thinkingStatus,
   liveOutputTokens,
+  reportedOutputUsage,
 } from '../src/transcript';
 import { toolIcons } from '../src/components/ui/ToolIcon';
 import type { Item, Tool, View } from '../src/types';
@@ -240,6 +242,10 @@ test('output counter follows real reports only and hides unavailable, stale and 
   );
   for (const count of [0, 7, 7, 1234]) {
     model.transcript!.turns[0].liveUsage = { outputTokens: count };
+    model.transcript!.turns[0].reportedUsage = {
+      outputTokens: count,
+      isComplete: true,
+    };
     assert.equal(liveOutputTokens(model), count);
     const html = renderToStaticMarkup(
       createElement(Transcript, { view: model }),
@@ -278,4 +284,51 @@ test('thinking resumes after completed tools only for an active reasoning previe
   model.transcript!.tools[0].phase = 'done';
   model.transcript!.items[0].isProvisional = false;
   assert.equal(thinkingStatus(model), false);
+});
+
+test('durable output usage remains visible in history and across disconnection and recovery', () => {
+  const model = view([item('assistant', 'completed', { isFinal: true })]);
+  model.transcript!.turns = [
+    {
+      id: 'turn',
+      status: 'completed',
+      input: '',
+      reportedUsage: { outputTokens: 42, isComplete: true },
+    },
+  ];
+  const html = () =>
+    renderToStaticMarkup(createElement(Transcript, { view: model }));
+  const text = () => new JSDOM(html()).window.document.body.textContent || '';
+  assert.equal(reportedOutputUsage(model, 'turn')?.outputTokens, 42);
+  assert.ok(text().includes('输出 42 tokens'));
+  model.run.connection.phase = 'disconnected';
+  model.transcript!.isStale = true;
+  assert.ok(text().includes('输出 42 tokens'));
+  model.run.connection.phase = 'connected';
+  model.transcript!.isStale = false;
+  assert.ok(text().includes('输出 42 tokens'));
+  model.transcript!.turns.push({ id: 'new', status: 'running', input: '' });
+  model.run.phase = 'running';
+  assert.equal(reportedOutputUsage(model, 'new'), undefined);
+  assert.ok(text().includes('输出 42 tokens'));
+  model.transcript!.turns[0].reportedUsage = {
+    outputTokens: 17,
+    isComplete: false,
+  };
+  assert.ok(text().includes('已记录输出 17 tokens'));
+  assert.ok(html().includes('data-usage-coverage="partial"'));
+  model.transcript!.turns[0].reportedUsage = {
+    outputTokens: 0,
+    isComplete: true,
+  };
+  assert.ok(text().includes('输出 0 tokens'));
+  for (const count of [-1, Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    model.transcript!.turns[0].reportedUsage = {
+      outputTokens: count,
+      isComplete: true,
+    };
+    assert.equal(reportedOutputUsage(model, 'turn'), undefined);
+  }
+  delete model.transcript!.turns[0].reportedUsage;
+  assert.ok(!html().includes('working-tokens'));
 });

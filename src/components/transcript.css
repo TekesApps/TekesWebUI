@@ -164,3 +164,9 @@
     animation: none;
   }
 }
+
+.turn-usage {
+  margin-top: 8px;
+  font-size: 10px;
+  line-height: 1.5;
+}

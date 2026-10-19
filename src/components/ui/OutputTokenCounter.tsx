@@ -2,13 +2,22 @@ import { useState } from 'react';
 import { intlLocale, t } from '../../i18n';
 
 /** Transitions between actual provider reports, without inventing intermediate counts. */
-export function OutputTokenCounter({ count }: { count: number }) {
+export function OutputTokenCounter({
+  count,
+  complete = true,
+}: {
+  count: number;
+  complete?: boolean;
+}) {
   const [frame, setFrame] = useState<{ current: number; previous?: number }>({
     current: count,
   });
   if (frame.current !== count)
     setFrame({ current: count, previous: frame.current });
-  const [prefix, suffix] = t('输出 {0} tokens', '\u0000').split('\u0000');
+  const [prefix, suffix] = t(
+    complete ? '输出 {0} tokens' : '已记录输出 {0} tokens',
+    '\u0000',
+  ).split('\u0000');
   return (
     <span className="working-tokens" aria-live="off">
       {prefix}

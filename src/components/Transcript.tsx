@@ -28,7 +28,7 @@ import { CopyButton } from './ui/CopyButton';
 import { Activity, Information, ToolRows } from './TranscriptActivity';
 import {
   liveTurnID,
-  liveOutputTokens,
+  reportedOutputUsage,
   partitionTurn,
   thinkingStatus,
   turnStatus,
@@ -241,7 +241,6 @@ function TranscriptContents({
     ]),
   ];
   const liveID = liveTurnID(view);
-  const outputTokens = liveOutputTokens(view);
   function renderItem(item: Item, process = false) {
     if (
       item.kind !== 'user' &&
@@ -281,6 +280,7 @@ function TranscriptContents({
           turnTools,
         );
         const live = turn === liveID;
+        const reported = reportedOutputUsage(view, turn);
         const information = activity.filter((i) =>
           ['system', 'notice', 'error'].includes(i.kind),
         );
@@ -305,6 +305,20 @@ function TranscriptContents({
               </Activity>
             )}
             {output.map((i) => renderItem(i))}
+            {reported && (
+              <div
+                className="turn-usage"
+                data-usage-coverage={
+                  reported.isComplete ? 'complete' : 'partial'
+                }
+              >
+                <OutputTokenCounter
+                  key={turn}
+                  count={reported.outputTokens}
+                  complete={reported.isComplete}
+                />
+              </div>
+            )}
           </section>
         );
       })}
@@ -313,9 +327,6 @@ function TranscriptContents({
           <span className="working-orbit" />
           {thinkingStatus(view) && (
             <span className="working-label">{t('正在思考')}</span>
-          )}
-          {outputTokens !== undefined && (
-            <OutputTokenCounter key={liveID} count={outputTokens} />
           )}
         </div>
       )}

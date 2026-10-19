@@ -7,14 +7,13 @@ in AgentKit's shared presentation module, not in the browser:
 2. Rename when the endpoint supports it.
 3. Fork the conversation.
 4. Copy session ID using the host's session URL scheme.
-5. Move pin up/down for a pinned conversation.
-6. Archive, or supported unarchive for an archived conversation.
+5. Archive, or supported unarchive for an archived conversation.
 
 `thread.actions` returns the public `ThreadActionsPresentation` for an exact
 endpoint/session. It owns ordering, labels, semantic icon roles, interaction kinds,
 enabled states, disabled reasons, and clipboard content. The generated
 `@tekesagentkit/client-contract` package is locked to public AgentKit commit
-`2f267e63381022eb1a564898300eb362cf5fc6ba`. It also supplies the unchanged annotation
+`a1cd0a36e4f9bc95595111834fff2f95d66f3452`. It also supplies the unchanged annotation
 DTOs; the older annotation-only dependency is no longer needed by Web.
 
 `SessionActions` renders the returned array in both the sidebar and header. Its
@@ -31,15 +30,24 @@ retry preserves the RPC identity. Fork outcomes retain the created child pointer
 if follow-up title assignment fails, so failure cannot trigger an accidental
 second fork.
 
-AgentKit v0.3.3 owns persistent pin state and order through its public
-`ThreadPreferences` store. The host supplies a private path and stable account/
-workspace scope at startup; it implements no pin rules or file serialization.
-State inventories include the generated `ThreadPinPresentation` on pinned rows.
-Web renders one pinned group in that exact order, above normal folder/title sorts,
-and keeps no browser-local pin data. Every connected browser receives changes
-through the existing inventory stream. Closing the browser or restarting the
-service preserves order. Explicit retries reuse durable RPC receipts and cannot
-move a row twice. Missing/archived threads retain their saved pin identity.
+AgentKit v0.3.4 persists only pin relationships through `ThreadPreferences`.
+The host supplies a private path and stable account/workspace scope. Version 1
+pin data migrates without losing relationships; previous display order and move
+receipts are discarded. `ThreadPinPresentation` contains only `pinned: true`.
+The service no longer advertises or dispatches move-pin actions. All consumers
+receive relationship changes through the existing inventory stream.
+
+Web owns grouping (`folder`, `status`, `none`) and sorting (`recentActivity`,
+`titleAscending`, `titleDescending`). The same selected sort applies to the pinned
+section. These preferences are saved only in this browser; legacy true/false
+grouping values migrate locally. No group labels, order or preferences are sent
+to AgentKit. The Web list menu exposes the choices under 分组 and 排序.
+
+AgentKit's generated `ThreadActivity` provides status facts with an `isStale`
+flag. Web assigns group names and visual order. Idle and unknown are separate
+from completed, and stale facts appear under 状态待更新. It does not infer completion
+from absence of running work. Waiting, queued, failure and cancellation retain
+separate groups. Pinning does not change a thread's underlying activity.
 
 Archived sessions are not currently listed
 by Web's active inventory; the shared definition supports unarchive when a

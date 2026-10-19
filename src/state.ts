@@ -56,7 +56,7 @@ interface Entry {
   title: string;
   row: Summary;
   agent: string;
-  pinOrder?: number;
+  activity?: Session['activity'];
 }
 interface Group {
   key: string;
@@ -67,9 +67,35 @@ interface Group {
 }
 export type SessionSort =
   'recentActivity' | 'titleAscending' | 'titleDescending';
+export type SessionGrouping = 'folder' | 'status' | 'none';
+export function sessionGroupingPreference(
+  saved: string | null | undefined,
+): SessionGrouping {
+  return saved === 'status'
+    ? 'status'
+    : saved === 'none' || saved === 'false'
+      ? 'none'
+      : 'folder';
+}
+const statusGroups = {
+  running: '运行中',
+  queued: '排队中',
+  waitingForInput: '等待输入',
+  completed: '已完成',
+  notStarted: '未开始',
+  failed: '失败',
+  cancelled: '已取消',
+  idle: '空闲',
+  unknown: '状态未知',
+  stale: '状态待更新',
+};
+export function sessionActivity(entry: Session): keyof typeof statusGroups {
+  if (entry.activity?.isStale) return 'stale';
+  return entry.activity?.status || 'unknown';
+}
 export interface ListOptions {
   sort?: SessionSort;
-  grouping?: boolean;
+  grouping?: SessionGrouping;
 }
 export function groupSessions(
   endpoints: Pick<Endpoint, 'id' | 'name'>[],
@@ -81,7 +107,8 @@ export function groupSessions(
   options: ListOptions = {},
 ) {
   const groups = new Map<string, Group>(),
-    needle = query.trim().toLocaleLowerCase();
+    needle = query.trim().toLocaleLowerCase(),
+    mode = options.grouping || 'folder';
   for (const endpoint of endpoints) {
     if (harness && endpoint.id !== harness) continue;
     for (const entry of inventories.get(endpoint.id) || []) {
@@ -90,7 +117,7 @@ export function groupSessions(
         !row ||
         row.ephemeral ||
         row.status === 'archived' ||
-        (runningOnly && !row.running)
+        (runningOnly && sessionActivity(entry) !== 'running')
       )
         continue;
       const path = row.cwd || '',
@@ -103,23 +130,28 @@ export function groupSessions(
           .includes(needle)
       )
         continue;
-      const pinned = entry.pin !== undefined;
+      const pinned = entry.pin?.pinned === true,
+        status = sessionActivity(entry);
       const key = pinned
         ? 'pinned'
-        : options.grouping === false
+        : mode === 'none'
           ? 'all'
-          : path || `endpoint:${endpoint.id}`;
+          : mode === 'status'
+            ? `status:${status}`
+            : path || `endpoint:${endpoint.id}`;
       if (!groups.has(key))
         groups.set(key, {
           key,
-          path: pinned ? '' : path,
+          path: pinned || mode !== 'folder' ? '' : path,
           name: pinned
             ? '置顶'
-            : options.grouping === false
-              ? '所有会话'
-              : path
-                ? folderName(path)
-                : endpoint.name,
+            : mode === 'status'
+              ? statusGroups[status]
+              : mode === 'none'
+                ? '所有会话'
+                : path
+                  ? folderName(path)
+                  : endpoint.name,
           updatedAt: 0,
           entries: [],
         });
@@ -134,7 +166,7 @@ export function groupSessions(
         title,
         row,
         agent: endpoint.name,
-        ...(pinned ? { pinOrder: entry.pin!.order } : {}),
+        activity: entry.activity,
       });
     }
   }
@@ -147,24 +179,27 @@ export function groupSessions(
         ? -1
         : b.key === 'pinned'
           ? 1
-          : titleSort
-            ? direction *
-                a.name.localeCompare(b.name, 'zh-CN', { numeric: true }) ||
-              a.key.localeCompare(b.key)
-            : b.updatedAt - a.updatedAt || a.key.localeCompare(b.key),
+          : mode === 'status'
+            ? Object.keys(statusGroups).indexOf(a.key.slice(7)) -
+              Object.keys(statusGroups).indexOf(b.key.slice(7))
+            : titleSort
+              ? direction *
+                  a.name.localeCompare(b.name, 'zh-CN', { numeric: true }) ||
+                a.key.localeCompare(b.key)
+              : b.updatedAt - a.updatedAt || a.key.localeCompare(b.key),
     )
     .map((group) => ({
       ...group,
       entries: group.entries.sort(
         (a, b) =>
-          (group.key === 'pinned'
-            ? (a.pinOrder ?? 0) - (b.pinOrder ?? 0)
-            : titleSort
-              ? direction *
-                a.title.localeCompare(b.title, 'zh-CN', { numeric: true })
-              : timestampMillis(b.row.updatedAt) -
-                timestampMillis(a.row.updatedAt)) ||
-          a.sessionId.localeCompare(b.sessionId),
+          (titleSort
+            ? direction *
+              a.title.localeCompare(b.title, 'zh-CN', { numeric: true })
+            : timestampMillis(b.row.updatedAt) -
+              timestampMillis(a.row.updatedAt)) ||
+          addressKey(a.endpoint, a.sessionId).localeCompare(
+            addressKey(b.endpoint, b.sessionId),
+          ),
       ),
     }));
 }

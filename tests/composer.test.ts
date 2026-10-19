@@ -145,7 +145,7 @@ test('list sorting and grouping are view-only preferences and preserve native ad
   const inputs = new Map([['pi', rows]]),
     agents = [{ id: 'pi', name: 'Pi' }];
   const flat = groupSessions(agents, inputs, '', '', false, undefined, {
-    grouping: false,
+    grouping: 'none',
     sort: 'titleAscending',
   });
   assert.equal(flat.length, 1);
@@ -155,7 +155,7 @@ test('list sorting and grouping are view-only preferences and preserve native ad
   );
   assert.equal(
     groupSessions(agents, inputs, '', '', false, undefined, {
-      grouping: false,
+      grouping: 'none',
       sort: 'titleDescending',
     })[0].entries[0].sessionId,
     'one',

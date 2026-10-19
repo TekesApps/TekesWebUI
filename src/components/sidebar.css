@@ -150,9 +150,6 @@
   position: relative;
   border-radius: 7px;
 }
-.thread-action-up {
-  transform: rotate(180deg);
-}
 .thread-row > .ui-menu-anchor {
   display: block;
   position: absolute;

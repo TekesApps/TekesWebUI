@@ -5,6 +5,7 @@ import {
   CircleHelp,
   Folder,
   FolderOpen,
+  FileText,
   Menu,
   Plus,
   Search,
@@ -25,6 +26,9 @@ import {
   shortAge,
   timestampMillis,
   type SessionSort,
+  type SessionGrouping,
+  sessionGroupingPreference,
+  sessionActivity,
 } from '../state';
 import { Tooltip } from './Tooltip';
 import {
@@ -66,8 +70,8 @@ export function Sidebar({
       ? (saved as SessionSort)
       : 'recentActivity';
   });
-  const [grouping, setGrouping] = useState(
-    preference('tekes.web.sidebar.grouping') !== 'false',
+  const [grouping, setGrouping] = useState<SessionGrouping>(() =>
+    sessionGroupingPreference(preference('tekes.web.sidebar.grouping')),
   );
   const [filter, setFilter] = useState(''),
     [running, setRunning] = useState(false),
@@ -108,28 +112,9 @@ export function Sidebar({
       document.removeEventListener('keydown', keyboard);
     };
   }, [query]);
-  const inventories = new Map(s.inventories);
-  if (
-    s.selected &&
-    s.view?.run.connection.phase === 'connected' &&
-    !s.view.transcript?.isStale
-  ) {
-    const address = s.selected,
-      active =
-        s.view.run.canCancel ||
-        ['running', 'waitingForInput'].includes(s.view.run.phase);
-    inventories.set(
-      address.endpoint,
-      (s.inventories.get(address.endpoint) || []).map((entry) =>
-        entry.sessionId === address.sessionId && entry.summary
-          ? { ...entry, summary: { ...entry.summary, running: active } }
-          : entry,
-      ),
-    );
-  }
   const groups = groupSessions(
     s.endpoints,
-    inventories,
+    s.inventories,
     query,
     filter,
     running,
@@ -224,12 +209,21 @@ export function Sidebar({
             ))}
           </MenuSub>
           <MenuSub label="分组">
-            <MenuItem selected={grouping} onSelect={() => setGrouping(true)}>
-              按文件夹
-            </MenuItem>
-            <MenuItem selected={!grouping} onSelect={() => setGrouping(false)}>
-              不分组
-            </MenuItem>
+            {(
+              [
+                ['folder', '按文件夹'],
+                ['status', '按状态'],
+                ['none', '不分组'],
+              ] as const
+            ).map(([value, label]) => (
+              <MenuItem
+                key={value}
+                selected={grouping === value}
+                onSelect={() => setGrouping(value)}
+              >
+                {label}
+              </MenuItem>
+            ))}
           </MenuSub>
           <MenuSub label="筛选 Harness">
             <MenuItem selected={!filter} onSelect={() => setFilter('')}>
@@ -280,14 +274,20 @@ export function Sidebar({
       )}
       <nav
         className="thread-list"
-        aria-label={grouping ? '按文件夹分组的会话' : '所有会话'}
+        aria-label={
+          grouping === 'status'
+            ? '按状态分组的会话'
+            : grouping === 'folder'
+              ? '按文件夹分组的会话'
+              : '所有会话'
+        }
       >
         {groups.slice(0, query ? groups.length : limit).map((group) => (
           <section
-            className={`folder-group ${!grouping ? 'ungrouped' : ''}`}
+            className={`folder-group ${grouping === 'none' ? 'ungrouped' : ''}`}
             key={group.key}
           >
-            {(grouping || group.key === 'pinned') && (
+            {(grouping !== 'none' || group.key === 'pinned') && (
               <div className="folder-heading">
                 <button
                   className="folder-toggle"
@@ -308,6 +308,8 @@ export function Sidebar({
                   )}
                   {group.key === 'pinned' ? (
                     <TekesIcon name="tekes-pin" size={14} />
+                  ) : grouping === 'status' ? (
+                    <FileText size={14} />
                   ) : collapsed.has(group.key) && !query ? (
                     <Folder size={14} />
                   ) : (
@@ -315,7 +317,7 @@ export function Sidebar({
                   )}
                   <span>{group.name}</span>
                 </button>
-                {group.key !== 'pinned' && (
+                {grouping === 'folder' && group.key !== 'pinned' && (
                   <button
                     className="icon-button folder-add"
                     aria-label={`在 ${group.name} 新建会话`}
@@ -332,7 +334,7 @@ export function Sidebar({
                 )}
               </div>
             )}
-            {((!grouping && group.key !== 'pinned') ||
+            {((grouping === 'none' && group.key !== 'pinned') ||
               !collapsed.has(group.key) ||
               !!query) && (
               <>
@@ -341,7 +343,7 @@ export function Sidebar({
                     0,
                     query
                       ? group.entries.length
-                      : pages[group.key] || (grouping ? 5 : 30),
+                      : pages[group.key] || (grouping === 'none' ? 30 : 5),
                   )
                   .map((entry) => {
                     const selected =
@@ -383,7 +385,7 @@ export function Sidebar({
                             }}
                           >
                             <span className="thread-label">{entry.title}</span>
-                            {entry.row.running ? (
+                            {sessionActivity(entry) === 'running' ? (
                               <span
                                 className="running-dot"
                                 aria-label="运行中"
@@ -420,14 +422,15 @@ export function Sidebar({
                   })}
                 {!query &&
                   group.entries.length >
-                    (pages[group.key] || (grouping ? 5 : 30)) && (
+                    (pages[group.key] || (grouping === 'none' ? 30 : 5)) && (
                     <button
                       className="list-more"
                       onClick={() =>
                         setPages({
                           ...pages,
                           [group.key]:
-                            (pages[group.key] || (grouping ? 5 : 30)) + 20,
+                            (pages[group.key] ||
+                              (grouping === 'none' ? 30 : 5)) + 20,
                         })
                       }
                     >
@@ -453,7 +456,7 @@ export function Sidebar({
             className="list-more more-folders"
             onClick={() => setLimit(limit + 12)}
           >
-            显示更多文件夹
+            {grouping === 'folder' ? '显示更多文件夹' : '显示更多分组'}
           </button>
         )}
       </nav>

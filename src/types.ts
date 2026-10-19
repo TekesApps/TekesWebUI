@@ -2,6 +2,7 @@
 import type {
   AnnotationInputPresentation,
   ThreadPinPresentation,
+  ThreadActivity,
 } from '@tekesagentkit/client-contract';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -35,6 +36,7 @@ export interface Session {
   sessionId: string;
   summary?: Summary;
   pin?: ThreadPinPresentation;
+  activity?: ThreadActivity;
 }
 export interface Address {
   endpoint: string;

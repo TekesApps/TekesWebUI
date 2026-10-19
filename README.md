@@ -3,7 +3,7 @@
 A quiet, independent web workspace for Tekes agents. Built with **React,
 TypeScript and Vite**, published under the **MIT license**.
 
-Warm paper surfaces and a soft Sage green brand, a folder-based thread sidebar, readable Markdown, live tool
+Warm paper surfaces and a soft Sage green brand, a thread sidebar with folder/status grouping and browser-owned sorting, readable Markdown, live tool
 activity, and a focused composer. Light, dark and system appearance; responsive
 navigation; keyboard search; IME-aware submission; drafts scoped to each thread.
 Select text in a message to pin an annotation, optionally add a comment, and send

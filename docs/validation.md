@@ -200,3 +200,22 @@ descriptors are not part of this repository.
   service restarted. Pins/order and replay receipts survived; both test pins were
   then removed to restore the original state. Browser menu showed enabled unpin
   and correct first/last move boundaries.
+
+# v0.1.9 release
+
+- AgentKit v0.3.4 stores only pin relationships and pin/unpin receipts; no pin rank,
+  move operation, group labels, sort policy or UI preferences remain in the service.
+- Existing v1 pin files migrate to v2 without losing relationships.
+- Public generated `ThreadActivity` exposes normalized execution status and freshness.
+  Inactive threads are not assumed completed; idle, unknown and stale remain distinct.
+- Web grouping (folder/status/none), group labels/order and title/activity sorting are
+  browser preferences. The chosen sort applies to pinned rows too. Legacy boolean
+  grouping preferences migrate locally.
+- AgentKit: 55 targeted tests, build, headless boundaries and second public consumer pass.
+- Web: 53 tests and production build pass; existing bundle-size advisory remains.
+- Mac ClientKit and Kernel are unchanged.
+- Local host integration verified all three Harness inventories publish activity facts
+  with no pin ranks, and reject retired move actions. Existing v1 preferences migrated
+  to v2 with all relationships preserved. Browser 分组 → 按状态 rendered completed,
+  not-started and idle groups, with the preference retained after reload. No model
+  prompts or native Mac interactions were used for this acceptance.

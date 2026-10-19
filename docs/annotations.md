@@ -24,7 +24,7 @@ compiler.
 
 The v0.1.6 release pinned the earlier annotation-only package from AgentKit v0.3.1 at
 `89bc9d030a2b243d95f436628e9b010e45229491`.
-TekesWebUI v0.1.8 pins AgentKit v0.3.3 and includes the shared [thread-action contract](thread-actions.md).
+TekesWebUI v0.1.9 pins AgentKit v0.3.4 and includes the shared [thread-action contract](thread-actions.md).
 
 Web passes `AnnotationInput` (`text`, `annotations`) to the advertised AgentKit
 `composer.compileAnnotations` method. AgentKit validates and compiles the DTOs;

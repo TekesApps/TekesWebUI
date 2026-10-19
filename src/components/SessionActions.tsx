@@ -88,7 +88,6 @@ export function SessionActions({
               <TekesIcon
                 name={threadActionIcons[action.icon] || 'tekes-more'}
                 size={15}
-                className={action.icon === 'moveUp' ? 'thread-action-up' : ''}
               />
             }
             disabled={!action.enabled}

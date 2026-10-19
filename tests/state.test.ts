@@ -11,6 +11,7 @@ import {
   safeLink,
   TitleReceipts,
   displayError,
+  sessionGroupingPreference,
 } from '../src/state';
 import type { Session } from '../src/types';
 
@@ -64,6 +65,7 @@ test('search and filters do not mutate authoritative inventories', () => {
     {
       sessionId: 'one',
       summary: { cwd: '/work/alpha', title: '计划', running: true },
+      activity: { status: 'running', isStale: false },
     },
     { sessionId: 'two', summary: { cwd: '/work/beta', title: '总结' } },
     { sessionId: 'old', summary: { status: 'archived' } },
@@ -227,7 +229,7 @@ test('light and dark foreground roles preserve readable text contrast', async ()
   }
 });
 
-test('AgentKit pin order precedes folder and title sorts across endpoint identities', () => {
+test('Web owns pin sorting across endpoint identities', () => {
   const endpoints = [
     { id: 'k', name: 'Kernel' },
     { id: 'p', name: 'Pi' },
@@ -239,7 +241,7 @@ test('AgentKit pin order precedes folder and title sorts across endpoint identit
         {
           sessionId: 'same',
           summary: { title: 'A', cwd: '/one' },
-          pin: { order: 1 },
+          pin: { pinned: true },
         },
         { sessionId: 'normal', summary: { title: 'AA', cwd: '/one' } },
       ],
@@ -250,12 +252,12 @@ test('AgentKit pin order precedes folder and title sorts across endpoint identit
         {
           sessionId: 'same',
           summary: { title: 'Z', cwd: '/two' },
-          pin: { order: 0 },
+          pin: { pinned: true },
         },
       ],
     ],
   ]);
-  for (const grouping of [true, false]) {
+  for (const grouping of ['folder', 'status', 'none'] as const) {
     const groups = groupSessions(
       endpoints,
       inventories,
@@ -269,8 +271,8 @@ test('AgentKit pin order precedes folder and title sorts across endpoint identit
     assert.deepEqual(
       groups[0].entries.map((e) => [e.endpoint, e.sessionId]),
       [
-        ['p', 'same'],
         ['k', 'same'],
+        ['p', 'same'],
       ],
     );
     assert.equal(groups.flatMap((g) => g.entries).length, 3);
@@ -282,4 +284,73 @@ test('AgentKit pin order precedes folder and title sorts across endpoint identit
   assert.ok(
     groupSessions(endpoints, inventories).every((g) => g.key !== 'pinned'),
   );
+});
+
+test('Web owns status grouping, stale presentation, grouping migration and pin sorts', () => {
+  assert.equal(sessionGroupingPreference('false'), 'none');
+  assert.equal(sessionGroupingPreference('true'), 'folder');
+  assert.equal(sessionGroupingPreference('status'), 'status');
+  const endpoints = [{ id: 'k', name: 'Kernel' }];
+  const rows: Session[] = [
+    {
+      sessionId: 'running',
+      summary: { title: 'Run' },
+      activity: { status: 'running', isStale: false },
+    },
+    {
+      sessionId: 'done',
+      summary: { title: 'Done' },
+      activity: { status: 'completed', isStale: false },
+    },
+    {
+      sessionId: 'idle',
+      summary: { title: 'Idle' },
+      activity: { status: 'idle', isStale: false },
+    },
+    {
+      sessionId: 'stale',
+      summary: { title: 'Stale' },
+      activity: { status: 'running', isStale: true },
+    },
+    { sessionId: 'unknown', summary: { title: 'Unknown' } },
+    {
+      sessionId: 'p1',
+      summary: { title: 'A', updatedAt: 1 },
+      pin: { pinned: true },
+    },
+    {
+      sessionId: 'p2',
+      summary: { title: 'Z', updatedAt: 2 },
+      pin: { pinned: true },
+    },
+  ];
+  const inventory = new Map([['k', rows]]),
+    original = JSON.stringify(rows);
+  const groups = groupSessions(endpoints, inventory, '', '', false, undefined, {
+    grouping: 'status',
+    sort: 'titleDescending',
+  });
+  assert.deepEqual(
+    groups.map((g) => g.name),
+    ['置顶', '运行中', '已完成', '空闲', '状态未知', '状态待更新'],
+  );
+  assert.deepEqual(
+    groups[0].entries.map((e) => e.sessionId),
+    ['p2', 'p1'],
+  );
+  const asc = groupSessions(endpoints, inventory, '', '', false, undefined, {
+    grouping: 'status',
+    sort: 'titleAscending',
+  });
+  assert.deepEqual(
+    asc[0].entries.map((e) => e.sessionId),
+    ['p1', 'p2'],
+  );
+  assert.deepEqual(
+    groupSessions(endpoints, inventory, '', '', true)
+      .flatMap((g) => g.entries)
+      .map((e) => e.sessionId),
+    ['running'],
+  );
+  assert.equal(JSON.stringify(rows), original);
 });

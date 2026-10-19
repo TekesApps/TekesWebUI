@@ -6,8 +6,6 @@ export const threadActionIcons: Readonly<Record<string, IconName>> = {
   rename: 'tekes-edit',
   fork: 'tekes-fork',
   copy: 'tekes-copy',
-  moveUp: 'tekes-expand',
-  moveDown: 'tekes-expand',
   archive: 'tekes-archive',
   unarchive: 'tekes-archive',
 };

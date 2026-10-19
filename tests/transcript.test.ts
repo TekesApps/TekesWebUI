@@ -345,3 +345,36 @@ test('ClientKit token footnotes appear only on the live run, compact thousands a
     assert.ok(!html().includes('working-tokens'));
   }
 });
+
+test('live answer is outside tools before finality; explicit tool narration stays inside', () => {
+  const toolCalls = [tool('read')];
+  const narration = item('assistant', 'reading', {
+    metadata: { hasToolCalls: true },
+  });
+  const answer = item('assistant', 'answer streaming', {
+    isFinal: false,
+    isProvisional: true,
+  });
+  let parts = partitionTurn([narration, answer], toolCalls, true);
+  assert.deepEqual(parts.output, [answer]);
+  assert.deepEqual(parts.activity, [narration]);
+  answer.isProvisional = false;
+  parts = partitionTurn([narration, answer], toolCalls, true);
+  assert.deepEqual(parts.output, [answer]);
+  answer.isFinal = true;
+  assert.deepEqual(
+    partitionTurn([narration, answer], toolCalls, false).output,
+    [answer],
+  );
+  answer.isFinal = false;
+  answer.metadata = { sessionFinal: false };
+  assert.deepEqual(
+    partitionTurn([narration, answer], toolCalls, true).output,
+    [],
+  );
+  answer.metadata = { stopReason: 'toolUse' };
+  assert.deepEqual(
+    partitionTurn([narration, answer], toolCalls, true).output,
+    [],
+  );
+});

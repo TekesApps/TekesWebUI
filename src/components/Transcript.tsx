@@ -349,11 +349,12 @@ function TranscriptContents({
     <>
       {turns.map((turn) => {
         const turnTools = tools.filter((t) => t.turnId === turn);
+        const live = turn === liveID;
         const { inputs, output, activity } = partitionTurn(
           items.filter((i) => i.turnId === turn),
           turnTools,
+          live,
         );
-        const live = turn === liveID;
         const information = activity.filter((i) =>
           ['system', 'notice', 'error'].includes(i.kind),
         );

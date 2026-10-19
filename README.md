@@ -22,13 +22,13 @@ Tekes App ──────┐
 TekesWebUI ────┘
 ```
 
-This repository owns the browser UI and its view state. It has no threads database,
+This repository owns the browser UI, its view state, and the TypeScript local CLI service. It has no threads database,
 model proxy or simulated model. It consumes the host's public API, so App and browser
 see the same AgentKit endpoints and Harness threads. Closing a tab only releases
 observation; the host continues running the task.
 
-The local Tekes host owns browser authentication, provider credentials, execution
-permissions, and detached startup. AgentKit owns normalized runtime and adapters.
+The local Node.js service in `host/` owns browser authentication, provider credentials,
+execution permissions, native folder selection, and detached startup. AgentKit owns normalized runtime and adapters.
 Neither the Kernel nor native ClientKit views are implemented here.
 
 ## Build
@@ -41,9 +41,22 @@ npm test
 npm run build
 ```
 
-Serve **`dist/`** through the authenticated host using its explicit `--web-root`
-option. The production frontend calls `/api` on the same origin. Open the host's
-browser entry point to authenticate. A static preview alone does not start agents.
+The build produces browser assets in `dist/` and the CLI in `dist-host/`.
+Start the local service and open the authenticated browser entry point:
+
+```sh
+npm run host -- start --agentkit-source /absolute/path/to/TekesAgentKit \
+  --agentkit-binary /absolute/path/to/tekes-agent-web \
+  --kernel-binary-dir /absolute/path/to/BuiltInKernel --port 65150
+npm run host -- open
+npm run host -- status
+npm run host -- stop
+```
+
+See [local service configuration](docs/local-service.md) for the published pins,
+real model settings, credentials, native directory selection and background lifetime.
+No Python or separate host repository is required. The frontend calls `/api` on
+the same origin. A static preview alone does not start agents.
 
 For development against an already running local host:
 
@@ -113,15 +126,16 @@ in `design/brand.json`. Generated token data retains TekesUI's MIT copyright.
 
 ## Project layout
 
-| Path               | Responsibility                                      |
-| ------------------ | --------------------------------------------------- |
-| `src/api.ts`       | Authenticated HTTP and NDJSON observation transport |
-| `src/types.ts`     | AgentKit public service projections                 |
-| `src/workspace.ts` | Browser selection, drafts, receipts and lifecycle   |
-| `src/state.ts`     | Pure grouping, identity and draft helpers           |
-| `src/components/`  | Transcript, tool cards, dialogs and action forms    |
-| `src/App.tsx`      | Workspace composition and navigation                |
-| `src/styles.css`   | Semantic tokens, responsive layout and appearance   |
+| Path               | Responsibility                                            |
+| ------------------ | --------------------------------------------------------- |
+| `host/`            | Local TypeScript CLI, authentication and process lifetime |
+| `src/api.ts`       | Authenticated HTTP and NDJSON observation transport       |
+| `src/types.ts`     | AgentKit public service projections                       |
+| `src/workspace.ts` | Browser selection, drafts, receipts and lifecycle         |
+| `src/state.ts`     | Pure grouping, identity and draft helpers                 |
+| `src/components/`  | Transcript, tool cards, dialogs and action forms          |
+| `src/App.tsx`      | Workspace composition and navigation                      |
+| `src/styles.css`   | Semantic tokens, responsive layout and appearance         |
 
 MIT © TekesApps
 

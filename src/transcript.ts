@@ -224,6 +224,30 @@ export function partitionTurn(items: Item[], tools: Tool[], live = false) {
   );
   return { inputs, output, activity };
 }
+/** Place session items beside their original event, never in a synthetic final turn.
+ * Activity is a collapsed aggregate, so anchors are always visible message/information
+ * rows outside it. Recovery metadata must not participate in chronology.
+ */
+export function sessionItemAnchors(items: Item[], anchors: Item[]) {
+  const anchorIDs = new Set(anchors.map((item) => item.id));
+  const before = new Map<string, Item[]>();
+  const trailing: Item[] = [];
+  // Older adapters and optimistic echoes may omit sequences; their supplied
+  // item order remains authoritative rather than mixing indexes with sequences.
+  const ordered = [...items];
+  if (ordered.every((item) => item.sourceSequence !== undefined))
+    ordered.sort((a, b) => a.sourceSequence! - b.sourceSequence!);
+  let next: string | undefined;
+  for (const item of ordered.reverse()) {
+    if (item.turnId && anchorIDs.has(item.id)) next = item.id;
+    else if (!item.turnId) {
+      const target = next ? before.get(next) || [] : trailing;
+      target.unshift(item);
+      if (next) before.set(next, target);
+    }
+  }
+  return { before, trailing };
+}
 export function liveTurnID(view: View): string | undefined {
   if (
     view.transcript?.isStale ||

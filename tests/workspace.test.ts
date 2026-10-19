@@ -33,6 +33,9 @@ function fixture(
       ? { renamedTitle: String(call.payload.title).trim(), renameSeq: 5 }
       : {}),
   }),
+  picker: (call: Call) => Promise<{ path: string | null }> = async () => ({
+    path: null,
+  }),
 ) {
   const calls: Call[] = [];
   const endpoints: Endpoint[] = ['tekes', 'pi'].map((kind) => ({
@@ -77,7 +80,12 @@ function fixture(
       calls.push(call);
       let value: unknown = {};
       if (call.op === 'endpoints') value = endpoints;
-      else if (call.op === 'host.info') value = { workspace: '/authorized' };
+      else if (call.op === 'host.info')
+        value = {
+          workspace: '/authorized',
+          directoryPicker: { endpoints: ['tekes', 'pi'] },
+        };
+      else if (call.op === 'host.pickDirectory') value = await picker(call);
       else if (call.op === 'follow') {
         const value =
           call.target === 'state'
@@ -498,6 +506,82 @@ test('an older service without action definitions reports an explicit error and 
     assert.equal(w.snapshot().threadActions.size, 0);
     assert.equal(w.snapshot().threadActionErrors.size, 1);
     assert.equal(calls.filter((c) => c.method === 'thread.actions').length, 0);
+  } finally {
+    w.dispose();
+  }
+});
+
+test('native directory selection calls only the local host and cancellation preserves the draft and controls', async (t) => {
+  let selected: string | null = null;
+  const { w, calls } = fixture(t, undefined, undefined, async () => ({
+    path: selected,
+  }));
+  try {
+    await w.connect('browser');
+    await ready(w);
+    w.newSession('/authorized', 'tekes');
+    await ready(w);
+    w.setDraft('unsent');
+    const before = w.snapshot();
+    assert.equal(await w.pickDirectory(), null);
+    assert.equal(w.snapshot().cwd, before.cwd);
+    assert.equal(w.snapshot().draft, 'unsent');
+    assert.deepEqual(w.snapshot().model, before.model);
+    selected = '/chosen/project';
+    assert.equal(await w.pickDirectory(), selected);
+    const picks = calls.filter((c) => c.op === 'host.pickDirectory');
+    assert.equal(picks.length, 2);
+    assert.equal(picks[1].endpoint, 'tekes');
+    assert.equal((picks[1] as unknown as { path: string }).path, '/authorized');
+    assert.equal(
+      calls.filter((c) => c.method?.startsWith('directories.')).length,
+      0,
+    );
+    assert.equal(calls.filter((c) => c.method === 'session.create').length, 0);
+    assert.equal(w.snapshot().directoryPicking, false);
+    w.newSession(selected, 'tekes');
+    await ready(w);
+    w.setDraft('new directory task');
+    await w.submit();
+    assert.equal(
+      calls.find((c) => c.method === 'session.create')!.payload.cwd,
+      selected,
+    );
+    w.newSession('/authorized', 'tekes');
+    await ready(w);
+    assert.equal(w.snapshot().draft, 'unsent');
+  } finally {
+    w.dispose();
+  }
+});
+
+test('an open native folder picker cannot replace a newer destination or open twice', async (t) => {
+  let finish!: (value: { path: string | null }) => void;
+  const { w, calls } = fixture(
+    t,
+    undefined,
+    undefined,
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  try {
+    await w.connect('browser');
+    await ready(w);
+    w.newSession('/authorized', 'tekes');
+    await ready(w);
+    const pick = w.pickDirectory();
+    await ready(w, () => calls.some((c) => c.op === 'host.pickDirectory'));
+    assert.equal(w.snapshot().directoryPicking, true);
+    assert.equal(await w.pickDirectory(), null);
+    w.newSession('/other', 'pi');
+    await ready(w);
+    finish({ path: '/late/result' });
+    assert.equal(await pick, null);
+    assert.equal(w.snapshot().cwd, '/other');
+    assert.equal(w.snapshot().newEndpoint, 'pi');
+    assert.equal(calls.filter((c) => c.op === 'host.pickDirectory').length, 1);
   } finally {
     w.dispose();
   }

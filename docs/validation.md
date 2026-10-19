@@ -363,3 +363,18 @@ descriptors are not part of this repository.
 - Local authenticated public-API reads returned turn fork definitions for real
   DSH, Pi and Kernel history. No model prompt or user-session fork was issued.
   Kernel remains the unchanged 0.9.0 bundle; the native Mac App is untouched.
+
+# v0.1.18 release
+
+- Working-directory selection opens the host's native macOS folder chooser instead
+  of editing an inline path field. AgentKit and Kernel APIs are unchanged.
+- Cancel preserves the current draft, model and path. Duplicate opening is blocked;
+  a late chooser result cannot replace a newer chat or Harness selection.
+- The confirmed local directory is used for new-session creation. Kernel execution
+  retains the existing tool/network policy with read/write roots scoped to that directory.
+- 72 Web tests, formatting, strict TypeScript and production build pass. Host tests
+  cover native chooser cancellation/failure, argument handling and directory grants.
+  Local host API invocation returned cancellation without creating a session or prompt;
+  native dialog interaction and chosen-directory task acceptance remain user verification.
+- Requires the Tekes native-directory host release (`tekes-agent-web/0.1.0`);
+  AgentKit remains pinned to the public v0.3.7 commit and Kernel remains 0.9.0.

@@ -723,33 +723,6 @@ kbd {
 .welcome-footer > span {
   padding: 0 7px;
 }
-.directory-editor {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 14px;
-  margin: -12px 0 20px;
-}
-.directory-editor label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 11px;
-}
-.directory-editor small {
-  display: block;
-  margin-top: 8px;
-  color: var(--secondary);
-  font-size: 10px;
-}
-.directory-editor input {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  font-family: monospace;
-  font-size: 11px;
-  background: var(--canvas);
-}
 .conversation-scroll {
   flex: 1;
   min-height: 0;

@@ -38,19 +38,30 @@ entrance, attachments, disclosure expansion, button feedback and working status.
 Its vocabulary follows the reference's text reveal, message rise, quiet dots and
 status shimmer; it is independently implemented with the existing Sage theme.
 
-`RevealText` immediately renders the full authoritative string. Only appended text
-in live assistant Markdown receives a 320ms opacity/3px blur reveal,
-with at most 60ms staggering. It uses grapheme boundaries (including emoji/ZWJ),
-groups three graphemes per span, bounds each range to 120 graphemes and retains at
-most four active ranges per leaf. Spans are removed after settling. Reconciled
-replacement strings appear immediately. Code stays plain and selectable.
+Live assistant output uses `useTypedText` to advance the Markdown source by whole
+graphemes. Text ahead of the visible frontier is not laid out under an opacity or
+blur overlay. History and authoritative replacements are immediately visible;
+only appended live output is paced. A bounded 96-grapheme tail accelerates when
+network frames coalesce, avoiding an indefinitely delayed display. Pending text
+continues to settle when a run finishes. The original transcript and Copy payload
+are unchanged. Stable Markdown renderers preserve existing semantic nodes.
 
-Initial history does not enter again. Transcript presentation resets on a session
-change; loading older turns does not trigger latest-message entrance. The browser
-reduced-motion preference disables new reveal work, and CSS also disables blur,
-translation, shimmer and animated dots. Increased contrast keeps text fully solid.
-No typing queue, mutation replay, or animation-driven auto-scroll is introduced.
+Reduced motion displays all available text immediately. Backgrounding the page
+flushes pending presentation instead of accumulating work while animation frames
+are suspended. Timers and listeners are removed on settlement and unmount.
+There is no text blur, mutation retry or animation-driven auto-scroll.
 
 Disclosure height transitions use progressive enhancement; browsers lacking
 `interpolate-size` retain the native instant expansion. This is a presentation
 fallback, not a dependency on a particular browser engine.
+
+## Status color and transcript chrome
+
+Status icons use TekesUI's compiled Sage semantic tokens from the immutable public
+package. Running uses `status-running` (amber), completed `status-succeeded`
+(green), failed `status-failed` (red), and cancelled `status-info` (blue). Other
+neutral or waiting states use secondary/warning roles. Glyph shapes and labels
+remain distinct without color, and light/dark/increased-contrast values come
+from the same compiler output. The Web introduces no second color calculation.
+
+The transcript title bar is 44px on desktop and 48px on narrow touch layouts.

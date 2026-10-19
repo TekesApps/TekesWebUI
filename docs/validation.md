@@ -246,3 +246,23 @@ descriptors are not part of this repository.
 - 56 tests and production build pass; existing bundle-size advisory remains.
 - Local browser verified completed, not-started and not-running glyphs. No state
   semantics, model calls, AgentKit, Kernel or native Mac changes are included.
+
+# v0.1.12 release
+
+- Status icon colors come directly from TekesUI's compiled Sage semantic tokens
+  for light, dark and increased contrast: amber running, green completed, red
+  failed and informational blue cancelled. Neutral/waiting states retain their
+  respective semantic roles and distinct shapes.
+- Transcript title bar is 44px on desktop and 48px on narrow layouts.
+- Streamed assistant Markdown now advances a visible grapheme frontier instead
+  of laying out whole packets behind a blur. History/corrections are immediate,
+  coalesced frames have a bounded catch-up tail, and reduced-motion/background
+  transitions flush pending presentation. Original transcript and Copy text
+  remain unchanged.
+- 56 tests and production build pass, including deterministic typing/DOM, Unicode,
+  Markdown node preservation, cleanup and light/dark color contrast checks. The
+  existing bundle-size advisory remains.
+- Local browser checked light/dark semantic colors and measured the actual host
+  page title bar at 44px. Typing was validated with a synthetic frontend stream;
+  no real-model prompt was submitted for this acceptance.
+- AgentKit, Kernel and the native Mac App are unchanged.

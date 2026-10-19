@@ -52,6 +52,12 @@ const roles: Record<string, string> = {
   'action-pressed': 'action-primary-pressed',
   'accent-foreground': 'action-primary-foreground',
   'accent-subtle': 'accent-subtle-ground',
+  'status-running': 'status-running',
+  'status-succeeded': 'status-succeeded',
+  'status-failed': 'status-failed',
+  'status-info': 'status-info',
+  'status-waiting': 'warning-foreground',
+  'status-neutral': 'secondary-text',
 };
 const themes = Object.fromEntries(
   sage.color.themes.map((theme) => [

@@ -21,3 +21,23 @@ export function statusGroupIcon(group: string): IconName {
     (statusIcons as Record<string, IconName>)[status] || statusIcons.unknown
   );
 }
+
+/** Cancellation is informational, not failure; neutral states remain quiet. */
+export const statusColorRoles = {
+  running: 'status-running',
+  queued: 'status-running',
+  waitingForInput: 'status-waiting',
+  completed: 'status-succeeded',
+  notStarted: 'status-neutral',
+  failed: 'status-failed',
+  cancelled: 'status-info',
+  idle: 'status-neutral',
+  unknown: 'status-neutral',
+  stale: 'status-waiting',
+} as const satisfies Record<keyof typeof statusIcons, string>;
+export function statusGroupColor(group: string): string {
+  return (
+    (statusColorRoles as Record<string, string>)[group.slice(7)] ||
+    'status-neutral'
+  );
+}

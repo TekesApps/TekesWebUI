@@ -1,12 +1,5 @@
 import { t, useLocale, intlLocale } from '../i18n';
-import {
-  Children,
-  createElement,
-  memo,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from 'react';
+import { memo, useState, useSyncExternalStore } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,7 +10,7 @@ import type { Address } from '../types';
 import type { Annotation } from '../annotations';
 import { AnnotationList, ComposerAnnotations } from './Annotations';
 import { AttachmentCards } from './ui/AttachmentCards';
-import { RevealText, TextMotion } from './ui/RevealText';
+import { useTypedText } from './ui/useTypedText';
 import { CopyButton } from './ui/CopyButton';
 import { Activity, Information, ToolRows } from './TranscriptActivity';
 import {
@@ -28,44 +21,28 @@ import {
   visibleItem,
 } from '../transcript';
 
-function revealChildren(children: ReactNode) {
-  return Children.map(children, (child) =>
-    typeof child === 'string' && child.trim() ? (
-      <RevealText text={child} />
+// Stable Markdown component identities avoid remounting links and code during each typing step.
+const markdownComponents: Components = {
+  a: ({ href, children }) =>
+    href ? (
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
     ) : (
-      child
+      <span>{children}</span>
     ),
-  );
-}
-// Stable component identities prevent a growing Markdown leaf from remounting.
-const textComponents = Object.fromEntries(
-  [
-    'p',
-    'li',
-    'strong',
-    'em',
-    'del',
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'h5',
-    'h6',
-    'th',
-    'td',
-    'blockquote',
-  ].map((tag) => [
-    tag,
-    ({
-      children,
-      node: _node,
-      ...props
-    }: {
-      children?: ReactNode;
-      node?: unknown;
-    }) => createElement(tag, props, revealChildren(children)),
-  ]),
-) as Components;
+  img: ({ alt }) => (
+    <span className="attachment-note">
+      <FileText size={14} />
+      {alt || t('图片附件')}
+    </span>
+  ),
+  pre: ({ children }) => (
+    <div className="code-block">
+      <pre>{children}</pre>
+    </div>
+  ),
+};
 const reducedQuery = '(prefers-reduced-motion: reduce)';
 function subscribeMotion(listener: () => void) {
   const media = window.matchMedia(reducedQuery);
@@ -80,6 +57,7 @@ const Message = memo(function Message({
   item,
   fresh,
   streaming,
+  motionEnabled,
   process = false,
   address,
   annotations,
@@ -89,6 +67,7 @@ const Message = memo(function Message({
   item: Item;
   fresh: boolean;
   streaming: boolean;
+  motionEnabled: boolean;
   process?: boolean;
   address: Address;
   annotations?: Annotation[];
@@ -96,6 +75,7 @@ const Message = memo(function Message({
   onRemoveAnnotation?: (id: string) => void;
 }) {
   useLocale();
+  const typedText = useTypedText(item.text, streaming, fresh, motionEnabled);
   const input =
     item.kind === 'user'
       ? {
@@ -104,114 +84,91 @@ const Message = memo(function Message({
         }
       : null;
   return (
-    <TextMotion.Provider value={{ streaming, fresh }}>
-      <article
-        data-message-id={item.id}
-        data-turn-id={item.turnId}
-        data-message-kind={item.kind}
-        className={`message ${item.kind} ${fresh ? 'message-enter' : ''} ${process ? 'message-narration' : ''}`}
-        title={formatTimestamp(item.time) || undefined}
-      >
-        {item.kind === 'assistant' && !process && !!item.time && (
-          <div className="message-author">
-            {item.time && (
-              <time
-                className="message-time"
-                dateTime={new Date(timestampMillis(item.time)).toISOString()}
-              >
-                {new Date(timestampMillis(item.time)).toLocaleTimeString(
-                  intlLocale(),
-                  { hour: '2-digit', minute: '2-digit', hour12: false },
-                )}
-              </time>
-            )}
-          </div>
-        )}
-        {item.kind === 'user' ? (
-          <>
-            <div className="user-bubble">
-              {!!input?.annotations.length && (
-                <details className="message-annotations">
-                  <summary>
-                    {t('批注 · ')}
-                    {input.annotations.length}
-                  </summary>
-                  <AnnotationList
-                    annotations={input.annotations}
-                    address={address}
-                  />
-                </details>
-              )}
-              {input?.body && <div data-annotation-text>{input.body}</div>}
-              {!!item.attachments?.length && (
-                <AttachmentCards attachments={item.attachments} />
-              )}
-            </div>
-            {item.time && (
-              <time
-                className="message-time"
-                dateTime={new Date(timestampMillis(item.time)).toISOString()}
-              >
-                {formatTimestamp(item.time)}
-              </time>
-            )}
-          </>
-        ) : (
-          <div className="markdown" data-annotation-text>
-            <Markdown
-              remarkPlugins={[remarkGfm]}
-              urlTransform={(url) => safeLink(url) || ''}
-              components={{
-                ...textComponents,
-                a: ({ href, children }) =>
-                  href ? (
-                    <a href={href} target="_blank" rel="noopener noreferrer">
-                      {revealChildren(children)}
-                    </a>
-                  ) : (
-                    <span>{children}</span>
-                  ),
-                img: ({ alt }) => (
-                  <span className="attachment-note">
-                    <FileText size={14} />
-                    {alt || t('图片附件')}
-                  </span>
-                ),
-                pre: ({ children }) => (
-                  <div className="code-block">
-                    <pre>{children}</pre>
-                  </div>
-                ),
-              }}
+    <article
+      data-message-id={item.id}
+      data-turn-id={item.turnId}
+      data-message-kind={item.kind}
+      className={`message ${item.kind} ${fresh ? 'message-enter' : ''} ${process ? 'message-narration' : ''}`}
+      title={formatTimestamp(item.time) || undefined}
+    >
+      {item.kind === 'assistant' && !process && !!item.time && (
+        <div className="message-author">
+          {item.time && (
+            <time
+              className="message-time"
+              dateTime={new Date(timestampMillis(item.time)).toISOString()}
             >
-              {item.text}
-            </Markdown>
-          </div>
-        )}
-        {item.kind !== 'user' && !!item.attachments?.length && (
-          <AttachmentCards attachments={item.attachments} />
-        )}
-        {item.text && item.kind !== 'user' && (
-          <div className="message-actions">
-            <CopyButton text={item.text} />
-          </div>
-        )}
-        {onSaveAnnotation && onRemoveAnnotation && (
-          <ComposerAnnotations
-            annotations={(annotations || []).filter(
-              (a) =>
-                a.sourceLocator?.itemId === item.id &&
-                a.sourceLocator?.turnId === item.turnId &&
-                a.sourceLocator?.endpoint === address.endpoint &&
-                a.sourceLocator?.sessionId === address.sessionId,
+              {new Date(timestampMillis(item.time)).toLocaleTimeString(
+                intlLocale(),
+                { hour: '2-digit', minute: '2-digit', hour12: false },
+              )}
+            </time>
+          )}
+        </div>
+      )}
+      {item.kind === 'user' ? (
+        <>
+          <div className="user-bubble">
+            {!!input?.annotations.length && (
+              <details className="message-annotations">
+                <summary>
+                  {t('批注 · ')}
+                  {input.annotations.length}
+                </summary>
+                <AnnotationList
+                  annotations={input.annotations}
+                  address={address}
+                />
+              </details>
             )}
-            address={address}
-            onSave={onSaveAnnotation}
-            onRemove={onRemoveAnnotation}
-          />
-        )}
-      </article>
-    </TextMotion.Provider>
+            {input?.body && <div data-annotation-text>{input.body}</div>}
+            {!!item.attachments?.length && (
+              <AttachmentCards attachments={item.attachments} />
+            )}
+          </div>
+          {item.time && (
+            <time
+              className="message-time"
+              dateTime={new Date(timestampMillis(item.time)).toISOString()}
+            >
+              {formatTimestamp(item.time)}
+            </time>
+          )}
+        </>
+      ) : (
+        <div className="markdown" data-annotation-text>
+          <Markdown
+            remarkPlugins={[remarkGfm]}
+            urlTransform={(url) => safeLink(url) || ''}
+            components={markdownComponents}
+          >
+            {typedText}
+          </Markdown>
+        </div>
+      )}
+      {item.kind !== 'user' && !!item.attachments?.length && (
+        <AttachmentCards attachments={item.attachments} />
+      )}
+      {item.text && item.kind !== 'user' && (
+        <div className="message-actions">
+          <CopyButton text={item.text} />
+        </div>
+      )}
+      {onSaveAnnotation && onRemoveAnnotation && (
+        <ComposerAnnotations
+          annotations={(annotations || []).filter(
+            (a) =>
+              a.sourceLocator?.itemId === item.id &&
+              a.sourceLocator?.turnId === item.turnId &&
+              a.sourceLocator?.endpoint === address.endpoint &&
+              a.sourceLocator?.sessionId === address.sessionId,
+          )}
+          address={address}
+          onSave={onSaveAnnotation}
+          onRemove={onRemoveAnnotation}
+        />
+      )}
+    </article>
   );
 });
 interface TranscriptProps {
@@ -266,6 +223,7 @@ function TranscriptContents({
         address={view}
         item={item}
         process={process || item.kind === 'narration'}
+        motionEnabled={!reduced}
         fresh={!reduced && item.turnId === liveID && !baseline.has(item.id)}
         streaming={
           !reduced &&

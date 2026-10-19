@@ -7,6 +7,12 @@
   --action-pressed: #395936;
   --accent-foreground: #FFFFFF;
   --accent-subtle: #ECFAEB;
+  --status-running: #8A4B00;
+  --status-succeeded: #21633F;
+  --status-failed: #A42F35;
+  --status-info: #285B8D;
+  --status-waiting: #A03C00;
+  --status-neutral: #525252;
 }
 :root[data-theme="dark"] {
   --brand-seed: #7FA27B;
@@ -16,6 +22,12 @@
   --action-pressed: #AFD3AA;
   --accent-foreground: #000000;
   --accent-subtle: #141D13;
+  --status-running: #F5BE74;
+  --status-succeeded: #96D9AC;
+  --status-failed: #FFB1B1;
+  --status-info: #A8D1FF;
+  --status-waiting: #FFA85C;
+  --status-neutral: #A3A3A3;
 }
 @media (prefers-contrast: more) {
 :root {
@@ -26,6 +38,12 @@
   --action-pressed: #21411F;
   --accent-foreground: #FFFFFF;
   --accent-subtle: #E9F6E7;
+  --status-running: #663400;
+  --status-succeeded: #124C2B;
+  --status-failed: #7D1421;
+  --status-info: #143F6B;
+  --status-waiting: #762B00;
+  --status-neutral: #2F2D29;
 }
 :root[data-theme="dark"] {
   --brand-seed: #7FA27B;
@@ -35,5 +53,11 @@
   --action-pressed: #CBF1C7;
   --accent-foreground: #000000;
   --accent-subtle: #10190F;
+  --status-running: #FFE1B8;
+  --status-succeeded: #BDFFD2;
+  --status-failed: #FFD0D4;
+  --status-info: #D1E7FF;
+  --status-waiting: #FFD29B;
+  --status-neutral: #F4EEE2;
 }
 }

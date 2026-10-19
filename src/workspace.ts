@@ -1,4 +1,4 @@
-import { t } from './i18n';
+import { t, getLocale } from './i18n';
 import type {
   ThreadActionsPresentation,
   ThreadActionRequest,
@@ -52,6 +52,8 @@ export interface WorkspaceState {
   selected: Address | null;
   view: View | null;
   hostWorkspace: string;
+  directoryEndpoints: string[];
+  directoryPicking: boolean;
   newEndpoint: string;
   cwd: string;
   models: Model[];
@@ -82,6 +84,8 @@ export class Workspace {
     selected: null,
     view: null,
     hostWorkspace: '',
+    directoryEndpoints: [],
+    directoryPicking: false,
     newEndpoint: '',
     cwd: '',
     models: [],
@@ -214,7 +218,10 @@ export class Workspace {
     try {
       const [endpoints, info] = await Promise.all([
         client.unary<Endpoint[]>({ op: 'endpoints' }),
-        client.unary<{ workspace: string }>({ op: 'host.info' }),
+        client.unary<{
+          workspace: string;
+          directoryPicker?: { endpoints: string[] };
+        }>({ op: 'host.info' }),
       ]);
       if (epoch !== this.bootEpoch) return;
       try {
@@ -230,6 +237,8 @@ export class Workspace {
         threadActions: new Map(),
         threadActionErrors: new Map(),
         hostWorkspace: info.workspace,
+        directoryEndpoints: info.directoryPicker?.endpoints || [],
+        directoryPicking: false,
         presets: new Map(),
       });
       let remembered: Address | null = null;
@@ -299,6 +308,60 @@ export class Workspace {
     }
   }
 
+  async pickDirectory(): Promise<string | null> {
+    const {
+      newEndpoint: endpoint,
+      cwd,
+      selected,
+      directoryPicking,
+    } = this.state;
+    if (selected || directoryPicking) return null;
+    if (!this.state.directoryEndpoints.includes(endpoint)) {
+      this.fail(
+        new Error(t('当前宿主尚未提供本地目录选择，请更新宿主后重新连接。')),
+      );
+      return null;
+    }
+    const epoch = this.epoch,
+      boot = this.bootEpoch;
+    this.update({ directoryPicking: true, error: '' });
+    try {
+      const result = await this.clientOrThrow().unary<{ path: string | null }>({
+        op: 'host.pickDirectory',
+        endpoint,
+        path: cwd,
+        language: getLocale(),
+      });
+      if (
+        epoch !== this.epoch ||
+        this.state.selected ||
+        this.state.newEndpoint !== endpoint
+      )
+        return null;
+      if (
+        result.path !== null &&
+        (typeof result.path !== 'string' || !result.path.startsWith('/'))
+      )
+        throw new Error(t('宿主返回的目录无效，请重新选择。'));
+      return result.path;
+    } catch (error) {
+      if (epoch === this.epoch) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.fail(
+          new Error(
+            message.includes('directory picker is already open')
+              ? t('已有目录选择窗口打开，请先完成或取消该窗口。')
+              : message.includes('Unable to open the local directory picker')
+                ? t('无法打开本地目录选择框，请重试。')
+                : message,
+          ),
+        );
+      }
+      return null;
+    } finally {
+      if (boot === this.bootEpoch) this.update({ directoryPicking: false });
+    }
+  }
   newSession = (
     cwd = this.state.hostWorkspace,
     endpoint = this.state.newEndpoint || this.state.endpoints[0]?.id || '',

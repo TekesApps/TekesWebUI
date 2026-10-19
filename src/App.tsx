@@ -80,7 +80,6 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     preference('tekes.web.appearance') || 'system',
   );
   const [token, setToken] = useState(''),
-    [directory, setDirectory] = useState(false),
     [help, setHelp] = useState(false);
   const [atBottom, setAtBottom] = useState(true),
     [historyBusy, setHistoryBusy] = useState(false);
@@ -180,7 +179,6 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const newSession = (path?: string, endpoint?: string) => {
     w.newSession(path, endpoint);
     setMobile(false);
-    setDirectory(false);
     requestAnimationFrame(() => prompt.current?.focus());
   };
   function submit(event?: FormEvent) {
@@ -306,35 +304,30 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               <div className="workspace-context">
                 <button
                   className="directory-toggle"
-                  aria-expanded={directory}
-                  onClick={() => setDirectory(!directory)}
+                  aria-haspopup="dialog"
+                  aria-label={t('选择工作目录')}
+                  title={s.cwd}
+                  disabled={s.directoryPicking}
+                  onClick={async () => {
+                    const path = await w.pickDirectory();
+                    if (path && path !== s.cwd) newSession(path, s.newEndpoint);
+                  }}
                 >
-                  <Folder size={14} />
-                  <span>{folderName(s.cwd)}</span>
+                  {s.directoryPicking ? (
+                    <LoaderCircle size={14} className="spin" />
+                  ) : (
+                    <Folder size={14} />
+                  )}
+                  <span>
+                    {s.directoryPicking
+                      ? t('正在选择目录…')
+                      : folderName(s.cwd)}
+                  </span>
                   <ChevronDown size={12} />
                 </button>
                 <span className="context-separator" />
                 {t('本地工作空间')}
               </div>
-              {directory && (
-                <div className="directory-editor">
-                  <label htmlFor="cwd">{t('工作目录')}</label>
-                  <input
-                    id="cwd"
-                    aria-label={t('工作目录')}
-                    defaultValue={s.cwd}
-                    key={s.cwd}
-                    onBlur={(e) => {
-                      if (e.target.value.trim() !== s.cwd)
-                        newSession(e.target.value.trim(), s.newEndpoint);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.currentTarget.blur();
-                    }}
-                  />
-                  <small>{t('使用当前 Agent 获授权访问的目录。')}</small>
-                </div>
-              )}
               <div className="suggestions">
                 <button
                   onClick={() => {

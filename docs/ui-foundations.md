@@ -150,3 +150,16 @@ ClientKit target/callback still defines Fork, although its current
 `rawOutputNodes` does not insert that control; the Web implementation follows its
 completed-turn capability and through-turn command semantics, rather than copying
 that omission.
+
+## Local working-directory selection
+
+The new-chat directory button opens the local macOS folder chooser through the
+Tekes host's authenticated `host.pickDirectory` operation. AgentKit has no added
+file or directory browsing API. Cancel leaves the draft, model and working path
+unchanged. An in-flight chooser disables repeated opening, and its result cannot
+replace a newer chat or Harness selection.
+
+The host advertises only its local Harness IDs. A successful native selection
+admits the canonical directory; Kernel session creation scopes the execution
+read/write roots to that directory while retaining the existing tool/network
+policy. No directory selection starts a model or creates a session by itself.

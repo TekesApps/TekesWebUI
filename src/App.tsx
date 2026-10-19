@@ -37,6 +37,7 @@ import { ActionCard } from './components/ActionCard';
 import { Dialog } from './components/Dialog';
 import { Composer } from './components/Composer';
 import { Sidebar } from './components/Sidebar';
+import { SidebarDivider } from './components/SidebarDivider';
 import {
   Menu as PopupMenu,
   MenuItem,
@@ -234,6 +235,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
           setMobile(false);
         }}
       />
+      {sidebar && <SidebarDivider />}
       <main className="main">
         <header className="topbar">
           <button

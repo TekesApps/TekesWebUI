@@ -267,7 +267,6 @@ descriptors are not part of this repository.
   no real-model prompt was submitted for this acceptance.
 - AgentKit, Kernel and the native Mac App are unchanged.
 
-
 # v0.1.13 release
 
 - The sidebar brand displays the package version beside Tekes.

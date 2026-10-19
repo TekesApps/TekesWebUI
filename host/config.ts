@@ -11,7 +11,7 @@ export const KERNEL_PIN = {
   repository: 'https://github.com/TekesApps/TekesKernel.git',
   tag: 'v0.9.2',
   version: '0.9.2',
-  revision: '9187e170e4702993944740cd501cfe781f4a22ae',
+  revision: '2fa2d10918fe66a95ce7c8d005dd29e19c9c4ad8',
 };
 export interface Model {
   id: string;

@@ -378,3 +378,20 @@ test('live answer is outside tools before finality; explicit tool narration stay
     [],
   );
 });
+
+test('recovered worker launch notice keeps original text and renders recovery status', () => {
+  const message = 'The worker could not be started: worker hello timed out';
+  const html = renderToStaticMarkup(
+    createElement(Transcript, {
+      view: view([
+        item('notice', message, {
+          metadata: { classification: 'worker_launch', status: 'recovered' },
+        }),
+      ]),
+    }),
+  );
+  assert.ok(html.includes('已恢复'));
+  assert.ok(html.includes(message));
+  assert.ok(html.includes('transcript-notice recovered'));
+  assert.ok(!html.includes('transcript-notice failure'));
+});

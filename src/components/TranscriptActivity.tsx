@@ -51,15 +51,26 @@ export function Information({ item }: { item: Item }) {
       </details>
     );
   if (item.kind === 'notice' || item.kind === 'error') {
+    const recovered = object(item.metadata).status === 'recovered';
     const failure =
-      item.kind === 'error' || object(item.metadata).status === 'error';
+      !recovered &&
+      (item.kind === 'error' || object(item.metadata).status === 'error');
     return (
       <div
-        className={`transcript-notice ${failure ? 'failure' : 'warning'}`}
+        className={`transcript-notice ${recovered ? 'recovered' : failure ? 'failure' : 'warning'}`}
         role="note"
       >
-        {failure ? <AlertCircle size={15} /> : <Info size={15} />}
-        <div>{item.text}</div>
+        {recovered ? (
+          <Check size={15} />
+        ) : failure ? (
+          <AlertCircle size={15} />
+        ) : (
+          <Info size={15} />
+        )}
+        <div>
+          {recovered && <strong>{t('已恢复')} · </strong>}
+          {item.text}
+        </div>
       </div>
     );
   }

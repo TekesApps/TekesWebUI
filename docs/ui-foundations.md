@@ -65,3 +65,15 @@ remain distinct without color, and light/dark/increased-contrast values come
 from the same compiler output. The Web introduces no second color calculation.
 
 The transcript title bar is 44px on desktop and 48px on narrow touch layouts.
+
+## Message timestamps
+
+Output timestamps follow Copy in the bottom action row, matching ClientKit’s
+output footnote lane, and appear on message hover or keyboard focus. Completed
+turns prefer the authoritative end time; unfinished output has no finish caption.
+Hovering or focusing a timestamp shows full date/time through seconds in the
+shared delayed tooltip. Both input and output captions use
+Today/Yesterday, weekday within seven calendar days, then month/day, with HH:mm.
+Calendar boundaries follow the browser's local timezone, including DST. Relative
+labels refresh across midnight and when the window regains focus; missing dates
+never become fabricated timestamps. Chinese and English retain the same rules.

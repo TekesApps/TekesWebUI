@@ -266,3 +266,18 @@ descriptors are not part of this repository.
   page title bar at 44px. Typing was validated with a synthetic frontend stream;
   no real-model prompt was submitted for this acceptance.
 - AgentKit, Kernel and the native Mac App are unchanged.
+
+
+# v0.1.13 release
+
+- The sidebar brand displays the package version beside Tekes.
+- Output time follows Copy in the bottom action row and appears on message hover
+  or keyboard focus. Completed output prefers the authoritative turn end time;
+  unfinished output does not show a finish caption.
+- Input and output captions use Today/Yesterday, weekday through seven calendar
+  days, then month/day, with HH:mm. Chinese/English, timezone boundaries, DST,
+  midnight refresh, invalid/missing timestamps and exact-time tooltips are covered.
+- 60 tests and the production build pass; the existing bundle-size advisory remains.
+- The local authenticated browser verified footer captions and the exact-time
+  keyboard tooltip against existing real conversation data. No model prompt was
+  submitted. AgentKit, Kernel and the native Mac App are unchanged.

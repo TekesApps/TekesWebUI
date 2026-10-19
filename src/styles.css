@@ -906,6 +906,8 @@ kbd {
 .message-actions {
   margin-top: 12px;
   display: flex;
+  align-items: center;
+  gap: 8px;
   opacity: 0.5;
 }
 .message:hover .message-actions,

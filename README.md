@@ -31,32 +31,32 @@ The local Node.js service in `host/` owns browser authentication, provider crede
 execution permissions, native folder selection, and detached startup. AgentKit owns normalized runtime and adapters.
 Neither the Kernel nor native ClientKit views are implemented here.
 
-## Build
+## Install and run
 
-Use Node.js 22.12+ (or 20.19+).
+Use Node.js 22.12+ (or 20.19+) on macOS Apple Silicon.
 
 ```sh
 npm ci
-npm test
-npm run build
+npm run setup
+npm start
 ```
 
-The build produces browser assets in `dist/` and the CLI in `dist-host/`.
-Start the local service and open the authenticated browser entry point:
+Setup downloads the published UI, CLI, AgentKit and Kernel binaries, imports your
+existing Tekes settings, and saves the provider key in macOS Keychain. No Rust
+compiler or local source/binary paths are required. If Tekes settings are absent,
+setup guides you through the real Responses endpoint, model IDs and key.
 
 ```sh
-npm run host -- start --agentkit-source /absolute/path/to/TekesAgentKit \
-  --agentkit-binary /absolute/path/to/tekes-agent-web \
-  --kernel-binary-dir /absolute/path/to/BuiltInKernel --port 65150
-npm run host -- open
-npm run host -- status
-npm run host -- stop
+npm stop         # Stop the background service
+npm run status   # Show status
+npm run open     # Open the authenticated browser again
+npm run update   # Install the latest release, retaining rollback
 ```
 
-See [local service configuration](docs/local-service.md) for the published pins,
-real model settings, credentials, native directory selection and background lifetime.
-No Python or separate host repository is required. The frontend calls `/api` on
-the same origin. A static preview alone does not start agents.
+Starting an already running service opens the browser without a second process.
+Closing the browser or terminal leaves tasks running. Pi reuses its installed
+runtime; DSH connects to an existing service. See [the local service guide](docs/local-service.md)
+for platform support, authentication, configuration, updates and development builds.
 
 For development against an already running local host:
 

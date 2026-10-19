@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  cp,
+  readdir,
   mkdtemp,
   realpath,
   mkdir,
@@ -14,6 +16,12 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { KERNEL_PIN, sha256 } from '../host/config.js';
 import { alive, delay } from '../host/private.js';
+import {
+  saveInstallation,
+  releaseOptions,
+  type BundleManifest,
+} from '../host/install.js';
+import type { Options } from '../host/runtime.js';
 import type { Ready } from '../host/runtime.js';
 const exec = promisify(execFile);
 
@@ -166,6 +174,86 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
         false,
       );
       await invoke('stop');
+      // The daily wrapper consumes the installed configuration, with no source/binary paths.
+      const release = join(root, 'installed-release');
+      await mkdir(release);
+      await cp(resolve('dist-host'), join(release, 'dist-host'), {
+        recursive: true,
+      });
+      await cp(resolve('package.json'), join(release, 'package.json'));
+      await cp(web, join(release, 'dist'), { recursive: true });
+      await mkdir(join(release, 'runtime/agentkit'), { recursive: true });
+      await cp(bridge, join(release, 'runtime/agentkit/tekes-agent-web'));
+      await cp(binary, join(release, 'runtime/kernel'), { recursive: true });
+      const files: BundleManifest['files'] = {};
+      async function inventory(relative = ''): Promise<void> {
+        for (const entry of await readdir(join(release, relative), {
+          withFileTypes: true,
+        })) {
+          const path = relative ? relative + '/' + entry.name : entry.name;
+          if (entry.isDirectory()) await inventory(path);
+          else
+            files[path] = {
+              sha256: sha256(await readFile(join(release, path))),
+              executable: false,
+            };
+        }
+      }
+      await inventory();
+      const manifestText = JSON.stringify({
+        version: '0.1.20',
+        platform: `${process.platform}-${process.arch}`,
+        files,
+      });
+      await writeFile(join(release, 'bundle-manifest.json'), manifestText);
+      const installed = {
+        directory: release,
+        version: '0.1.20',
+        platform: `${process.platform}-${process.arch}`,
+        manifestHash: sha256(Buffer.from(manifestText)),
+      };
+      const oldOptions = JSON.parse(
+        await readFile(join(runtime, 'start-options.json'), 'utf8'),
+      ) as Options;
+      await saveInstallation(runtime, {
+        format: 1,
+        current: installed,
+        options: releaseOptions(runtime, installed, oldOptions),
+      });
+      const daily = (command: string) =>
+        exec(
+          process.execPath,
+          [
+            resolve('scripts/manage.mjs'),
+            command,
+            '--runtime-dir',
+            runtime,
+            ...(command === 'start' ? ['--no-open'] : []),
+          ],
+          {
+            timeout: 20000,
+            env: {
+              ...process.env,
+              TEKES_FIXTURE_KEY: 'fixture-private-pipe-value',
+            },
+          },
+        );
+      await daily('start');
+      ready = JSON.parse(
+        await readFile(join(runtime, 'ready.json'), 'utf8'),
+      ) as Ready;
+      const instance = ready.instance;
+      await daily('start');
+      assert.equal(
+        JSON.parse(await readFile(join(runtime, 'ready.json'), 'utf8'))
+          .instance,
+        instance,
+      );
+      assert.equal(
+        JSON.parse((await daily('status')).stdout).instance,
+        instance,
+      );
+      await daily('stop');
       assert.equal(JSON.parse((await invoke('status')).stdout).running, false);
       for (let n = 0; n < 50 && alive(ready.pid); n++) await delay(10);
       assert.equal(alive(ready.pid), false);

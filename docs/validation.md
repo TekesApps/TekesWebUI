@@ -395,3 +395,24 @@ descriptors are not part of this repository.
   Strict TypeScript, browser build, service compilation and formatting passed.
 - Process fixtures exercise lifecycle only; they do not run models or establish
   native dialog/browser UX acceptance. Actual directory selection remains manual.
+
+## v0.1.20 — managed installation and path-free daily commands
+
+- `setup` installs a checksum-verified macOS arm64 release containing the compiled
+  UI/CLI and exact AgentKit 0.3.7 / Kernel 0.9.0 binaries. It imports existing
+  settings/data locations and stores the provider key in WebUI's macOS Keychain
+  service. No source checkout paths, Rust build or credential environment are
+  required for ordinary subsequent starts.
+- `npm start` opens the existing service or starts the installed bundle and opens
+  its authenticated entry point. Stop/status/open/update use the private saved
+  configuration. Update stages before activation, defers while work is active,
+  and restores the previous configuration on startup failure.
+- 87 local tests passed, including the real optimized AgentKit pipe, installed
+  path-free CLI lifecycle, repeated-start idempotency, archive/hash/path rejection,
+  update rollback and active-work guards. Actual macOS Keychain stdin roundtrip
+  passed and the test item was removed. Strict TypeScript, production UI/CLI/manager
+  builds and formatting passed. The real macOS arm64 bundle staged and validated.
+- Distribution currently targets macOS Apple Silicon. Pi still reuses its installed
+  runtime and starts stdio RPC processes on demand; DSH remains an existing service.
+  No AgentKit/Kernel/native App code changed. Browser/native-dialog and real model
+  acceptance remain separate manual checks.

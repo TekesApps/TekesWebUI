@@ -5,3 +5,5 @@ src/theme/brand.css
 design/brand.json
 
 dist-host/
+
+release-artifacts/

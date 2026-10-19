@@ -41,6 +41,8 @@ import {
   type Ready,
 } from './runtime.js';
 
+import { providerCredential } from './credentials.js';
+
 const CLI = fileURLToPath(import.meta.url);
 const PROJECT = resolve(dirname(CLI), '..');
 const SUPPORT = join(homedir(), 'Library/Application Support/Tekes');
@@ -86,17 +88,15 @@ async function start(options: Options): Promise<void> {
   const root = options.runtimeDir;
   if (await active(root))
     throw new Error('Host is already running; use status or open');
-  if (
-    !options.agentkitBinary ||
-    !options.agentkitSource ||
-    !options.kernelBinaryDir
-  )
+  if (!options.agentkitBinary || !options.kernelBinaryDir)
     throw new Error(
-      'start requires explicit --agentkit-source, --agentkit-binary and --kernel-binary-dir',
+      'Run npm run setup first, or supply --agentkit-binary and --kernel-binary-dir',
     );
   options.webRoot = await realpath(options.webRoot);
   await readFile(join(options.webRoot, 'index.html'));
-  options.agentkitSource = await realpath(options.agentkitSource);
+  options.agentkitSource = await realpath(
+    options.agentkitSource || dirname(options.agentkitBinary),
+  );
   options.agentkitBinary = await realpath(options.agentkitBinary);
   options.kernelBinaryDir = await realpath(options.kernelBinaryDir);
   await verifyKernel(options.kernelBinaryDir);
@@ -122,11 +122,10 @@ async function start(options: Options): Promise<void> {
     options.kernelDataRoot,
     options.kernelBinaryDir,
   );
-  const credential = process.env[options.credentialEnv]?.trim();
-  if (!credential)
-    throw new Error(
-      'Selected provider credential unavailable; supply the named credential environment',
-    );
+  const credential = await providerCredential(
+    options.credentialEnv,
+    provider.id,
+  );
   const endpoints: Frame['endpoints'] = [];
   const registry = await readFile(options.piRegistry).then(
     () => true,
@@ -246,7 +245,7 @@ async function main(): Promise<void> {
   const command = positionals[0];
   if (values.help || !command) {
     console.log(
-      'TekesWebUI local service: start | status | open | stop\nstart --agentkit-source PATH --agentkit-binary PATH --kernel-binary-dir PATH [--port 65150]\nSee docs/local-service.md for configuration.',
+      'TekesWebUI: npm run setup; npm start; npm stop; npm run status; npm run open; npm run update\nDevelopment CLI: start --agentkit-binary PATH --kernel-binary-dir PATH [--port 65150]\nSee docs/local-service.md for configuration.',
     );
     return;
   }
@@ -299,6 +298,15 @@ async function main(): Promise<void> {
   }
   if (command !== 'start')
     throw new Error('Unknown command; use start, status, open or stop');
+  if (!values['agentkit-binary'] && !values['kernel-binary-dir']) {
+    const saved = JSON.parse(
+      await readPrivate(join(root, 'installation.json')),
+    ) as { format: number; options: Options };
+    if (saved.format !== 1)
+      throw new Error('Run npm run setup to configure this installation');
+    await start({ ...saved.options, runtimeDir: root });
+    return;
+  }
   const port = Number(values.port);
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error('Invalid loopback port');

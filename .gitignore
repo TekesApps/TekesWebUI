@@ -7,3 +7,5 @@ coverage/
 *.local
 
 dist-host/
+
+release-artifacts/

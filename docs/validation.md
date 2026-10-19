@@ -309,3 +309,10 @@ descriptors are not part of this repository.
   cover real-report projection semantics. Test reports are controlled fixtures,
   not evidence of provider report cadence. Pi currently lacks live reports; DSH
   depends on its upstream stream. Kernel remains the unchanged 0.9.0 bundle.
+
+- Deployed real-model check: the configured `deepseek-v4-pro` returned a real live
+  usage report of 85 output tokens through the authenticated Web subscription,
+  then settled to idle without observer errors. This short request reported once;
+  it does not establish per-token or continuous provider usage updates. The Web
+  does not fill gaps with invented increments. Browser version v0.1.15 was checked;
+  the numeric transition itself is covered by the controlled DOM test.

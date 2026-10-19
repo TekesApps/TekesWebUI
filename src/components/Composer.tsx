@@ -322,7 +322,16 @@ export function Composer({
               </button>
             </Tooltip>
           </div>
-          <div className="composer-model-controls">
+          <div
+            className={`composer-model-controls ${s.busy ? 'submitting' : ''}`}
+            aria-busy={s.busy}
+          >
+            {s.busy && (
+              <div className="composer-progress" role="status">
+                <LoaderCircle size={12} className="spin" />
+                <span>{t(s.submissionStage || '正在发送')}</span>
+              </div>
+            )}
             <ChoiceMenu
               label={s.modelLoading ? t('读取模型…') : t('模型')}
               value={
@@ -382,12 +391,12 @@ export function Composer({
             )}
           </div>
         </div>
-        {(s.busy || s.controlsError) && (
+        {s.controlsError && (
           <div
             className={`composer-feedback ${s.controlsError ? 'error' : ''}`}
             role="status"
           >
-            {t(s.controlsError || s.submissionStage || '')}
+            {t(s.controlsError)}
           </div>
         )}
       </form>

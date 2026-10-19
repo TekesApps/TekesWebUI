@@ -280,3 +280,15 @@ descriptors are not part of this repository.
 - The local authenticated browser verified footer captions and the exact-time
   keyboard tooltip against existing real conversation data. No model prompt was
   submitted. AgentKit, Kernel and the native Mac App are unchanged.
+
+# v0.1.14 release
+
+- Submission progress now occupies the existing model-control toolbar area rather
+  than inserting a temporary feedback row below the composer. Hidden controls
+  retain their layout footprint during sending, session creation and file upload.
+- Input text, Enter/IME handling and error feedback remain unchanged.
+- 61 tests, formatting checks and the production build pass. The regression test
+  checks stable form structure and retained controls through submission stages;
+  it does not claim browser geometry or real-model acceptance.
+- AgentKit, Kernel and the native Mac App are unchanged. Browser interaction
+  acceptance is left to the user after deployment.

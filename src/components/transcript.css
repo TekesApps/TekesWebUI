@@ -112,3 +112,55 @@
 .tool > summary > .tekes-icon {
   flex: 0 0 auto;
 }
+
+.working-tokens {
+  font-variant-numeric: tabular-nums;
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+/* Open Claude UI reference: tabular numerals, short status entry/exit transitions. */
+.token-counter {
+  display: inline-grid;
+  overflow: hidden;
+  vertical-align: bottom;
+  --token-travel: 0.85em;
+}
+.token-counter[data-direction='down'] {
+  --token-travel: -0.85em;
+}
+.token-counter > span {
+  grid-area: 1 / 1;
+  text-align: right;
+}
+.token-counter-previous {
+  animation: token-count-exit 150ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+}
+.token-counter-enter {
+  animation: token-count-enter 250ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+}
+@keyframes token-count-exit {
+  to {
+    transform: translateY(calc(-1 * var(--token-travel)));
+    opacity: 0;
+  }
+}
+@keyframes token-count-enter {
+  from {
+    transform: translateY(var(--token-travel));
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .token-counter-previous {
+    display: none;
+    animation: none;
+  }
+  .token-counter-enter {
+    animation: none;
+  }
+}

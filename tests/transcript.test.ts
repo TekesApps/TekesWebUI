@@ -10,6 +10,7 @@ import {
   toolSummary,
   partitionTurn,
   thinkingStatus,
+  liveOutputTokens,
 } from '../src/transcript';
 import { toolIcons } from '../src/components/ui/ToolIcon';
 import type { Item, Tool, View } from '../src/types';
@@ -196,4 +197,71 @@ test('assistant transcript retains time without a Harness initial box or brand l
   assert.ok(!html.includes('mini-mark'));
   assert.ok(!html.includes('>T<'));
   assert.ok(!/>Tekes</.test(html));
+});
+
+test('running phases show only the orbit unless thinking, while real tool rows remain visible', () => {
+  for (const model of [
+    view([item('user', 'hello')], [], 'running'),
+    view([item('assistant', 'partial answer')], [], 'running'),
+    view(
+      [item('assistant', '', { reasoning: 'private', reasoningEnded: true })],
+      [],
+      'running',
+    ),
+    view(
+      [item('user', 'hello')],
+      [tool('read', 'doing', { arguments: { path: 'README.md' } })],
+      'running',
+    ),
+  ]) {
+    const html = renderToStaticMarkup(
+      createElement(Transcript, { view: model }),
+    );
+    assert.ok(html.includes('working-orbit'));
+    assert.ok(!html.includes('working-label'));
+    assert.ok(!html.includes('正在工作'));
+    assert.ok(!html.includes('working-dots'));
+    if (model.transcript!.tools.length) assert.ok(html.includes('README.md'));
+  }
+});
+
+test('output counter follows real reports only and hides unavailable, stale and other-turn counts', () => {
+  const model = view(
+    [item('assistant', 'Long text is never counted as tokens')],
+    [],
+    'running',
+  );
+  model.transcript!.turns = [{ id: 'turn', status: 'running', input: '' }];
+  assert.equal(liveOutputTokens(model), undefined);
+  assert.ok(
+    !renderToStaticMarkup(createElement(Transcript, { view: model })).includes(
+      'working-tokens',
+    ),
+  );
+  for (const count of [0, 7, 7, 1234]) {
+    model.transcript!.turns[0].liveUsage = { outputTokens: count };
+    assert.equal(liveOutputTokens(model), count);
+    const html = renderToStaticMarkup(
+      createElement(Transcript, { view: model }),
+    );
+    assert.ok(html.includes('working-tokens'));
+    assert.ok(!html.includes('≈'));
+    assert.ok(!html.includes('正在工作'));
+  }
+  for (const count of [-1, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    model.transcript!.turns[0].liveUsage = { outputTokens: count };
+    assert.equal(liveOutputTokens(model), undefined);
+  }
+  model.transcript!.turns[0].liveUsage = { outputTokens: 100 };
+  model.transcript!.isStale = true;
+  assert.equal(liveOutputTokens(model), undefined);
+  model.transcript!.isStale = false;
+  model.run.connection.phase = 'disconnected';
+  assert.equal(liveOutputTokens(model), undefined);
+  model.run.connection.phase = 'connected';
+  model.run.phase = 'idle';
+  assert.equal(liveOutputTokens(model), undefined);
+  model.run.phase = 'running';
+  model.transcript!.turns.push({ id: 'next', status: 'running', input: '' });
+  assert.equal(liveOutputTokens(model), undefined);
 });

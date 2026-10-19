@@ -3,6 +3,7 @@ import type {
   AnnotationInputPresentation,
   ThreadPinPresentation,
   ThreadActivity,
+  TranscriptLiveUsage,
 } from '@tekesagentkit/client-contract';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -173,6 +174,7 @@ export interface View extends Address {
       input: string;
       startedAt?: number;
       endedAt?: number;
+      liveUsage?: TranscriptLiveUsage;
     }[];
     items: Item[];
     tools: Tool[];

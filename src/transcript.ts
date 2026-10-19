@@ -201,11 +201,24 @@ export function visibleItem(item: Item): boolean {
     (!!item.text.trim() || !!item.attachments?.length)
   );
 }
-export function partitionTurn(items: Item[], tools: Tool[]) {
+export function partitionTurn(items: Item[], tools: Tool[], live = false) {
+  const latestAssistant = [...items]
+    .reverse()
+    .find((item) => item.kind === 'assistant');
   const inputs = items.filter((i) => i.kind === 'user');
-  const output = items.filter(
-    (i) => i.kind === 'assistant' && (i.isFinal || !tools.length),
-  );
+  const output = items.filter((i) => {
+    if (i.kind !== 'assistant') return false;
+    if (i.isFinal) return true;
+    const metadata = object(i.metadata);
+    const toolNarration =
+      metadata.hasToolCalls === true ||
+      metadata.sessionFinal === false ||
+      metadata.stopReason === 'toolUse';
+    if (toolNarration) return false;
+    // Finality is a settlement fact, not the location of the growing answer.
+    // Keep the current answer after the tools from its first streamed chunk.
+    return !tools.length || (live && i === latestAssistant);
+  });
   const activity = items.filter(
     (i) => i.kind !== 'user' && !output.includes(i),
   );

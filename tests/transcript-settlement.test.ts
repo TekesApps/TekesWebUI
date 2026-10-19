@@ -53,8 +53,11 @@ function fixture(): View {
   };
 }
 
-test('settlement collapses tools immediately and promotes the same response once without replaying its entrance', async () => {
+test('streamed answer stays after tools through settlement without reparenting or replaying its entrance', async () => {
   const dom = new JSDOM('<div id="root"></div>');
+  const originalNow = Date.now;
+  let clock = start;
+  Date.now = () => clock;
   const originals = [
     'window',
     'document',
@@ -136,8 +139,12 @@ test('settlement collapses tools immediately and promotes the same response once
       host.querySelectorAll('[data-message-id="same-response"]').length,
       1,
     );
-    assert.ok(
+    assert.equal(
       host.querySelector('.work-summary [data-message-id="same-response"]'),
+      null,
+    );
+    const streamedNode = host.querySelector(
+      '[data-message-id="same-response"]',
     );
     answer.isFinal = true;
     answer.isProvisional = false;
@@ -175,7 +182,14 @@ test('settlement collapses tools immediately and promotes the same response once
       null,
     );
     const final = host.querySelector('[data-message-id="same-response"]')!;
+    assert.equal(final, streamedNode);
     assert.equal(final.classList.contains('message-enter'), false);
+    clock += 1000;
+    await act(async () => {
+      const pending = [...frames.values()];
+      frames.clear();
+      for (const callback of pending) callback(clock);
+    });
     assert.equal(final.querySelector('.markdown')!.textContent, answer.text);
     assert.equal(frames.size, 0);
     assert.equal(details.querySelectorAll('.tool').length, 1);
@@ -209,6 +223,7 @@ test('settlement collapses tools immediately and promotes the same response once
       1,
     );
   } finally {
+    Date.now = originalNow;
     await act(async () => root.unmount());
     for (const [key, descriptor] of originals) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);

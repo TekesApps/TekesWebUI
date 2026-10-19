@@ -378,3 +378,20 @@ descriptors are not part of this repository.
   native dialog interaction and chosen-directory task acceptance remain user verification.
 - Requires the Tekes native-directory host release (`tekes-agent-web/0.1.0`);
   AgentKit remains pinned to the public v0.3.7 commit and Kernel remains 0.9.0.
+
+## v0.1.19 — TypeScript local service and stable streamed output
+
+- The local CLI now lives in this repository's `host/` and compiles to `dist-host/`.
+  Authentication, private startup pipes, verified Kernel startup, configured real
+  Responses models, Pi/DSH adapters, native directory grants and detached lifetime
+  retain the existing contracts and data roots. Tekes removes its Python service.
+- Final output candidates stream after the tools from their first chunk instead
+  of being placed inside the tool disclosure until settlement. Explicit tool
+  narration remains in the work record. The settlement DOM test asserts the exact
+  same answer node survives and typing finishes without remounting the answer.
+- Local validation: 82 tests passed, including the explicitly supplied published
+  AgentKit binary pipe check, HTTP authentication/Origin/containment, observer-only
+  cancellation, native directory policy and detached CLI process lifecycle.
+  Strict TypeScript, browser build, service compilation and formatting passed.
+- Process fixtures exercise lifecycle only; they do not run models or establish
+  native dialog/browser UX acceptance. Actual directory selection remains manual.

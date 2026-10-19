@@ -294,7 +294,12 @@
 .message.user > .input-time {
   position: absolute;
   right: 3px;
-  bottom: -20px;
+  bottom: -25px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 @media (max-width: 700px) {
   .sidebar {
@@ -310,5 +315,16 @@
   }
   .sidebar .new-chat kbd {
     opacity: 0.6;
+  }
+}
+
+.message.user:hover > .input-time,
+.message.user:focus-within > .input-time {
+  opacity: 1;
+}
+@media (hover: none) {
+  .message.user > .input-time,
+  .message.user > .input-time .message-time {
+    opacity: 1;
   }
 }

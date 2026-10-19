@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   AlertCircle,
   Check,
@@ -16,6 +16,7 @@ import {
   toolState,
   toolStateLabels,
   toolSummary,
+  elapsedText,
 } from '../transcript';
 import { ToolIcon } from './ui/ToolIcon';
 import { AttachmentCards } from './ui/AttachmentCards';
@@ -75,41 +76,52 @@ export function Information({ item }: { item: Item }) {
   );
 }
 export function Activity({
-  tools,
   live,
   status,
+  elapsedSeconds,
   children,
 }: {
-  tools: Tool[];
   live: boolean;
   status: string;
+  elapsedSeconds?: number;
   children: ReactNode;
 }) {
-  const states = tools.map((t) => toolState(t, live));
-  const failed =
-    states.includes('error') || ['failed', 'error'].includes(status);
-  const stopped =
-    states.includes('stopped') ||
-    ['interrupted', 'stopped', 'cancelled', 'canceled'].includes(status);
-  const [open, setOpen] = useState(live || failed || stopped);
-  useEffect(() => setOpen(live || failed || stopped), [live, failed, stopped]);
+  const failed = ['failed', 'error'].includes(status);
+  const stopped = [
+    'interrupted',
+    'aborted',
+    'stopped',
+    'cancelled',
+    'canceled',
+  ].includes(status);
+  const [disclosure, setDisclosure] = useState({ live, open: live });
+  // Collapse in the same render as settlement, before tools can paint as loose history.
+  if (disclosure.live !== live) setDisclosure({ live, open: live });
+  const duration =
+    elapsedSeconds === undefined ? undefined : elapsedText(elapsedSeconds);
   const label = live
     ? status === 'waitingForInput'
       ? t('等待确认')
       : t('工具调用')
     : failed
-      ? t('执行失败')
+      ? duration
+        ? t('失败，用时 {0}', duration)
+        : t('执行失败')
       : stopped
-        ? t('已停止')
-        : t('已完成');
+        ? duration
+          ? t('已停止，用时 {0}', duration)
+          : t('已停止')
+        : duration
+          ? t('已工作 {0}', duration)
+          : t('已工作');
   return (
     <details
       className="work-summary"
       data-state={
         failed ? 'error' : stopped ? 'stopped' : live ? 'running' : 'ok'
       }
-      open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
+      open={disclosure.open}
+      onToggle={(e) => setDisclosure({ live, open: e.currentTarget.open })}
     >
       <summary>
         {live ? (
@@ -121,10 +133,7 @@ export function Activity({
         ) : (
           <Check size={15} />
         )}
-        <span>
-          {label}
-          {tools.length ? t(' · {0} 项操作', tools.length) : ''}
-        </span>
+        <span>{label}</span>
         <ChevronDown size={14} />
       </summary>
       <div className="tool-list">{children}</div>

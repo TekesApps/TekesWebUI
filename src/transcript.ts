@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { timestampMillis } from './state';
 import type { Item, Json, Tool, View } from './types';
 
 // Semantic roles mirror ClientKit TranscriptToolDisplay. Browser glyphs use the TekesUI Gallery SVG catalog.
@@ -217,8 +218,12 @@ export function liveTurnID(view: View): string | undefined {
     !['running', 'waitingForInput'].includes(view.run.phase)
   )
     return undefined;
+  if (view.transcript?.turns?.length) {
+    return [...view.transcript.turns]
+      .reverse()
+      .find((turn) => ['running', 'waitingForInput'].includes(turn.status))?.id;
+  }
   return (
-    view.transcript?.turns?.at(-1)?.id ||
     view.transcript?.items.at(-1)?.turnId ||
     view.transcript?.tools.at(-1)?.turnId
   );
@@ -280,4 +285,32 @@ export function reportedOutputUsage(view: View, turnId: string) {
     typeof report.isComplete === 'boolean'
     ? report
     : undefined;
+}
+
+/** Only authoritative start/end timestamps determine a settled duration. */
+export function turnElapsedSeconds(view: View, id: string): number | undefined {
+  const turn = view.transcript?.turns?.find((turn) => turn.id === id);
+  const start = timestampMillis(turn?.startedAt),
+    end = timestampMillis(turn?.endedAt);
+  return start > 0 && end >= start && Number.isFinite(end - start)
+    ? Math.floor((end - start) / 1000)
+    : undefined;
+}
+
+/** Mirrors ClientKit ElapsedDurationFormatter, including stable unit order. */
+export function elapsedText(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const parts: string[] = [];
+  for (const [unit, scale] of [
+    ['d', 86400],
+    ['h', 3600],
+    ['m', 60],
+  ] as const) {
+    const count =
+      Math.floor(total / scale) %
+      (unit === 'd' ? Infinity : unit === 'h' ? 24 : 60);
+    if (count) parts.push(`${count}${unit}`);
+  }
+  parts.push(`${total % 60}s`);
+  return parts.join(' ');
 }

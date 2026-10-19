@@ -281,5 +281,6 @@
   "当前宿主尚未提供本地目录选择，请更新宿主后重新连接。": "This host does not support the local folder picker yet. Update the host and reconnect.",
   "宿主返回的目录无效，请重新选择。": "The host returned an invalid directory. Choose again.",
   "已有目录选择窗口打开，请先完成或取消该窗口。": "A folder picker is already open. Choose a folder or cancel that window first.",
-  "无法打开本地目录选择框，请重试。": "The local folder picker could not open. Try again."
+  "无法打开本地目录选择框，请重试。": "The local folder picker could not open. Try again.",
+  "已恢复": "Recovered"
 }

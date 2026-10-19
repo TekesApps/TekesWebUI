@@ -5,6 +5,7 @@ import type {
   ThreadActivity,
   TranscriptLiveUsage,
   TranscriptReportedUsage,
+  ThreadActionDefinition,
 } from '@tekesagentkit/client-contract';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -177,6 +178,7 @@ export interface View extends Address {
       endedAt?: number;
       liveUsage?: TranscriptLiveUsage;
       reportedUsage?: TranscriptReportedUsage;
+      footnoteActions?: ThreadActionDefinition[];
     }[];
     items: Item[];
     tools: Tool[];

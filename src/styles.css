@@ -914,7 +914,9 @@ kbd {
 .message-actions:focus-within {
   opacity: 1;
 }
-.copy-button {
+.copy-button,
+.message-actions > .icon-button,
+.input-time > .icon-button {
   width: 25px;
   height: 25px;
 }

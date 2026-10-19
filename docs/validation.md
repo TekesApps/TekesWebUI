@@ -339,3 +339,27 @@ descriptors are not part of this repository.
   tokens incomplete while later turns were complete. Closing and reopening the
   observers reproduced identical values and coverage. These reads went through
   the uniform AgentKit view; no DSH files were read and no model prompt was sent.
+
+# v0.1.17 release
+
+- Pins public AgentKit v0.3.7 at `a8610a420bad72eaedcf706b30df87153a0f3e16`.
+- Validation: 70 Web tests, formatting, strict TypeScript, production build and the ClientKit icon-family check pass. AgentKit passed 103 workspace tests and Linux CI.
+
+- Aligns settlement with ClientKit: collapse tool activity atomically, show Worked
+  for the authoritative elapsed duration, and promote the final answer without
+  replaying entry/typing animation even when control state lags the journal.
+- Output token captions use native compact `k` formatting, omit zero/missing data
+  and disappear when the turn settles. Durable usage facts remain in AgentKit.
+  Real report targets animate through integers over 240ms with cubic ease-out;
+  this presentation interpolation never changes accounting or invents live reports.
+- Input Copy appears with its timestamp. Settled Output Fork renders AgentKit's
+  supplied footnote definition and exact action identity. Copy and Fork use the
+  same 25px hover target, corner radius and background.
+- Regression coverage includes settlement/control ordering, disclosure reopening,
+  final-answer uniqueness and entrance suppression, clipboard content, selected
+  fork target, capability absence, stale views, no-output turns, reduced motion,
+  background tabs and count retargeting. Native UI remains a source reference;
+  browser interaction acceptance is left to the user.
+- Local authenticated public-API reads returned turn fork definitions for real
+  DSH, Pi and Kernel history. No model prompt or user-session fork was issued.
+  Kernel remains the unchanged 0.9.0 bundle; the native Mac App is untouched.

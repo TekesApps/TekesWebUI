@@ -268,5 +268,12 @@
   "今天": "Today",
   "工具调用": "Tool calls",
   "输出 {0} tokens": "{0} output tokens",
-  "已记录输出 {0} tokens": "{0} recorded output tokens"
+  "已记录输出 {0} tokens": "{0} recorded output tokens",
+  "{0} tokens": "{0} tokens",
+  "已记录 {0} tokens": "{0} recorded tokens",
+  "已工作 {0}": "Worked for {0}",
+  "已工作": "Worked",
+  "失败，用时 {0}": "Failed after {0}",
+  "已停止，用时 {0}": "Stopped after {0}",
+  "从此回合分叉": "Fork from this turn"
 }

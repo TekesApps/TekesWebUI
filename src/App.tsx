@@ -423,6 +423,13 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 >
                   <Transcript
                     view={s.view}
+                    onTurnAction={async (address, actionId) => {
+                      try {
+                        await w.performThreadAction(address, actionId);
+                      } catch (error) {
+                        w.actionFailed(error);
+                      }
+                    }}
                     annotations={s.annotations}
                     onSaveAnnotation={w.saveAnnotation}
                     onRemoveAnnotation={w.removeAnnotation}

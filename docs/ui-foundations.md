@@ -85,24 +85,68 @@ DSH's adapter obtains the facts via its public session follow/page interfaces;
 the renderer never reads DSH files or calls its specialized API. The Responses
 protocol remains selected.
 
-Counters show the sum of actual completed response reports and remain visible
-in history, cached disconnection and restored snapshots. No report means no
-counter; an explicit zero report displays zero. If history or usage is incomplete,
+The running footnote shows the sum of actual completed response reports, matching
+ClientKit: zero/missing counts are omitted, sub-1000 counts are integers, and
+1000+ counts use a fixed one-decimal `k` suffix (`1.0k`, `12.4k`). Completed,
+failed and cancelled turns hide the counter and retain the ordinary output
+controls and finish time. Durable history and restored snapshots still carry
+reported usage in AgentKit; only an active connected run displays it. If history or usage is incomplete,
 the caption says recorded output tokens rather than claiming a complete total.
 Loading earlier history or receiving an authoritative turn total can complete it.
-Updates occur only when admitted reports change, never on a clock or based on
-text/chunk length. No unavailable realtime ticking is simulated.
+Accounting updates only when admitted reports change, never from text/chunk length
+or a timer. No unavailable realtime usage is simulated.
 
-The counter follows Open Claude UI's tabular-numeral guidance and short status
-entry/exit timings (250ms / 150ms), with its standard deceleration curve. A prior
-report exits upward while the new report enters from below; corrections reverse
-the direction. Only the two actual reports are rendered. Rapid updates replace
-the transition pair, and reduced motion disables the slide. Historical mount does
-not animate an invented zero-to-total count.
+The visual counter follows ClientKit's count-through behavior: each real report
+starts a 240ms cubic ease-out from the currently presented integer to the reported
+target. Intermediate integers are presentation frames only and never enter usage
+or accounting. An unchanged target does not restart the animation; a new target
+continues from the current presentation value. Downward corrections, reduced
+motion and hidden tabs show the authoritative target immediately. Mounting an
+existing count does not animate from zero. Tabular numerals keep the caption
+stable. The accessible label retains the reported target throughout the animation.
 
-Reference inspected at `638800b8a4cee4513c8763c3df0ecf8a77b32379`:
-[typography guidance](https://github.com/Caho1/open-claude-ui/blob/638800b8a4cee4513c8763c3df0ecf8a77b32379/docs/v1/08-AI-Agent-前端-UI-与动效开发指南.md),
-[status motion](https://github.com/Caho1/open-claude-ui/blob/638800b8a4cee4513c8763c3df0ecf8a77b32379/code-examples/cds-theme.css),
-and [easing](https://github.com/Caho1/open-claude-ui/blob/638800b8a4cee4513c8763c3df0ecf8a77b32379/code-examples/ClaudeMotionPresets.ts).
-The reference does not supply a ready-made output-token rolling counter; this
-component applies those conventions to authoritative AgentKit usage reports.
+Native references: TekesMetalTextKit `Engine/MetalRenderer.swift`
+(`AsideTickAnimation`, `presentedAsideTickCount`) and
+`Shared/TypewriterSupport.swift` (240ms catch-up), plus
+`Shared/CompactCountFormat.swift` for the `k` suffix.
+
+## Settled activity handoff
+
+Following ClientKit, an in-progress assistant response stays in the activity until
+its finality is promoted at turn settlement. The final response then appears once
+outside the activity, without replaying entry or typing animation. A terminal turn
+collapses the activity in the same render even if the control phase still says
+running. Tool rows remain inside the disclosure. Completed turns show `Worked for`
+and the duration derived from their actual start/end timestamps; missing timestamps
+use `Worked` without an invented duration. Failed and stopped turns use their own
+terminal captions. Expanding the disclosure reveals the tool timeline.
+
+Native references: ClientKit `SessionEventProjector.swift` (settlement finality),
+`TranscriptMetalSnapshotBuilder.swift` (final mirror promotion),
+`TranscriptMetalActivity.swift` (settled disclosure) and
+`TurnEvaluationPresentation.swift` (elapsed duration and terminal captions).
+
+## Input and output footnotes
+
+The ClientKit reference is `TranscriptTurnFootnote.swift`, with action roles in
+`TranscriptFootnoteTarget.swift` and callbacks in `RunView.swift`.
+Input time precedes Copy; both appear together on hover/focus, and remain visible
+on touch devices. Copy uses the displayed input text, rather than the encoded
+annotation envelope. The Input lane is not the location for completed-turn Fork.
+
+AgentKit supplies each turn's optional `footnoteActions`, using its public
+`ThreadActionDefinition` type. Web renders those definitions with TekesUI icons
+and sends the exact action ID through `thread.performAction`. AgentKit resolves
+Fork to the selected durable settlement's `atSeq` or native `entryId`, rechecks
+current availability, and returns the existing navigation/warning outcome.
+No whole-session fork substitutes for a missing turn boundary. Stale or disconnected
+views do not expose active footnote actions. No-output settled turns still have a
+footnote when AgentKit supplies actions.
+
+This is not a claim of full footnote parity: native Input rewind/edit, feedback and
+notes, optimistic delivery captions, goal state and memory detail require their
+corresponding public presentation/commands before Web can expose them. The current
+ClientKit target/callback still defines Fork, although its current
+`rawOutputNodes` does not insert that control; the Web implementation follows its
+completed-turn capability and through-turn command semantics, rather than copying
+that omission.

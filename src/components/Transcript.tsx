@@ -1,3 +1,6 @@
+import type { ThreadActionDefinition } from '@tekesagentkit/client-contract';
+import { TekesIcon } from './ui/TekesIcon';
+import { threadActionIcons } from '../icons/thread-action-assets';
 import { t, useLocale } from '../i18n';
 import {
   memo,
@@ -32,6 +35,7 @@ import {
   partitionTurn,
   thinkingStatus,
   turnStatus,
+  turnElapsedSeconds,
   visibleItem,
 } from '../transcript';
 
@@ -79,7 +83,11 @@ const Message = memo(function Message({
   annotations,
   onSaveAnnotation,
   onRemoveAnnotation,
+  footnoteActions,
+  onTurnAction,
 }: {
+  footnoteActions?: ThreadActionDefinition[];
+  onTurnAction?: (address: Address, actionId: string) => Promise<unknown>;
   item: Item;
   fresh: boolean;
   streaming: boolean;
@@ -151,7 +159,10 @@ const Message = memo(function Message({
               <AttachmentCards attachments={item.attachments} />
             )}
           </div>
-          <span className="input-time">{timestamp}</span>
+          <div className="input-time">
+            {timestamp}
+            {input?.body && <CopyButton text={input.body} />}
+          </div>
         </>
       ) : (
         <div className="markdown" data-annotation-text>
@@ -170,6 +181,11 @@ const Message = memo(function Message({
       {item.text && item.kind !== 'user' && (
         <div className="message-actions">
           <CopyButton text={item.text} />
+          <FootnoteActions
+            address={address}
+            actions={footnoteActions}
+            onAction={onTurnAction}
+          />
           {timestamp}
         </div>
       )}
@@ -191,8 +207,46 @@ const Message = memo(function Message({
   );
   return message;
 });
+function FootnoteActions({
+  address,
+  actions = [],
+  onAction,
+}: {
+  address: Address;
+  actions?: ThreadActionDefinition[];
+  onAction?: (address: Address, actionId: string) => Promise<unknown>;
+}) {
+  const [pending, setPending] = useState(false);
+  return (
+    onAction &&
+    actions.map((action) => (
+      <button
+        key={action.id}
+        className="icon-button"
+        aria-label={t(action.label)}
+        title={t(action.disabledReason || action.label)}
+        disabled={!action.enabled || pending}
+        onClick={async () => {
+          if (pending) return;
+          setPending(true);
+          try {
+            await onAction(address, action.id);
+          } finally {
+            setPending(false);
+          }
+        }}
+      >
+        <TekesIcon
+          name={threadActionIcons[action.icon] || 'tekes-more'}
+          size={15}
+        />
+      </button>
+    ))
+  );
+}
 interface TranscriptProps {
   view: View | null;
+  onTurnAction?: (address: Address, actionId: string) => Promise<unknown>;
   annotations?: Annotation[];
   onSaveAnnotation?: (annotation: Annotation) => void;
   onRemoveAnnotation?: (id: string) => void;
@@ -241,6 +295,12 @@ function TranscriptContents({
     ]),
   ];
   const liveID = liveTurnID(view);
+  const runningUsage =
+    liveID &&
+    view.run.phase === 'running' &&
+    turnStatus(view, liveID) === 'running'
+      ? reportedOutputUsage(view, liveID)
+      : undefined;
   function renderItem(item: Item, process = false) {
     if (
       item.kind !== 'user' &&
@@ -254,6 +314,15 @@ function TranscriptContents({
         key={item.id}
         address={view}
         item={item}
+        footnoteActions={
+          item.isFinal &&
+          item.turnId !== liveID &&
+          !view.transcript?.isStale &&
+          view.run.connection.phase === 'connected'
+            ? view.transcript?.turns?.find((turn) => turn.id === item.turnId)
+                ?.footnoteActions
+            : undefined
+        }
         process={process || item.kind === 'narration'}
         calendarDay={calendarDay}
         endedAt={
@@ -261,7 +330,12 @@ function TranscriptContents({
             ?.endedAt
         }
         motionEnabled={!reduced}
-        fresh={!reduced && item.turnId === liveID && !baseline.has(item.id)}
+        fresh={
+          !reduced &&
+          !item.isFinal &&
+          item.turnId === liveID &&
+          !baseline.has(item.id)
+        }
         streaming={
           !reduced &&
           item.turnId === liveID &&
@@ -280,7 +354,6 @@ function TranscriptContents({
           turnTools,
         );
         const live = turn === liveID;
-        const reported = reportedOutputUsage(view, turn);
         const information = activity.filter((i) =>
           ['system', 'notice', 'error'].includes(i.kind),
         );
@@ -296,29 +369,32 @@ function TranscriptContents({
               .map((i) => renderItem(i))}
             {(turnTools.length > 0 || process.length > 0) && (
               <Activity
-                tools={turnTools}
                 live={live}
                 status={turnStatus(view, turn)}
+                elapsedSeconds={turnElapsedSeconds(view, turn)}
               >
                 {process.map((i) => renderItem(i, true))}
                 <ToolRows tools={turnTools} live={live} />
               </Activity>
             )}
             {output.map((i) => renderItem(i))}
-            {reported && (
-              <div
-                className="turn-usage"
-                data-usage-coverage={
-                  reported.isComplete ? 'complete' : 'partial'
-                }
-              >
-                <OutputTokenCounter
-                  key={turn}
-                  count={reported.outputTokens}
-                  complete={reported.isComplete}
-                />
-              </div>
-            )}
+            {!!view.transcript?.turns?.find((t) => t.id === turn)
+              ?.footnoteActions?.length &&
+              !live &&
+              !output.length &&
+              !view.transcript?.isStale &&
+              view.run.connection.phase === 'connected' && (
+                <div className="message-actions">
+                  <FootnoteActions
+                    address={view}
+                    actions={
+                      view.transcript?.turns?.find((t) => t.id === turn)
+                        ?.footnoteActions
+                    }
+                    onAction={annotations.onTurnAction}
+                  />
+                </div>
+              )}
           </section>
         );
       })}
@@ -327,6 +403,13 @@ function TranscriptContents({
           <span className="working-orbit" />
           {thinkingStatus(view) && (
             <span className="working-label">{t('正在思考')}</span>
+          )}
+          {runningUsage && runningUsage.outputTokens > 0 && (
+            <OutputTokenCounter
+              key={liveID}
+              count={runningUsage.outputTokens}
+              complete={runningUsage.isComplete}
+            />
           )}
         </div>
       )}

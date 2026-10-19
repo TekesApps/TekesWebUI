@@ -1,3 +1,4 @@
+import { statusIcons } from '../src/icons/status-assets';
 import { threadActionIcons } from '../src/icons/thread-action-assets';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -29,6 +30,7 @@ for (const name of [
   ...Object.values(toolIcons),
   ...Object.values(interfaceIcons),
   ...Object.values(threadActionIcons),
+  ...Object.values(statusIcons),
 ])
   assert.ok(getIconUrl(name), name);
 console.log(

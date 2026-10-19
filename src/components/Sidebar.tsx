@@ -6,7 +6,6 @@ import {
   CircleHelp,
   Folder,
   FolderOpen,
-  FileText,
   Menu,
   Plus,
   Search,
@@ -17,6 +16,7 @@ import {
 import type { Workspace, WorkspaceState } from '../workspace';
 import type { Address } from '../types';
 import { TekesIcon } from './ui/TekesIcon';
+import { statusGroupIcon } from '../icons/status-assets';
 import { SessionActions } from './SessionActions';
 import {
   addressKey,
@@ -311,7 +311,7 @@ export function Sidebar({
                   {group.key === 'pinned' ? (
                     <TekesIcon name="tekes-pin" size={14} />
                   ) : grouping === 'status' ? (
-                    <FileText size={14} />
+                    <TekesIcon name={statusGroupIcon(group.key)} size={14} />
                   ) : collapsed.has(group.key) && !query ? (
                     <Folder size={14} />
                   ) : (

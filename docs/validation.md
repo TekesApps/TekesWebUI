@@ -236,3 +236,13 @@ descriptors are not part of this repository.
   and confirmed English preference persistence, English thread-action menu and
   Not running status group. Chinese conversation content stayed unchanged. The
   pre-authentication language selector was verified in both languages.
+
+# v0.1.11 release
+
+- Status group headings use distinct shared TekesUI artwork for running, queued,
+  waiting for input, completed, not started, failed, cancelled, not running,
+  unknown and stale states. Pin and folder open/closed icons are unchanged.
+- The public icon catalog check covers the new status mapping.
+- 56 tests and production build pass; existing bundle-size advisory remains.
+- Local browser verified completed, not-started and not-running glyphs. No state
+  semantics, model calls, AgentKit, Kernel or native Mac changes are included.

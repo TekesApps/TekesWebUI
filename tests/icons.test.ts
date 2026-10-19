@@ -1,3 +1,4 @@
+import { statusIcons } from '../src/icons/status-assets';
 import { threadActionIcons } from '../src/icons/thread-action-assets';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -35,6 +36,7 @@ test('all Web interface and tool slots resolve to actual shared catalog artwork'
     ...Object.values(toolIcons),
     ...Object.values(interfaceIcons),
     ...Object.values(threadActionIcons),
+    ...Object.values(statusIcons),
   ]) {
     assert.ok(iconNames.includes(name));
     assert.match(getIconUrl(name), new RegExp(name + '\\.svg$'));

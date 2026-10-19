@@ -23,10 +23,12 @@ import type { Annotation } from '../annotations';
 import { AnnotationList, ComposerAnnotations } from './Annotations';
 import { AttachmentCards } from './ui/AttachmentCards';
 import { useTypedText } from './ui/useTypedText';
+import { OutputTokenCounter } from './ui/OutputTokenCounter';
 import { CopyButton } from './ui/CopyButton';
 import { Activity, Information, ToolRows } from './TranscriptActivity';
 import {
   liveTurnID,
+  liveOutputTokens,
   partitionTurn,
   thinkingStatus,
   turnStatus,
@@ -239,6 +241,7 @@ function TranscriptContents({
     ]),
   ];
   const liveID = liveTurnID(view);
+  const outputTokens = liveOutputTokens(view);
   function renderItem(item: Item, process = false) {
     if (
       item.kind !== 'user' &&
@@ -306,16 +309,14 @@ function TranscriptContents({
         );
       })}
       {view.run.phase === 'running' && (
-        <div className="working" role="status">
+        <div className="working" role="status" aria-label={t('运行中')}>
           <span className="working-orbit" />
-          <span className="working-label">
-            {thinkingStatus(view) ? t('正在思考') : t('正在工作')}
-          </span>
-          <span className="working-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
+          {thinkingStatus(view) && (
+            <span className="working-label">{t('正在思考')}</span>
+          )}
+          {outputTokens !== undefined && (
+            <OutputTokenCounter key={liveID} count={outputTokens} />
+          )}
         </div>
       )}
       {view.run.phase !== 'running' && !items.length && !tools.length && (

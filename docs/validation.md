@@ -292,3 +292,27 @@ descriptors are not part of this repository.
   it does not claim browser geometry or real-model acceptance.
 - AgentKit, Kernel and the native Mac App are unchanged. Browser interaction
   acceptance is left to the user after deployment.
+
+# v0.1.15 release
+
+- Pins AgentKit v0.3.5 at `6bba9908862ee53e55e562caff0d0b9bb4371390`.
+- Removes trailing animated dots and the generic Working label. Thinking retains
+  its label, tools retain actual rows, and other running phases show the orbit.
+- Provider-reported output token counts update through the shared live usage DTO.
+  Each change slides from the previous report to the next; repeated packets do
+  not restart it, corrections reverse direction, and reduced motion disables it.
+  No estimated values, approximate symbol or invented intermediate counts exist.
+- 65 tests, formatting, strict TypeScript and production build pass, including
+  counter transitions, unavailable/invalid counts, stale/disconnected authority
+  and session isolation. Existing bundle-size advisory remains.
+- AgentKit's workspace and service tests plus its second public API consumer
+  cover real-report projection semantics. Test reports are controlled fixtures,
+  not evidence of provider report cadence. Pi currently lacks live reports; DSH
+  depends on its upstream stream. Kernel remains the unchanged 0.9.0 bundle.
+
+- Deployed real-model check: the configured `deepseek-v4-pro` returned a real live
+  usage report of 85 output tokens through the authenticated Web subscription,
+  then settled to idle without observer errors. This short request reported once;
+  it does not establish per-token or continuous provider usage updates. The Web
+  does not fill gaps with invented increments. Browser version v0.1.15 was checked;
+  the numeric transition itself is covered by the controlled DOM test.

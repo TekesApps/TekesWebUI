@@ -238,7 +238,9 @@ export function thinkingStatus(view: View): boolean {
   if (
     !turn ||
     view.run.phase !== 'running' ||
-    view.transcript?.tools.some((t) => t.turnId === turn)
+    view.transcript?.tools.some(
+      (t) => t.turnId === turn && toolState(t, true) === 'running',
+    )
   )
     return false;
   const items =
@@ -249,7 +251,20 @@ export function thinkingStatus(view: View): boolean {
     .at(-1);
   return (
     !!latest &&
+    latest.isProvisional &&
+    !latest.reasoningEnded &&
     !latest.text.trim() &&
     !items.slice(items.indexOf(latest) + 1).some((i) => !!i.text.trim())
   );
+}
+
+/** Only the selected connected turn's provider-reported count; never a text estimate. */
+export function liveOutputTokens(view: View): number | undefined {
+  const id = liveTurnID(view);
+  if (!id || view.run.phase !== 'running') return undefined;
+  const count = view.transcript?.turns?.find((turn) => turn.id === id)
+    ?.liveUsage?.outputTokens;
+  return typeof count === 'number' && Number.isSafeInteger(count) && count >= 0
+    ? count
+    : undefined;
 }

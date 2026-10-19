@@ -77,3 +77,23 @@ Today/Yesterday, weekday within seven calendar days, then month/day, with HH:mm.
 Calendar boundaries follow the browser's local timezone, including DST. Relative
 labels refresh across midnight and when the window regains focus; missing dates
 never become fabricated timestamps. Chinese and English retain the same rules.
+
+## Live output tokens
+
+AgentKit's public `TranscriptLiveUsage` carries provider-reported output tokens.
+The Web displays each received cumulative value directly, including zero, and
+hides unavailable, stale and other-turn data. No tokenization, character-based
+estimate, timer-driven counter or interpolated numeric value is used.
+
+The counter follows Open Claude UI's tabular-numeral guidance and short status
+entry/exit timings (250ms / 150ms), with its standard deceleration curve. A prior
+report exits upward while the new report enters from below; corrections reverse
+the direction. Only the two actual reports are rendered. Rapid updates replace
+the transition pair, and reduced motion disables the slide.
+
+Reference inspected at `638800b8a4cee4513c8763c3df0ecf8a77b32379`:
+[typography guidance](https://github.com/Caho1/open-claude-ui/blob/638800b8a4cee4513c8763c3df0ecf8a77b32379/docs/v1/08-AI-Agent-前端-UI-与动效开发指南.md),
+[status motion](https://github.com/Caho1/open-claude-ui/blob/638800b8a4cee4513c8763c3df0ecf8a77b32379/code-examples/cds-theme.css),
+and [easing](https://github.com/Caho1/open-claude-ui/blob/638800b8a4cee4513c8763c3df0ecf8a77b32379/code-examples/ClaudeMotionPresets.ts).
+The reference does not supply a ready-made output-token rolling counter; this
+component applies those conventions to authoritative AgentKit usage reports.

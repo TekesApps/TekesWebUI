@@ -96,7 +96,7 @@ export function Activity({
   const label = live
     ? status === 'waitingForInput'
       ? t('等待确认')
-      : t('正在工作')
+      : t('工具调用')
     : failed
       ? t('执行失败')
       : stopped

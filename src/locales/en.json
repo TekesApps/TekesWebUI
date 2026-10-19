@@ -265,5 +265,7 @@
   "分叉已创建，但新会话命名未完成。": "The fork was created, but its title could not be set.",
   "关闭对话框": "Close dialog",
   "threadAction::置顶": "Pin",
-  "今天": "Today"
+  "今天": "Today",
+  "工具调用": "Tool calls",
+  "输出 {0} tokens": "{0} output tokens"
 }

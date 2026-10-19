@@ -267,5 +267,6 @@
   "threadAction::置顶": "Pin",
   "今天": "Today",
   "工具调用": "Tool calls",
-  "输出 {0} tokens": "{0} output tokens"
+  "输出 {0} tokens": "{0} output tokens",
+  "已记录输出 {0} tokens": "{0} recorded output tokens"
 }

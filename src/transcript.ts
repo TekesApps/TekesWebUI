@@ -268,3 +268,16 @@ export function liveOutputTokens(view: View): number | undefined {
     ? count
     : undefined;
 }
+
+/** Durable provider reports remain valid historical facts during disconnection. */
+export function reportedOutputUsage(view: View, turnId: string) {
+  const report = view.transcript?.turns?.find(
+    (turn) => turn.id === turnId,
+  )?.reportedUsage;
+  return report &&
+    Number.isSafeInteger(report.outputTokens) &&
+    report.outputTokens >= 0 &&
+    typeof report.isComplete === 'boolean'
+    ? report
+    : undefined;
+}

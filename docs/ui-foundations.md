@@ -78,18 +78,27 @@ Calendar boundaries follow the browser's local timezone, including DST. Relative
 labels refresh across midnight and when the window regains focus; missing dates
 never become fabricated timestamps. Chinese and English retain the same rules.
 
-## Live output tokens
+## Reported output tokens
 
-AgentKit's public `TranscriptLiveUsage` carries provider-reported output tokens.
-The Web displays each received cumulative value directly, including zero, and
-hides unavailable, stale and other-turn data. No tokenization, character-based
-estimate, timer-driven counter or interpolated numeric value is used.
+The Web consumes AgentKit's uniform `TranscriptReportedUsage` on each turn.
+DSH's adapter obtains the facts via its public session follow/page interfaces;
+the renderer never reads DSH files or calls its specialized API. The Responses
+protocol remains selected.
+
+Counters show the sum of actual completed response reports and remain visible
+in history, cached disconnection and restored snapshots. No report means no
+counter; an explicit zero report displays zero. If history or usage is incomplete,
+the caption says recorded output tokens rather than claiming a complete total.
+Loading earlier history or receiving an authoritative turn total can complete it.
+Updates occur only when admitted reports change, never on a clock or based on
+text/chunk length. No unavailable realtime ticking is simulated.
 
 The counter follows Open Claude UI's tabular-numeral guidance and short status
 entry/exit timings (250ms / 150ms), with its standard deceleration curve. A prior
 report exits upward while the new report enters from below; corrections reverse
 the direction. Only the two actual reports are rendered. Rapid updates replace
-the transition pair, and reduced motion disables the slide.
+the transition pair, and reduced motion disables the slide. Historical mount does
+not animate an invented zero-to-total count.
 
 Reference inspected at `638800b8a4cee4513c8763c3df0ecf8a77b32379`:
 [typography guidance](https://github.com/Caho1/open-claude-ui/blob/638800b8a4cee4513c8763c3df0ecf8a77b32379/docs/v1/08-AI-Agent-前端-UI-与动效开发指南.md),

@@ -316,3 +316,26 @@ descriptors are not part of this repository.
   it does not establish per-token or continuous provider usage updates. The Web
   does not fill gaps with invented increments. Browser version v0.1.15 was checked;
   the numeric transition itself is covered by the controlled DOM test.
+
+# v0.1.16 release
+
+- Pins AgentKit v0.3.6 at `823994da440294d1040dde078f1332e726d02cb0`.
+
+- Uses AgentKit's uniform reportedUsage contract for durable output token counts.
+  The UI never calls DSH-specific APIs or reads its log files. Responses remains
+  the provider protocol; no provider or Kernel implementation changes are made.
+- Counts update on completed response reports and stay visible on historical
+  turns, cached disconnect and restored snapshots. Missing usage is omitted;
+  explicit zero is retained. Incomplete history/usage is labelled recorded output.
+- Preserves x-to-y transitions only for changes in actual reports. There is no
+  timer-driven ticking or text/chunk estimation when realtime usage is absent.
+- 66 tests cover completed, disconnected/recovered and multi-turn views, partial
+  coverage, zero/missing/invalid data, and counter transitions. Formatting, strict
+  TypeScript and production build pass. Existing bundle-size advisory remains.
+
+- Deployed public-API acceptance: four existing DSH sessions returned eight
+  historical turn reports, including complete values of 142 and 119 tokens.
+  A history window beginning mid-turn correctly marked its 19,194 recorded
+  tokens incomplete while later turns were complete. Closing and reopening the
+  observers reproduced identical values and coverage. These reads went through
+  the uniform AgentKit view; no DSH files were read and no model prompt was sent.

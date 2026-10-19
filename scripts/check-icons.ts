@@ -1,3 +1,4 @@
+import { threadActionIcons } from '../src/icons/thread-action-assets';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -27,6 +28,7 @@ for (const icon of catalog.icons) {
 for (const name of [
   ...Object.values(toolIcons),
   ...Object.values(interfaceIcons),
+  ...Object.values(threadActionIcons),
 ])
   assert.ok(getIconUrl(name), name);
 console.log(

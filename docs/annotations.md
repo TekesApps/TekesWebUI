@@ -16,14 +16,15 @@ between the native App and Web. Sent annotations are durable Harness history.
 
 ## Public transport
 
-The annotation DTOs come directly from the public `@tekesagentkit/annotations`
+The annotation DTOs come directly from the public `@tekesagentkit/client-contract`
 package, pinned to an immutable HTTPS commit archive and lockfile integrity. The
 TypeScript declarations are generated from `tekes-agent-contract`'s Rust DTO
 macro. Web has no separately maintained annotation protocol type or prompt
 compiler.
 
-TekesWebUI v0.1.6 pins AgentKit v0.3.1 at
+The v0.1.6 release pinned the earlier annotation-only package from AgentKit v0.3.1 at
 `89bc9d030a2b243d95f436628e9b010e45229491`.
+TekesWebUI v0.1.7 pins AgentKit v0.3.2 and includes the shared [thread-action contract](thread-actions.md).
 
 Web passes `AnnotationInput` (`text`, `annotations`) to the advertised AgentKit
 `composer.compileAnnotations` method. AgentKit validates and compiles the DTOs;

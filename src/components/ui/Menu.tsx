@@ -10,6 +10,7 @@ export function Menu({
   side = 'bottom',
   align = 'end',
   wide = false,
+  onOpenChange,
 }: {
   trigger: ReactElement;
   children: ReactNode;
@@ -17,6 +18,7 @@ export function Menu({
   side?: 'top' | 'bottom';
   align?: 'start' | 'end';
   wide?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const anchor = useRef<HTMLSpanElement>(null);
   const [container, setContainer] = useState<HTMLElement | null>(null);
@@ -24,9 +26,10 @@ export function Menu({
     <span className="ui-menu-anchor" ref={anchor}>
       <Dropdown.Root
         modal={false}
-        onOpenChange={() =>
-          setContainer(anchor.current?.closest('dialog') || null)
-        }
+        onOpenChange={(open) => {
+          setContainer(anchor.current?.closest('dialog') || null);
+          onOpenChange?.(open);
+        }}
       >
         <Dropdown.Trigger asChild>{trigger}</Dropdown.Trigger>
         <Dropdown.Portal container={container}>

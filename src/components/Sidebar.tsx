@@ -13,6 +13,8 @@ import {
   X,
 } from './ui/Icons';
 import type { Workspace, WorkspaceState } from '../workspace';
+import type { Address } from '../types';
+import { SessionActions } from './SessionActions';
 import {
   addressKey,
   formatTimestamp,
@@ -38,6 +40,7 @@ export function Sidebar({
   health,
   onNew,
   onSelect,
+  onRename,
   onSettings,
   onHelp,
   onCollapse,
@@ -47,6 +50,7 @@ export function Sidebar({
   health: string;
   onNew: (cwd?: string, endpoint?: string) => void;
   onSelect: () => void;
+  onRename: (address: Address, title: string, actionId: string) => void;
   onSettings: () => void;
   onHelp: () => void;
   onCollapse: () => void;
@@ -350,42 +354,61 @@ export function Sidebar({
                       </>
                     );
                     return (
-                      <Tooltip
+                      <div
+                        className="thread-row"
                         key={addressKey(entry.endpoint, entry.sessionId)}
-                        content={tooltip}
-                        side="right"
-                        block
                       >
-                        <button
-                          className={`thread ${selected ? 'selected' : ''}`}
-                          aria-current={selected ? 'page' : undefined}
-                          onClick={() => {
-                            void w.select({
-                              endpoint: entry.endpoint,
-                              sessionId: entry.sessionId,
-                            });
-                            onSelect();
-                          }}
+                        <Tooltip
+                          key={addressKey(entry.endpoint, entry.sessionId)}
+                          content={tooltip}
+                          side="right"
+                          block
                         >
-                          <span className="thread-label">{entry.title}</span>
-                          {entry.row.running ? (
-                            <span className="running-dot" aria-label="运行中" />
-                          ) : (
-                            <time
-                              className="thread-time"
-                              dateTime={
-                                timestampMillis(entry.row.updatedAt)
-                                  ? new Date(
-                                      timestampMillis(entry.row.updatedAt),
-                                    ).toISOString()
-                                  : undefined
-                              }
-                            >
-                              {shortAge(entry.row.updatedAt)}
-                            </time>
-                          )}
-                        </button>
-                      </Tooltip>
+                          <button
+                            className={`thread ${selected ? 'selected' : ''}`}
+                            aria-current={selected ? 'page' : undefined}
+                            onClick={() => {
+                              void w.select({
+                                endpoint: entry.endpoint,
+                                sessionId: entry.sessionId,
+                              });
+                              onSelect();
+                            }}
+                          >
+                            <span className="thread-label">{entry.title}</span>
+                            {entry.row.running ? (
+                              <span
+                                className="running-dot"
+                                aria-label="运行中"
+                              />
+                            ) : (
+                              <time
+                                className="thread-time"
+                                dateTime={
+                                  timestampMillis(entry.row.updatedAt)
+                                    ? new Date(
+                                        timestampMillis(entry.row.updatedAt),
+                                      ).toISOString()
+                                    : undefined
+                                }
+                              >
+                                {shortAge(entry.row.updatedAt)}
+                              </time>
+                            )}
+                          </button>
+                        </Tooltip>
+                        <SessionActions
+                          compact
+                          workspace={w}
+                          state={s}
+                          address={{
+                            endpoint: entry.endpoint,
+                            sessionId: entry.sessionId,
+                          }}
+                          title={entry.title}
+                          onRename={onRename}
+                        />
+                      </div>
                     );
                   })}
                 {!query &&

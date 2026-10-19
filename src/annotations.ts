@@ -1,9 +1,9 @@
 import type {
   ComposerAnnotation,
   TranscriptAnnotationSource,
-} from '@tekesagentkit/annotations';
-export { annotationLimit } from '@tekesagentkit/annotations';
-import { annotationLimit } from '@tekesagentkit/annotations';
+} from '@tekesagentkit/client-contract';
+export { annotationLimit } from '@tekesagentkit/client-contract';
+import { annotationLimit } from '@tekesagentkit/client-contract';
 
 export type AnnotationSource = TranscriptAnnotationSource;
 export type Annotation = ComposerAnnotation;

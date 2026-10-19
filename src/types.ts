@@ -1,5 +1,5 @@
 /** Read-only projections of the AgentKit public service contract. */
-import type { AnnotationInputPresentation } from '@tekesagentkit/annotations';
+import type { AnnotationInputPresentation } from '@tekesagentkit/client-contract';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface Endpoint {

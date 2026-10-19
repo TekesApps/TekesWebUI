@@ -1,3 +1,4 @@
+import { threadActionIcons } from '../src/icons/thread-action-assets';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
@@ -33,6 +34,7 @@ test('all Web interface and tool slots resolve to actual shared catalog artwork'
   for (const name of [
     ...Object.values(toolIcons),
     ...Object.values(interfaceIcons),
+    ...Object.values(threadActionIcons),
   ]) {
     assert.ok(iconNames.includes(name));
     assert.match(getIconUrl(name), new RegExp(name + '\\.svg$'));

@@ -9,7 +9,6 @@ import {
 import {
   ArrowDown,
   ArrowUp,
-  Archive,
   Check,
   ChevronDown,
   ChevronRight,
@@ -18,8 +17,6 @@ import {
   LoaderCircle,
   LockKeyhole,
   Menu,
-  MoreHorizontal,
-  Pencil,
   Sparkles,
   X,
 } from './components/ui/Icons';
@@ -31,6 +28,8 @@ import {
   scrollPolicy,
 } from './state';
 import type { Workspace } from './workspace';
+import type { Address } from './types';
+import { SessionActions } from './components/SessionActions';
 import { Transcript } from './components/Transcript';
 import { AnnotationCapture } from './components/Annotations';
 import { ActionCard } from './components/ActionCard';
@@ -68,6 +67,9 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const [settings, setSettings] = useState(false),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<
+    (Address & { actionId: string }) | null
+  >(null);
   const [renaming, setRenaming] = useState(false),
     [rename, setRename] = useState(''),
     [renameBusy, setRenameBusy] = useState(false),
@@ -108,6 +110,14 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const selectedModel = s.models.find(
     (m) => m.provider === s.model?.provider && m.id === s.model.model,
   );
+
+  function openRename(address: Address, name: string, actionId: string) {
+    setRenameTarget({ ...address, actionId });
+    setRename(name);
+    setRenameError('');
+    setMobile(false);
+    setRenaming(true);
+  }
 
   useEffect(() => {
     const apply = () => {
@@ -216,6 +226,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         onSelect={() => {
           setMobile(false);
         }}
+        onRename={openRename}
         onSettings={() => setSettings(true)}
         onHelp={() => setHelp(true)}
         onCollapse={() => {
@@ -256,43 +267,13 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                   {phaseLabels[s.view?.run.phase || 'loading'] || ''}
                 </span>
                 <span className="harness-badge">{selectedEndpoint?.name}</span>
-                <PopupMenu
-                  label="会话操作"
-                  trigger={
-                    <button className="icon-button" aria-label="会话操作">
-                      <MoreHorizontal size={19} />
-                    </button>
-                  }
-                >
-                  <MenuLabel>会话操作</MenuLabel>
-                  <MenuItem
-                    icon={<Pencil size={15} />}
-                    disabled={
-                      !selectedEndpoint?.capabilities?.methods?.includes(
-                        'session.rename',
-                      )
-                    }
-                    onSelect={() => {
-                      setRename(title);
-                      setRenameError('');
-                      setRenaming(true);
-                    }}
-                  >
-                    重命名
-                  </MenuItem>
-                  <MenuItem
-                    icon={<Archive size={15} />}
-                    disabled={
-                      !selectedEndpoint?.capabilities?.supportsArchiveSession ||
-                      !!s.view?.run.canCancel
-                    }
-                    onSelect={() => {
-                      void w.archive();
-                    }}
-                  >
-                    归档会话
-                  </MenuItem>
-                </PopupMenu>
+                <SessionActions
+                  workspace={w}
+                  state={s}
+                  address={s.selected}
+                  title={title}
+                  onRename={openRename}
+                />
               </>
             )}
             {!s.selected && <span className="web-label">WEB WORKSPACE</span>}
@@ -591,7 +572,12 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               if (renameBusy) return;
               setRenameBusy(true);
               try {
-                await w.rename(rename);
+                if (!renameTarget) return;
+                await w.performThreadAction(
+                  renameTarget,
+                  renameTarget.actionId,
+                  rename,
+                );
                 setRenaming(false);
               } catch (error) {
                 setRenameError(displayError(error));

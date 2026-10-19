@@ -172,3 +172,15 @@ descriptors are not part of this repository.
 - Browser screenshots, credentials and runtime connection files are excluded from
   this public source release. Pi/DSH live model acceptance was not repeated.
 
+
+# v0.1.7 release
+
+- AgentKit v0.3.2 owns shared thread-action definitions, capability policy and dispatch.
+- Web consumes generated public contract types from the immutable release commit.
+- Web: 51 tests and production build pass; existing bundle-size advisory remains.
+- AgentKit: 49 contract/presentation/service tests, build, headless dependency boundary
+  check and a second public-API consumer example pass.
+- Local browser: menu order/disabled pin reason and rename target verified; rename
+  dialog cancelled without changing a thread. Kernel, Pi and DSH public action APIs
+  verified. No live archive/fork mutation or native Mac migration was performed.
+- Pin is unavailable until the host supplies shared pin state.

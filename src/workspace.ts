@@ -1,3 +1,8 @@
+import type {
+  ThreadActionsPresentation,
+  ThreadActionRequest,
+  ThreadActionOutcome,
+} from '@tekesagentkit/client-contract';
 import { AgentClient, AuthenticationError, observe } from './api';
 import {
   AnnotationDraftStore,
@@ -8,7 +13,7 @@ import {
 import type {
   AnnotationInput,
   AnnotationCompilation,
-} from '@tekesagentkit/annotations';
+} from '@tekesagentkit/client-contract';
 import {
   creationPreset,
   fileBase64,
@@ -64,6 +69,8 @@ export interface WorkspaceState {
   attachments: PendingAttachment[];
   annotations: Annotation[];
   submissionStage: string;
+  threadActions: Map<string, ThreadActionsPresentation>;
+  threadActionErrors: Map<string, string>;
 }
 
 /** View state only. AgentKit and the Harnesses own sessions and execution lifetime. */
@@ -92,6 +99,8 @@ export class Workspace {
     attachments: [],
     annotations: [],
     submissionStage: '',
+    threadActions: new Map(),
+    threadActionErrors: new Map(),
   };
   private listeners = new Set<() => void>();
   private client: AgentClient | null = null;
@@ -106,6 +115,9 @@ export class Workspace {
   private presetChoices = new Map<string, string>();
   private modelChoices = new Map<string, ModelChoice>();
   private presetRequests = new Map<string, Promise<PresetCatalog>>();
+  private actionReads = new Map<string, Promise<ThreadActionsPresentation>>();
+  private actionReceipts = new Map<string, string>();
+  private actionRequests = new Map<string, Promise<ThreadActionOutcome>>();
   private uploadReceipts = new Map<string, UploadReceipt>();
   readonly titles = new TitleReceipts();
   readonly drafts = new DraftStore(browserStorage());
@@ -196,6 +208,7 @@ export class Workspace {
     const client = new AgentClient(token.trim());
     this.client = client;
     this.presetRequests.clear();
+    this.actionReads.clear();
     this.update({ connecting: true, error: '' });
     try {
       const [endpoints, info] = await Promise.all([
@@ -213,6 +226,8 @@ export class Workspace {
         connecting: false,
         endpoints,
         inventories: new Map(),
+        threadActions: new Map(),
+        threadActionErrors: new Map(),
         hostWorkspace: info.workspace,
         presets: new Map(),
       });
@@ -726,35 +741,102 @@ export class Workspace {
       this.fail(error);
     }
   }
-  async rename(title: string) {
-    const s = this.state.selected;
-    if (!s || !title.trim()) return;
-    const result = await this.clientOrThrow().call<{
-      title?: string;
-      seq: number;
-    }>(s.endpoint, 'session.rename', {
-      sessionId: s.sessionId,
-      title: title.trim(),
+  actionFailed = (error: unknown) => this.fail(error);
+  loadThreadActions(address: Address): Promise<ThreadActionsPresentation> {
+    const target = { ...address },
+      key = addressKey(target.endpoint, target.sessionId);
+    const pending = this.actionReads.get(key);
+    if (pending) return pending;
+    const epoch = this.bootEpoch;
+    const errors = new Map(this.state.threadActionErrors);
+    errors.delete(key);
+    this.update({ threadActionErrors: errors });
+    const request = (async () => {
+      try {
+        const endpoint = this.state.endpoints.find(
+          (e) => e.id === target.endpoint,
+        );
+        if (!endpoint?.capabilities?.methods?.includes('thread.actions'))
+          throw new Error('AgentKit 未提供会话操作接口，请升级服务。');
+        const definition =
+          await this.clientOrThrow().call<ThreadActionsPresentation>(
+            target.endpoint,
+            'thread.actions',
+            { sessionId: target.sessionId },
+          );
+        if (
+          definition.endpoint !== target.endpoint ||
+          definition.sessionId !== target.sessionId
+        )
+          throw new Error('会话操作目标不匹配。');
+        if (epoch === this.bootEpoch) {
+          const actions = new Map(this.state.threadActions);
+          actions.set(key, definition);
+          this.update({ threadActions: actions });
+        }
+        return definition;
+      } catch (error) {
+        if (epoch === this.bootEpoch) {
+          const errors = new Map(this.state.threadActionErrors);
+          errors.set(key, displayError(error));
+          this.update({ threadActionErrors: errors });
+        }
+        throw error;
+      }
+    })().finally(() => {
+      if (this.actionReads.get(key) === request) this.actionReads.delete(key);
     });
-    this.titles.remember(
-      s.endpoint,
-      s.sessionId,
-      result.title || title.trim(),
-      result.seq,
-    );
-    this.update({});
+    this.actionReads.set(key, request);
+    return request;
   }
-  async archive() {
-    const s = this.state.selected;
-    if (!s || this.state.view?.run.canCancel) return;
-    try {
-      await this.clientOrThrow().call(s.endpoint, 'session.archive', {
-        sessionId: s.sessionId,
-      });
-      if (this.key() === addressKey(s.endpoint, s.sessionId)) this.newSession();
-    } catch (error) {
-      this.fail(error);
-    }
+  performThreadAction(
+    address: Address,
+    actionId: string,
+    title?: string,
+  ): Promise<ThreadActionOutcome> {
+    const target = { ...address },
+      key = addressKey(target.endpoint, target.sessionId);
+    const payload: ThreadActionRequest = {
+      sessionId: target.sessionId,
+      actionId,
+      ...(title === undefined ? {} : { title }),
+    };
+    const signature = JSON.stringify([target.endpoint, payload]);
+    const pending = this.actionRequests.get(signature);
+    if (pending) return pending;
+    if (!this.actionReceipts.has(signature))
+      this.actionReceipts.set(signature, crypto.randomUUID());
+    const epoch = this.epoch,
+      boot = this.bootEpoch;
+    const request = (async () => {
+      const result = await this.clientOrThrow().call<ThreadActionOutcome>(
+        target.endpoint,
+        'thread.performAction',
+        { ...payload },
+        this.actionReceipts.get(signature),
+      );
+      this.actionReceipts.delete(signature);
+      if (boot !== this.bootEpoch) return result;
+      if (result.renamedTitle && typeof result.renameSeq === 'number')
+        this.titles.remember(
+          target.endpoint,
+          target.sessionId,
+          result.renamedTitle,
+          result.renameSeq,
+        );
+      if (epoch === this.epoch) {
+        if (result.navigation) await this.select(result.navigation);
+        else if (result.clearSelection && this.key() === key) this.newSession();
+      }
+      this.update({ ...(result.warning ? { error: result.warning } : {}) });
+      void this.loadThreadActions(target).catch(() => {});
+      return result;
+    })().finally(() => {
+      if (this.actionRequests.get(signature) === request)
+        this.actionRequests.delete(signature);
+    });
+    this.actionRequests.set(signature, request);
+    return request;
   }
   async earlier() {
     const s = this.state.selected;

@@ -120,18 +120,19 @@
   position: relative;
   height: 31px;
   padding-left: 26px;
+  padding-right: 36px;
   font-size: 12.5px;
 }
 .sidebar .thread-label {
   padding-right: 0;
 }
-.sidebar .thread:hover .thread-label,
-.sidebar .thread:focus-visible .thread-label {
+.sidebar .thread-row:hover .thread-label,
+.sidebar .thread-row:focus-within .thread-label {
   padding-right: 65px;
 }
 .thread-time {
   position: absolute;
-  right: 8px;
+  right: 39px;
   font-size: 10px;
   color: var(--tertiary);
   white-space: nowrap;
@@ -144,6 +145,41 @@
 }
 .thread .running-dot {
   margin-left: auto;
+}
+.thread-row {
+  position: relative;
+  border-radius: 7px;
+}
+.thread-action-up {
+  transform: rotate(180deg);
+}
+.thread-row > .ui-menu-anchor {
+  display: block;
+  position: absolute;
+  right: 4px;
+  top: 3px;
+  width: 25px;
+  height: 25px;
+}
+.thread-menu-trigger.icon-button {
+  width: 25px;
+  height: 25px;
+  opacity: 0;
+  color: var(--secondary);
+}
+.thread-row:hover .thread-menu-trigger,
+.thread-row:focus-within .thread-menu-trigger,
+.thread-row:has(.thread.selected) .thread-menu-trigger,
+.thread-menu-trigger[data-state='open'] {
+  opacity: 1;
+}
+.thread-row:focus-within .thread-time {
+  opacity: 1;
+}
+@media (hover: none) {
+  .thread-menu-trigger.icon-button {
+    opacity: 1;
+  }
 }
 .ungrouped .thread {
   padding-left: 10px;
@@ -263,7 +299,8 @@
   .thread-time {
     display: none;
   }
-  .sidebar .thread:hover .thread-label {
+  .sidebar .thread-row:hover .thread-label,
+  .sidebar .thread-row:focus-within .thread-label {
     padding-right: 0;
   }
   .sidebar .new-chat kbd {

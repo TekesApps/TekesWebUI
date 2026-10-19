@@ -9,6 +9,7 @@ navigation; keyboard search; IME-aware submission; drafts scoped to each thread.
 Select text in a message to pin an annotation, optionally add a comment, and send
 it with your message. Multiple annotations share one counted Composer badge.
 See [annotations](docs/annotations.md) for persistence and compatibility boundaries.
+Sidebar and header menus render [AgentKit's shared thread action definitions](docs/thread-actions.md).
 
 ## Boundaries
 

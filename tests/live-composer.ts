@@ -84,7 +84,8 @@ try {
     // Wait for the Harness's worker admission boundary, beyond the final transcript frame.
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await until(() => !w.snapshot().view?.run.canCancel);
-    await w.archive();
+    if (w.snapshot().selected)
+      await w.performThreadAction(w.snapshot().selected!, 'archive');
     assert.equal(w.snapshot().error, '');
     assert.equal(w.snapshot().selected, null);
   }

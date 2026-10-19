@@ -226,3 +226,60 @@ test('light and dark foreground roles preserve readable text contrast', async ()
     }
   }
 });
+
+test('AgentKit pin order precedes folder and title sorts across endpoint identities', () => {
+  const endpoints = [
+    { id: 'k', name: 'Kernel' },
+    { id: 'p', name: 'Pi' },
+  ];
+  const inventories = new Map<string, Session[]>([
+    [
+      'k',
+      [
+        {
+          sessionId: 'same',
+          summary: { title: 'A', cwd: '/one' },
+          pin: { order: 1 },
+        },
+        { sessionId: 'normal', summary: { title: 'AA', cwd: '/one' } },
+      ],
+    ],
+    [
+      'p',
+      [
+        {
+          sessionId: 'same',
+          summary: { title: 'Z', cwd: '/two' },
+          pin: { order: 0 },
+        },
+      ],
+    ],
+  ]);
+  for (const grouping of [true, false]) {
+    const groups = groupSessions(
+      endpoints,
+      inventories,
+      '',
+      '',
+      false,
+      undefined,
+      { grouping, sort: 'titleAscending' },
+    );
+    assert.equal(groups[0].key, 'pinned');
+    assert.deepEqual(
+      groups[0].entries.map((e) => [e.endpoint, e.sessionId]),
+      [
+        ['p', 'same'],
+        ['k', 'same'],
+      ],
+    );
+    assert.equal(groups.flatMap((g) => g.entries).length, 3);
+  }
+  const filtered = groupSessions(endpoints, inventories, 'A', 'k');
+  assert.equal(filtered[0].key, 'pinned');
+  inventories.get('k')![0].pin = undefined;
+  inventories.get('p')![0].pin = undefined;
+  assert.ok(
+    groupSessions(endpoints, inventories).every((g) => g.key !== 'pinned'),
+  );
+});

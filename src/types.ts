@@ -1,5 +1,8 @@
 /** Read-only projections of the AgentKit public service contract. */
-import type { AnnotationInputPresentation } from '@tekesagentkit/client-contract';
+import type {
+  AnnotationInputPresentation,
+  ThreadPinPresentation,
+} from '@tekesagentkit/client-contract';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface Endpoint {
@@ -31,6 +34,7 @@ export interface Summary {
 export interface Session {
   sessionId: string;
   summary?: Summary;
+  pin?: ThreadPinPresentation;
 }
 export interface Address {
   endpoint: string;

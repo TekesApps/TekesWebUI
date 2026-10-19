@@ -157,6 +157,7 @@ device acceptance run, physical IME/VoiceOver acceptance or a performance benchm
 The integration retains the earlier host's Kernel 0.9.0 data root; it does not
 migrate incompatible older Kernel ledgers. Provider secrets and private connection
 descriptors are not part of this repository.
+
 # v0.1.6 release
 
 - Web: 47 tests pass; TypeScript and production build pass. Existing Vite chunk-size
@@ -172,7 +173,6 @@ descriptors are not part of this repository.
 - Browser screenshots, credentials and runtime connection files are excluded from
   this public source release. Pi/DSH live model acceptance was not repeated.
 
-
 # v0.1.7 release
 
 - AgentKit v0.3.2 owns shared thread-action definitions, capability policy and dispatch.
@@ -184,3 +184,19 @@ descriptors are not part of this repository.
   dialog cancelled without changing a thread. Kernel, Pi and DSH public action APIs
   verified. No live archive/fork mutation or native Mac migration was performed.
 - Pin is unavailable until the host supplies shared pin state.
+
+# v0.1.8 release
+
+- Pins and their order are persisted by AgentKit v0.3.3, not by the browser or Harness.
+- AgentKit: 52 targeted tests pass, including durability, account/workspace isolation,
+  endpoint identity, write failure, multi-observer updates and idempotent replay
+  across restart. Build, dependency boundaries and a second public persistence
+  consumer pass.
+- Web: 52 tests and production build pass. Pinned groups preserve the server order
+  across Harnesses and ignore ordinary title/folder sorting. The existing bundle
+  size advisory remains. No native Mac changes or Kernel changes are included.
+- Local authenticated host integration: two existing sessions across Harnesses were
+  pinned and reordered; duplicate move RPC reconciled, browser was closed, and the
+  service restarted. Pins/order and replay receipts survived; both test pins were
+  then removed to restore the original state. Browser menu showed enabled unpin
+  and correct first/last move boundaries.

@@ -56,6 +56,7 @@ interface Entry {
   title: string;
   row: Summary;
   agent: string;
+  pinOrder?: number;
 }
 interface Group {
   key: string;
@@ -102,14 +103,19 @@ export function groupSessions(
           .includes(needle)
       )
         continue;
-      const key =
-        options.grouping === false ? 'all' : path || `endpoint:${endpoint.id}`;
+      const pinned = entry.pin !== undefined;
+      const key = pinned
+        ? 'pinned'
+        : options.grouping === false
+          ? 'all'
+          : path || `endpoint:${endpoint.id}`;
       if (!groups.has(key))
         groups.set(key, {
           key,
-          path,
-          name:
-            options.grouping === false
+          path: pinned ? '' : path,
+          name: pinned
+            ? '置顶'
+            : options.grouping === false
               ? '所有会话'
               : path
                 ? folderName(path)
@@ -128,6 +134,7 @@ export function groupSessions(
         title,
         row,
         agent: endpoint.name,
+        ...(pinned ? { pinOrder: entry.pin!.order } : {}),
       });
     }
   }
@@ -136,21 +143,27 @@ export function groupSessions(
     options.sort === 'titleAscending' || options.sort === 'titleDescending';
   return [...groups.values()]
     .sort((a, b) =>
-      titleSort
-        ? direction *
-            a.name.localeCompare(b.name, 'zh-CN', { numeric: true }) ||
-          a.key.localeCompare(b.key)
-        : b.updatedAt - a.updatedAt || a.key.localeCompare(b.key),
+      a.key === 'pinned'
+        ? -1
+        : b.key === 'pinned'
+          ? 1
+          : titleSort
+            ? direction *
+                a.name.localeCompare(b.name, 'zh-CN', { numeric: true }) ||
+              a.key.localeCompare(b.key)
+            : b.updatedAt - a.updatedAt || a.key.localeCompare(b.key),
     )
     .map((group) => ({
       ...group,
       entries: group.entries.sort(
         (a, b) =>
-          (titleSort
-            ? direction *
-              a.title.localeCompare(b.title, 'zh-CN', { numeric: true })
-            : timestampMillis(b.row.updatedAt) -
-              timestampMillis(a.row.updatedAt)) ||
+          (group.key === 'pinned'
+            ? (a.pinOrder ?? 0) - (b.pinOrder ?? 0)
+            : titleSort
+              ? direction *
+                a.title.localeCompare(b.title, 'zh-CN', { numeric: true })
+              : timestampMillis(b.row.updatedAt) -
+                timestampMillis(a.row.updatedAt)) ||
           a.sessionId.localeCompare(b.sessionId),
       ),
     }));

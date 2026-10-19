@@ -14,6 +14,7 @@ import {
 } from './ui/Icons';
 import type { Workspace, WorkspaceState } from '../workspace';
 import type { Address } from '../types';
+import { TekesIcon } from './ui/TekesIcon';
 import { SessionActions } from './SessionActions';
 import {
   addressKey,
@@ -286,7 +287,7 @@ export function Sidebar({
             className={`folder-group ${!grouping ? 'ungrouped' : ''}`}
             key={group.key}
           >
-            {grouping && (
+            {(grouping || group.key === 'pinned') && (
               <div className="folder-heading">
                 <button
                   className="folder-toggle"
@@ -305,29 +306,35 @@ export function Sidebar({
                   ) : (
                     <ChevronDown size={12} />
                   )}
-                  {collapsed.has(group.key) && !query ? (
+                  {group.key === 'pinned' ? (
+                    <TekesIcon name="tekes-pin" size={14} />
+                  ) : collapsed.has(group.key) && !query ? (
                     <Folder size={14} />
                   ) : (
                     <FolderOpen size={14} />
                   )}
                   <span>{group.name}</span>
                 </button>
-                <button
-                  className="icon-button folder-add"
-                  aria-label={`在 ${group.name} 新建会话`}
-                  title="在此文件夹新建会话"
-                  onClick={() =>
-                    onNew(
-                      group.path || s.hostWorkspace,
-                      group.entries[0]?.endpoint,
-                    )
-                  }
-                >
-                  <Plus size={14} />
-                </button>
+                {group.key !== 'pinned' && (
+                  <button
+                    className="icon-button folder-add"
+                    aria-label={`在 ${group.name} 新建会话`}
+                    title="在此文件夹新建会话"
+                    onClick={() =>
+                      onNew(
+                        group.path || s.hostWorkspace,
+                        group.entries[0]?.endpoint,
+                      )
+                    }
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
               </div>
             )}
-            {(!grouping || !collapsed.has(group.key) || !!query) && (
+            {((!grouping && group.key !== 'pinned') ||
+              !collapsed.has(group.key) ||
+              !!query) && (
               <>
                 {group.entries
                   .slice(

@@ -14,7 +14,7 @@ in AgentKit's shared presentation module, not in the browser:
 endpoint/session. It owns ordering, labels, semantic icon roles, interaction kinds,
 enabled states, disabled reasons, and clipboard content. The generated
 `@tekesagentkit/client-contract` package is locked to public AgentKit commit
-`0df36c6ca95892b9a13c03a906081a68e398e9a6`. It also supplies the unchanged annotation
+`2f267e63381022eb1a564898300eb362cf5fc6ba`. It also supplies the unchanged annotation
 DTOs; the older annotation-only dependency is no longer needed by Web.
 
 `SessionActions` renders the returned array in both the sidebar and header. Its
@@ -31,10 +31,17 @@ retry preserves the RPC identity. Fork outcomes retain the created child pointer
 if follow-up title assignment fails, so failure cannot trigger an accidental
 second fork.
 
-Pin state and ordering require AgentKit's explicit `ThreadActionHost` callback
-backed by the host's shared store. The current local Tekes CLI host does not yet
-provide that callback, so pin is shown as unavailable with a reason. Web does not
-create an independent pin database. Archived sessions are not currently listed
+AgentKit v0.3.3 owns persistent pin state and order through its public
+`ThreadPreferences` store. The host supplies a private path and stable account/
+workspace scope at startup; it implements no pin rules or file serialization.
+State inventories include the generated `ThreadPinPresentation` on pinned rows.
+Web renders one pinned group in that exact order, above normal folder/title sorts,
+and keeps no browser-local pin data. Every connected browser receives changes
+through the existing inventory stream. Closing the browser or restarting the
+service preserves order. Explicit retries reuse durable RPC receipts and cannot
+move a row twice. Missing/archived threads retain their saved pin identity.
+
+Archived sessions are not currently listed
 by Web's active inventory; the shared definition supports unarchive when a
 consumer supplies an archived row and the endpoint supports the operation.
 

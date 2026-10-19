@@ -1,10 +1,22 @@
-import { t, useLocale, intlLocale } from '../i18n';
-import { memo, useState, useSyncExternalStore } from 'react';
+import { t, useLocale } from '../i18n';
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Check, ChevronDown, FileText, LoaderCircle } from './ui/Icons';
-import { safeLink, formatTimestamp, timestampMillis } from '../state';
+import {
+  safeLink,
+  formatTimestamp,
+  formatMessageTime,
+  timestampMillis,
+} from '../state';
+import { Tooltip } from './Tooltip';
 import type { Item, View } from '../types';
 import type { Address } from '../types';
 import type { Annotation } from '../annotations';
@@ -58,6 +70,8 @@ const Message = memo(function Message({
   fresh,
   streaming,
   motionEnabled,
+  calendarDay,
+  endedAt,
   process = false,
   address,
   annotations,
@@ -68,14 +82,39 @@ const Message = memo(function Message({
   fresh: boolean;
   streaming: boolean;
   motionEnabled: boolean;
+  calendarDay: string;
+  endedAt?: number;
   process?: boolean;
   address: Address;
   annotations?: Annotation[];
   onSaveAnnotation?: (annotation: Annotation) => void;
   onRemoveAnnotation?: (id: string) => void;
 }) {
-  useLocale();
+  const language = useLocale();
   const typedText = useTypedText(item.text, streaming, fresh, motionEnabled);
+  const time =
+    item.kind === 'user'
+      ? item.time
+      : !process && item.isFinal
+        ? (endedAt ?? item.time)
+        : undefined;
+  const absoluteTime = useMemo(() => formatTimestamp(time), [time, language]);
+  const captionTime = useMemo(
+    () => formatMessageTime(time),
+    [time, language, calendarDay],
+  );
+  const timestamp = absoluteTime ? (
+    <Tooltip content={absoluteTime}>
+      <time
+        className="message-time"
+        tabIndex={0}
+        aria-label={absoluteTime}
+        dateTime={new Date(timestampMillis(time)).toISOString()}
+      >
+        {captionTime}
+      </time>
+    </Tooltip>
+  ) : null;
   const input =
     item.kind === 'user'
       ? {
@@ -83,29 +122,13 @@ const Message = memo(function Message({
           annotations: item.inputPresentation?.annotations || [],
         }
       : null;
-  return (
+  const message = (
     <article
       data-message-id={item.id}
       data-turn-id={item.turnId}
       data-message-kind={item.kind}
       className={`message ${item.kind} ${fresh ? 'message-enter' : ''} ${process ? 'message-narration' : ''}`}
-      title={formatTimestamp(item.time) || undefined}
     >
-      {item.kind === 'assistant' && !process && !!item.time && (
-        <div className="message-author">
-          {item.time && (
-            <time
-              className="message-time"
-              dateTime={new Date(timestampMillis(item.time)).toISOString()}
-            >
-              {new Date(timestampMillis(item.time)).toLocaleTimeString(
-                intlLocale(),
-                { hour: '2-digit', minute: '2-digit', hour12: false },
-              )}
-            </time>
-          )}
-        </div>
-      )}
       {item.kind === 'user' ? (
         <>
           <div className="user-bubble">
@@ -126,14 +149,7 @@ const Message = memo(function Message({
               <AttachmentCards attachments={item.attachments} />
             )}
           </div>
-          {item.time && (
-            <time
-              className="message-time"
-              dateTime={new Date(timestampMillis(item.time)).toISOString()}
-            >
-              {formatTimestamp(item.time)}
-            </time>
-          )}
+          <span className="input-time">{timestamp}</span>
         </>
       ) : (
         <div className="markdown" data-annotation-text>
@@ -152,6 +168,7 @@ const Message = memo(function Message({
       {item.text && item.kind !== 'user' && (
         <div className="message-actions">
           <CopyButton text={item.text} />
+          {timestamp}
         </div>
       )}
       {onSaveAnnotation && onRemoveAnnotation && (
@@ -170,6 +187,7 @@ const Message = memo(function Message({
       )}
     </article>
   );
+  return message;
 });
 interface TranscriptProps {
   view: View | null;
@@ -191,6 +209,18 @@ function TranscriptContents({
   view,
   ...annotations
 }: TranscriptProps & { view: View }) {
+  const [calendarDay, setCalendarDay] = useState(() =>
+    new Date().toDateString(),
+  );
+  useEffect(() => {
+    const refresh = () => setCalendarDay(new Date().toDateString());
+    const timer = setInterval(refresh, 60_000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
   const [baseline] = useState(
     () => new Set(view.transcript?.items.map((item) => item.id)),
   );
@@ -223,6 +253,11 @@ function TranscriptContents({
         address={view}
         item={item}
         process={process || item.kind === 'narration'}
+        calendarDay={calendarDay}
+        endedAt={
+          view.transcript?.turns?.find((turn) => turn.id === item.turnId)
+            ?.endedAt
+        }
         motionEnabled={!reduced}
         fresh={!reduced && item.turnId === liveID && !baseline.has(item.id)}
         streaming={

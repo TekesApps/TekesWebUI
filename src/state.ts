@@ -22,7 +22,7 @@ export function timestampMillis(value?: string | number) {
 }
 export function formatTimestamp(value?: string | number, timeZone?: string) {
   const millis = timestampMillis(value);
-  return millis
+  return millis && Number.isFinite(new Date(millis).getTime())
     ? new Intl.DateTimeFormat(intlLocale(), {
         year: 'numeric',
         month: '2-digit',
@@ -34,6 +34,57 @@ export function formatTimestamp(value?: string | number, timeZone?: string) {
         timeZone,
       }).format(millis)
     : '';
+}
+/** Calendar-day relative labels; DST and UTC offsets must not become elapsed-day guesses. */
+export function formatMessageTime(
+  value?: string | number,
+  now = Date.now(),
+  timeZone?: string,
+) {
+  const millis = timestampMillis(value);
+  if (
+    !millis ||
+    !Number.isFinite(new Date(millis).getTime()) ||
+    !Number.isFinite(new Date(now).getTime())
+  )
+    return '';
+  const dayFormatter = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    timeZone,
+  });
+  const day = (time: number) => {
+    const parts = dayFormatter.formatToParts(time);
+    const number = (type: string) =>
+      Number(parts.find((part) => part.type === type)?.value);
+    return (
+      Date.UTC(number('year'), number('month') - 1, number('day')) / 86_400_000
+    );
+  };
+  const days = day(now) - day(millis);
+  const clock = new Intl.DateTimeFormat(intlLocale(), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(millis);
+  const label =
+    days === 0
+      ? t('今天')
+      : days === 1
+        ? t('昨天')
+        : days > 1 && days <= 7
+          ? new Intl.DateTimeFormat(intlLocale(), {
+              weekday: 'long',
+              timeZone,
+            }).format(millis)
+          : new Intl.DateTimeFormat(intlLocale(), {
+              month: intlLocale().startsWith('zh') ? 'long' : 'short',
+              day: 'numeric',
+              timeZone,
+            }).format(millis);
+  return `${label} ${clock}`;
 }
 export function shortAge(value?: string | number, now = Date.now()) {
   const millis = timestampMillis(value);

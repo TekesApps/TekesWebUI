@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { version } from '../../package.json';
 import { useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
@@ -174,6 +175,7 @@ export function Sidebar({
             >
               <img src="/app-icon.png" width={22} height={22} alt="" />
               <span>Tekes</span>
+              <small className="brand-version">v{version}</small>
             </button>
             <div className="sidebar-header-actions">
               <Tooltip content={t('搜索会话 · ⌘K')}>

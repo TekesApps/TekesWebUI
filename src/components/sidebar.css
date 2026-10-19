@@ -13,6 +13,16 @@
   letter-spacing: -0.7px;
   min-width: 0;
 }
+.sidebar .brand-version {
+  margin-top: 4px;
+  margin-left: -2px;
+  color: var(--secondary);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
 .sidebar-header-actions {
   display: flex;
   gap: 2px;
@@ -270,6 +280,7 @@
   color: var(--tertiary);
   font-size: 10px;
   font-weight: 400;
+  white-space: nowrap;
   opacity: 0;
   transition: opacity 0.15s;
 }
@@ -277,13 +288,10 @@
 .message:focus-within .message-time {
   opacity: 1;
 }
-.message-author .message-time {
-  margin-left: 5px;
-}
 .message.user {
   position: relative;
 }
-.message.user > .message-time {
+.message.user > .input-time {
   position: absolute;
   right: 3px;
   bottom: -20px;

@@ -58,11 +58,22 @@ export function Tooltip({
     const escape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
     };
-    window.addEventListener('scroll', close, true);
+    const scroll = () => {
+      close();
+      // Focusing a timestamp may scroll it into view after the focus event.
+      // Preserve its keyboard tooltip at the final position, rather than losing it.
+      if (anchor.current?.contains(document.activeElement)) {
+        timer.current = setTimeout(() => {
+          const rect = anchor.current?.getBoundingClientRect();
+          if (rect && rect.bottom > 0 && rect.top < window.innerHeight) show();
+        }, 100);
+      }
+    };
+    window.addEventListener('scroll', scroll, true);
     window.addEventListener('keydown', escape);
     return () => {
       clearTimeout(timer.current);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', scroll, true);
       window.removeEventListener('keydown', escape);
     };
   }, []);

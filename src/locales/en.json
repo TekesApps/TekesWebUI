@@ -264,5 +264,6 @@
   "分叉已创建，继承队列清理未完成，请检查新会话。": "The fork was created, but its inherited queue could not be cleared. Check the new chat.",
   "分叉已创建，但新会话命名未完成。": "The fork was created, but its title could not be set.",
   "关闭对话框": "Close dialog",
-  "threadAction::置顶": "Pin"
+  "threadAction::置顶": "Pin",
+  "今天": "Today"
 }

@@ -238,7 +238,9 @@ export function thinkingStatus(view: View): boolean {
   if (
     !turn ||
     view.run.phase !== 'running' ||
-    view.transcript?.tools.some((t) => t.turnId === turn)
+    view.transcript?.tools.some(
+      (t) => t.turnId === turn && toolState(t, true) === 'running',
+    )
   )
     return false;
   const items =
@@ -249,6 +251,7 @@ export function thinkingStatus(view: View): boolean {
     .at(-1);
   return (
     !!latest &&
+    latest.isProvisional &&
     !latest.reasoningEnded &&
     !latest.text.trim() &&
     !items.slice(items.indexOf(latest) + 1).some((i) => !!i.text.trim())

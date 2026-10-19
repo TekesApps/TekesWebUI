@@ -302,7 +302,7 @@ descriptors are not part of this repository.
   Each change slides from the previous report to the next; repeated packets do
   not restart it, corrections reverse direction, and reduced motion disables it.
   No estimated values, approximate symbol or invented intermediate counts exist.
-- 64 tests, formatting, strict TypeScript and production build pass, including
+- 65 tests, formatting, strict TypeScript and production build pass, including
   counter transitions, unavailable/invalid counts, stale/disconnected authority
   and session isolation. Existing bundle-size advisory remains.
 - AgentKit's workspace and service tests plus its second public API consumer

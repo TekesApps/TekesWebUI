@@ -265,3 +265,17 @@ test('output counter follows real reports only and hides unavailable, stale and 
   model.transcript!.turns.push({ id: 'next', status: 'running', input: '' });
   assert.equal(liveOutputTokens(model), undefined);
 });
+
+test('thinking resumes after completed tools only for an active reasoning preview', () => {
+  const model = view(
+    [item('assistant', '', { reasoning: 'hidden', isProvisional: true })],
+    [tool('read', 'done')],
+    'running',
+  );
+  assert.equal(thinkingStatus(model), true);
+  model.transcript!.tools[0].phase = 'doing';
+  assert.equal(thinkingStatus(model), false);
+  model.transcript!.tools[0].phase = 'done';
+  model.transcript!.items[0].isProvisional = false;
+  assert.equal(thinkingStatus(model), false);
+});

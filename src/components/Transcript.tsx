@@ -3,6 +3,7 @@ import { TekesIcon } from './ui/TekesIcon';
 import { threadActionIcons } from '../icons/thread-action-assets';
 import { t, useLocale } from '../i18n';
 import {
+  Fragment,
   memo,
   useEffect,
   useMemo,
@@ -33,6 +34,7 @@ import {
   liveTurnID,
   reportedOutputUsage,
   partitionTurn,
+  sessionItemAnchors,
   thinkingStatus,
   turnStatus,
   turnElapsedSeconds,
@@ -293,8 +295,28 @@ function TranscriptContents({
       ...items.map((i) => i.turnId),
       ...tools.map((t) => t.turnId),
     ]),
-  ];
+  ].filter((turn) => turn || tools.some((tool) => !tool.turnId));
   const liveID = liveTurnID(view);
+  const partitions = new Map(
+    turns.map((turn) => [
+      turn,
+      partitionTurn(
+        items.filter((item) => !!item.turnId && item.turnId === turn),
+        tools.filter((tool) => tool.turnId === turn),
+        turn === liveID,
+      ),
+    ]),
+  );
+  const sessionItems = sessionItemAnchors(
+    items,
+    [...partitions.values()].flatMap(({ inputs, output, activity }) => [
+      ...inputs,
+      ...output,
+      ...activity.filter((item) =>
+        ['system', 'notice', 'error'].includes(item.kind),
+      ),
+    ]),
+  );
   const runningUsage =
     liveID &&
     view.run.phase === 'running' &&
@@ -302,6 +324,14 @@ function TranscriptContents({
       ? reportedOutputUsage(view, liveID)
       : undefined;
   function renderItem(item: Item, process = false) {
+    return (
+      <Fragment key={item.id}>
+        {sessionItems.before.get(item.id)?.map((item) => renderBareItem(item))}
+        {renderBareItem(item, process)}
+      </Fragment>
+    );
+  }
+  function renderBareItem(item: Item, process = false) {
     if (
       item.kind !== 'user' &&
       item.kind !== 'assistant' &&
@@ -350,11 +380,7 @@ function TranscriptContents({
       {turns.map((turn) => {
         const turnTools = tools.filter((t) => t.turnId === turn);
         const live = turn === liveID;
-        const { inputs, output, activity } = partitionTurn(
-          items.filter((i) => i.turnId === turn),
-          turnTools,
-          live,
-        );
+        const { inputs, output, activity } = partitions.get(turn)!;
         const information = activity.filter((i) =>
           ['system', 'notice', 'error'].includes(i.kind),
         );
@@ -399,6 +425,7 @@ function TranscriptContents({
           </section>
         );
       })}
+      {sessionItems.trailing.map((item) => renderBareItem(item))}
       {view.run.phase === 'running' && (
         <div className="working" role="status" aria-label={t('运行中')}>
           <span className="working-orbit" />

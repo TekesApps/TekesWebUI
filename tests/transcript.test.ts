@@ -395,3 +395,141 @@ test('recovered worker launch notice keeps original text and renders recovery st
   assert.ok(html.includes('transcript-notice recovered'));
   assert.ok(!html.includes('transcript-notice failure'));
 });
+
+test('session errors stay between their original turns as later turns arrive and recovery changes', () => {
+  const message = 'The worker could not be started: worker hello timed out';
+  const history = [
+    item('user', 'first input', { id: 'u1', turnId: 't1', sourceSequence: 10 }),
+    item('assistant', 'first answer', {
+      id: 'a1',
+      turnId: 't1',
+      sourceSequence: 11,
+      isFinal: true,
+    }),
+    item('notice', message, {
+      id: 'notice:12',
+      turnId: '',
+      sourceSequence: 12,
+      metadata: { status: 'error' },
+    }),
+    item('user', 'second input', {
+      id: 'u2',
+      turnId: 't2',
+      sourceSequence: 14,
+    }),
+    item('assistant', 'second answer', {
+      id: 'a2',
+      turnId: 't2',
+      sourceSequence: 15,
+      isFinal: true,
+    }),
+  ];
+  const rendered = (items: Item[], turns: string[]) => {
+    const v = view(items);
+    v.transcript!.turns = turns.map((id) => ({
+      id,
+      status: 'completed',
+      input: '',
+    }));
+    const dom = new JSDOM(
+      renderToStaticMarkup(createElement(Transcript, { view: v })),
+    );
+    return [
+      ...dom.window.document.querySelectorAll(
+        '.message [data-annotation-text], .transcript-notice',
+      ),
+    ].map((node) => node.textContent?.trim());
+  };
+  const expected = [
+    'first input',
+    'first answer',
+    message,
+    'second input',
+    'second answer',
+  ];
+  assert.deepEqual(rendered(history, ['t1', 't2']), expected);
+  const recovered = history.map((i) =>
+    i.id === 'notice:12'
+      ? { ...i, metadata: { status: 'recovered', recoveredAtSequence: 999 } }
+      : i,
+  );
+  const later = [
+    ...recovered,
+    item('user', 'third input', { id: 'u3', turnId: 't3', sourceSequence: 20 }),
+    item('assistant', 'third answer', {
+      id: 'a3',
+      turnId: 't3',
+      sourceSequence: 21,
+      isFinal: true,
+    }),
+  ];
+  const order = rendered(later, ['t1', 't2', 't3']);
+  assert.equal(order.length, 7);
+  assert.ok(order[2]!.includes(message));
+  assert.ok(order[2]!.includes('已恢复'));
+  assert.deepEqual(order.slice(3), [
+    'second input',
+    'second answer',
+    'third input',
+    'third answer',
+  ]);
+  // Reconnection and prepending earlier history retain the same event position.
+  assert.deepEqual(
+    rendered(JSON.parse(JSON.stringify(later)), ['t1', 't2', 't3']),
+    order,
+  );
+  const older = item('assistant', 'older answer', {
+    id: 'a0',
+    turnId: 't0',
+    sourceSequence: 1,
+    isFinal: true,
+  });
+  assert.deepEqual(
+    rendered([older, ...later], ['t0', 't1', 't2', 't3']).slice(1),
+    order,
+  );
+});
+
+test('unassigned inputs and multiple session notices retain occurrence order before, inside and after turns', () => {
+  const rows = [
+    item('notice', 'before history', {
+      id: 'n0',
+      turnId: '',
+      sourceSequence: 1,
+    }),
+    item('user', 'input', { id: 'u', sourceSequence: 2 }),
+    item('notice', 'during turn', { id: 'n1', turnId: '', sourceSequence: 3 }),
+    item('assistant', 'answer', { id: 'a', sourceSequence: 4, isFinal: true }),
+    item('user', 'failed input', {
+      id: 'pending',
+      turnId: '',
+      sourceSequence: 5,
+    }),
+    item('notice', 'failure one', { id: 'n2', turnId: '', sourceSequence: 6 }),
+    item('notice', 'failure two', { id: 'n3', turnId: '', sourceSequence: 7 }),
+  ];
+  for (const items of [
+    rows,
+    rows.map(({ sourceSequence: _, ...row }) => row),
+  ]) {
+    const v = view(items);
+    v.transcript!.turns = [{ id: 'turn', status: 'completed', input: '' }];
+    const dom = new JSDOM(
+      renderToStaticMarkup(createElement(Transcript, { view: v })),
+    );
+    const text = dom.window.document.body.textContent!;
+    let previous = -1;
+    for (const row of rows) {
+      const position = text.indexOf(row.text);
+      assert.ok(
+        position > previous,
+        `${row.text} should follow its preceding event`,
+      );
+      previous = position;
+    }
+    assert.equal(
+      dom.window.document.querySelectorAll('.transcript-notice').length,
+      4,
+    );
+  }
+});

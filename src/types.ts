@@ -160,15 +160,7 @@ export interface Actionable {
   };
 }
 export interface View extends Address {
-  run: {
-    phase: string;
-    canSubmit: boolean;
-    canCancel: boolean;
-    connection: { phase: string; message?: string; historyIsStale?: boolean };
-    actionables: Actionable[];
-    queue: { content?: { type: string; text?: string }[] }[];
-    error?: string;
-  };
+  run: RunPresentation;
   transcript?: {
     turns?: {
       id: string;
@@ -185,4 +177,78 @@ export interface View extends Address {
     hasMoreBefore: boolean;
     isStale: boolean;
   };
+}
+
+export interface RunPresentation {
+  scope: { endpointId: string; threadId: string; sessionId: string };
+  phase: string;
+  canSubmit: boolean;
+  canCancel: boolean;
+  connection: {
+    phase: string;
+    canSubmit: boolean;
+    historyIsStale: boolean;
+    message?: string | null;
+  };
+  actionables: Actionable[];
+  queue: { content?: { type: string; text?: string }[] }[];
+  jobs: unknown[];
+  error?: string | null;
+}
+
+/** AgentKit-owned family presentation returned by agent.familySnapshot. */
+export interface FamilySnapshot {
+  endpointId: string;
+  parentSessionId: string;
+  connectionEpoch: number;
+  summary: {
+    scope: { endpointId: string; threadId: string; sessionId: string };
+    tasks: {
+      id: string;
+      name: string;
+      status: string;
+      kind: string;
+      scope: { endpointId: string; threadId: string; sessionId: string };
+    }[];
+    subagents: {
+      id: string;
+      title: string;
+      sessionId: string | null;
+      status: string;
+    }[];
+    artifacts?: { id: string; source?: string | null }[];
+    usage?: Json;
+  };
+  subagentCatalog: {
+    entries: {
+      kind: string;
+      id: string;
+      mode?: string | null;
+      label?: string | null;
+      reason?: string | null;
+    }[];
+    parentAvailable: boolean;
+  } | null;
+}
+export interface ChildPane {
+  handle: string;
+  endpointId: string;
+  parentSessionId: string;
+  childId: string;
+  connectionEpoch: number;
+  layout: 'sameSession' | 'independentSessions';
+  availability:
+    'loading' | 'available' | 'oneShot' | 'parentUnavailable' | 'unavailable';
+  mode?: string | null;
+  transcript: NonNullable<View['transcript']>;
+  run: RunPresentation;
+}
+export interface ChildViewFrame {
+  handle: string;
+  endpointId: string;
+  parentSessionId: string;
+  childId: string;
+  connectionEpoch: number;
+  transcript: NonNullable<View['transcript']>;
+  run: RunPresentation;
 }

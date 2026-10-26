@@ -8,9 +8,11 @@ import { displayError } from '../state';
 export function ActionCard({
   action,
   workspace,
+  onRespond,
 }: {
   action: Actionable;
   workspace: Workspace;
+  onRespond?: (action: Actionable, outcome: unknown) => Promise<void>;
 }) {
   const [answers, setAnswers] = useState<
     Record<string, { selected: string[]; custom: string }>
@@ -23,7 +25,8 @@ export function ActionCard({
     setBusy(true);
     setError('');
     try {
-      await workspace.respond(action.id, action.revision, outcome);
+      if (onRespond) await onRespond(action, outcome);
+      else await workspace.respond(action.id, action.revision, outcome);
     } catch (e) {
       setError(displayError(e));
       setBusy(false);

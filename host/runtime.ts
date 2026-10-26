@@ -32,6 +32,7 @@ export interface Options {
   piRuntime: string;
   dshURL: string;
   dshCookieEnv: string;
+  inPlace?: boolean;
 }
 export interface Frame {
   instance: string;

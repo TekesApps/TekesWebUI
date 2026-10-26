@@ -14,6 +14,7 @@ import {
   X,
 } from './ui/Icons';
 import type { Workspace, WorkspaceState } from '../workspace';
+import { permissionTitle } from '../permissions';
 import { byteSize, effortTitle, presetTitle } from '../composer';
 import { shouldSend } from '../state';
 import { Dialog } from './Dialog';
@@ -311,6 +312,43 @@ export function Composer({
                 ))}
               </Menu>
             )}
+            {s.permissionPolicy &&
+              (s.permissionPolicy.threadLevel.length ? (
+                <ChoiceMenu
+                  label={
+                    s.permissionLoading
+                      ? t('正在应用权限…')
+                      : s.permissionMode
+                        ? t('权限模式')
+                        : s.selected
+                          ? t('Harness 未报告权限')
+                          : t('Harness 默认权限')
+                  }
+                  icon={<LockKeyhole size={14} />}
+                  value={s.permissionMode || ''}
+                  disabled={s.busy || s.controlsLoading || s.permissionLoading}
+                  options={s.permissionPolicy.threadLevel.map((option) => ({
+                    value: option.value,
+                    label: permissionTitle(option),
+                    description: option.description || undefined,
+                  }))}
+                  onChange={(value) => void w.choosePermission(value)}
+                />
+              ) : s.permissionPolicy.serverLevel.currentValue ? (
+                <span
+                  className="composer-chip"
+                  title={t('权限由 Harness 固定管理')}
+                >
+                  <LockKeyhole size={14} />
+                  {permissionTitle(
+                    s.permissionPolicy.serverLevel.options.find(
+                      (o) =>
+                        o.value ===
+                        s.permissionPolicy!.serverLevel.currentValue,
+                    ) || { value: s.permissionPolicy.serverLevel.currentValue },
+                  )}
+                </span>
+              ) : null)}
             <Tooltip content={t('输入设置 · 预设配置、模型与工作目录')}>
               <button
                 className="icon-button composer-inspect"
@@ -391,12 +429,12 @@ export function Composer({
             )}
           </div>
         </div>
-        {s.controlsError && (
+        {(s.controlsError || s.permissionError) && (
           <div
             className={`composer-feedback ${s.controlsError ? 'error' : ''}`}
             role="status"
           >
-            {t(s.controlsError)}
+            {t(s.permissionError || s.controlsError)}
           </div>
         )}
       </form>

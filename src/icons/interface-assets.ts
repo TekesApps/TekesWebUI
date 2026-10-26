@@ -1,6 +1,7 @@
 import type { IconName } from '@tekesui/icons';
 /** Interface slots use the canonical TekesUI Gallery catalog, not another icon library. */
 export const interfaceIcons = {
+  ArrowLeft: 'tekes-back',
   ArrowDown: 'tekes-jump-bottom',
   ArrowUp: 'tekes-send',
   Archive: 'tekes-archive',

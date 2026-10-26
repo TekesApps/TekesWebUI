@@ -1,3 +1,4 @@
+@import './components/family.css';
 /* TekesWebUI: warm paper, quiet chrome, generous reading space.
    Visual reference: Caho1/open-claude-ui. Independently authored styles. */
 :root {

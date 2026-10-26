@@ -15,10 +15,16 @@ function fixture(): View {
     endpoint: 'e',
     sessionId: 's',
     run: {
+      scope: { endpointId: 'e', threadId: 's', sessionId: 's' },
+      jobs: [],
       phase: 'running',
       canSubmit: true,
       canCancel: true,
-      connection: { phase: 'connected' },
+      connection: {
+        phase: 'connected',
+        canSubmit: true,
+        historyIsStale: false,
+      },
       actionables: [],
       queue: [],
     },

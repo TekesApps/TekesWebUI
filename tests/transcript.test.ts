@@ -36,10 +36,20 @@ function view(items: Item[], tools: Tool[] = [], phase = 'idle'): View {
     endpoint: 'endpoint',
     sessionId: 'session',
     run: {
+      scope: {
+        endpointId: 'endpoint',
+        threadId: 'session',
+        sessionId: 'session',
+      },
+      jobs: [],
       phase,
       canSubmit: true,
       canCancel: phase === 'running',
-      connection: { phase: 'connected' },
+      connection: {
+        phase: 'connected',
+        canSubmit: true,
+        historyIsStale: false,
+      },
       actionables: [],
       queue: [],
     },

@@ -1,84 +1,77 @@
-# Local TypeScript service
+# Existing local runtime
 
-TekesWebUI includes its own Node.js CLI in `host/`; no Python service or separate
-repository is required. `npm run build` compiles the UI to `dist/` and the service
-to `dist-host/`. The service uses only Node built-ins at runtime.
+TekesWebUI's TypeScript CLI can reuse the runtime paths already stored by the
+existing host. It does not download, package, deploy or install a second runtime.
+Node.js 22.12+ (or 20.19+) is required.
 
-## Run
+## Daily commands
 
-Use Node 22.12+ (or 20.19+), the exact published AgentKit `v0.3.7`
-(`a8610a420bad72eaedcf706b30df87153a0f3e16`), and the unmodified Kernel `v0.9.0`
-bundle. The Kernel revision and binary hashes are verified before launch.
-Build AgentKit with `cargo build --locked -p tekes-agent-web` in its checkout.
+From the TekesWebUI project:
+
+```sh
+npm run setup    # Once: import saved configuration and configure Keychain
+npm start        # Background startup and authenticated browser opening
+npm stop
+npm run status
+npm run open
+```
+
+`npm start` is idempotent: an already running service is opened without a restart
+or a second service. `npm start -- --no-open` skips opening the browser. Closing
+the browser or terminal does not stop work. Restart with `npm stop` and `npm start`.
+There is no launch-at-login service or automatic deployment/update in this change.
+
+Setup imports the existing private `start-options.json` into
+`~/.agents/client/agent-web/service-options.json`. This small configuration contains
+references to the existing binaries, assets, workspace, settings and data roots;
+no runtime binaries or Harness databases are copied. Existing threads and shared
+pins remain in their existing locations.
+
+The provider key is taken from the configured environment (normally
+`DEEPSEEK_KEY`), an existing WebUI Keychain item, or a hidden prompt. Setup saves it
+to WebUI's own macOS Keychain service, separate from Tekes App's protected items.
+Keys pass to `security -i` through stdin, never command arguments or config files.
+Subsequent cold starts can read Keychain without entering environment variables
+again. macOS may request Keychain access.
+
+Use `open` instead of entering a bare URL: the private launcher supplies the
+current browser token. Restart rotates the token. HTTP stays on loopback with
+Host/Origin checks and App-only authentication for DSH pairing.
+
+## Runtime boundaries
+
+The local service starts the verified Kernel 0.9.4 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+using the installed Pi runtime. DSH connects to an existing external service; it is
+not launched by this CLI. No AgentKit/Kernel/native App code changes are required.
+
+On macOS the directory button invokes the local OS folder chooser. Only a confirmed
+canonical directory is granted as the Kernel session's cwd/read/write roots, while
+tool/network policy remains intact. AgentKit has no directory-browsing API.
+
+## First-time developer configuration
+
+A machine without saved host configuration still needs explicit existing binaries
+and settings once. Build the TypeScript UI/CLI and provide those developer inputs:
 
 ```sh
 npm ci
 npm run build
 npm run host -- start \
-  --agentkit-source /absolute/path/to/TekesAgentKit \
-  --agentkit-binary /absolute/path/to/TekesAgentKit/target/debug/tekes-agent-web \
+  --agentkit-binary /absolute/path/to/tekes-agent-web \
   --kernel-binary-dir /absolute/path/to/BuiltInKernel \
   --port 65150
-npm run host -- open
-npm run host -- status
-npm run host -- stop
+npm run setup
 ```
 
-`--web-root` defaults to this project's `dist/`. All other source/binary overrides
-are explicit; no sibling checkout is discovered. AgentKit is copied to a private,
-content-addressed executable. Production deployment can freeze `dist-host/`,
-`package.json` and `dist/` together in an immutable release directory.
+Daily use then needs only the short commands. AgentKit is frozen by content hash
+as before; supplying an already frozen binary reuses that exact existing file.
+For local development, `--in-place` uses the supplied binary directly and saves
+that choice for daily starts, without creating a binary copy. Finish rebuilding
+that binary before starting the service.
+`--runtime-dir` isolates a test instance. Other advanced overrides remain available
+through `npm run host -- …`; ordinary use reads the saved configuration.
 
-The service imports the enabled direct DeepSeek **Responses** connection from
-Tekes' existing `providers-and-routers.json` settings. Supply its existing key as
-`DEEPSEEK_KEY`, or select an existing environment name with `--credential-env`.
-The service never substitutes a test model. Kernel and Pi must select the same
-configured provider. Pi uses its installed runtime and the included compiled
-`pi-models.js` extension through public provider APIs. DSH uses its authenticated
-public endpoint, never a private database. `TEKES_DSH_COOKIE` or the private
-previously paired connection supplies its authentication.
-
-Defaults preserve the existing Kernel 0.9 data root, Pi registry, workspace and
-`~/.agents/client/agent-web` runtime directory. They can be overridden with
-`--kernel-data-root`, `--pi-registry`, `--pi-runtime`, `--workspace`, `--settings`,
-`--runtime-dir`, and `--dsh-url`. Model credentials and startup frames travel only
-through private pipes, never command arguments, browser storage or checked-in
-configuration. Runtime files are local and private (0700 directories/0600 files).
-The CLI prints readiness metadata, never browser tokens or provider keys.
-
-## Browser authentication and lifetime
-
-The service binds only to `127.0.0.1`, checks Host/Origin, and requires an access
-token for `/api`. `open` opens a private local launcher that transfers a browser
-token in the URL fragment. Restart rotates tokens; run `open` again. Browser
-credentials cannot pair DSH; that requires the privileged App token.
-
-`start` detaches the service from the terminal. Closing the browser disconnects
-only its observation; it does not cancel mutations or stop AgentKit/Kernel.
-`stop`, logout, or machine shutdown ends the service. This is not a launch-at-login
-service. The CLI can stop the earlier Python service for a one-time migration;
-stop it before starting the TypeScript service on the same port.
-
-On macOS, the new-chat directory button invokes `host.pickDirectory`; the service
-opens the standard OS folder chooser with `osascript`. Arguments carry paths
-without embedding user paths in script source. Cancel changes no draft or grant.
-Only one chooser opens at a time. The selected canonical directory becomes the
-Kernel session's cwd/read/write roots while retaining its tool/network policy.
-Grants last for this service instance. AgentKit has no directory-browsing API.
-Other platforms can serve the UI but do not advertise a native folder chooser.
-
-## Verification
-
-`npm test` covers authentication/Origin checks, static path containment, App-only
-DSH pairing, native chooser cancellation/concurrency/grants, observer-only
-cancellation, detached CLI lifecycle and private-file handling.
-
-For the published AgentKit private-pipe integration without creating a model or
-session, use:
-
-```sh
-TEKES_AGENTKIT_BINARY=/absolute/path/to/tekes-agent-web npm test
-```
-
-Browser/native-dialog interaction and real model task acceptance are separate
-manual verification; deterministic process fixtures do not establish those claims.
+`npm test` exercises the daily commands against isolated protocol fixtures, without
+running models or changing live sessions. `TEKES_AGENTKIT_BINARY=/path/to/binary
+npm test` also exercises the real published AgentKit pipe. Manual browser/native
+dialog and real model acceptance are separate from these checks.

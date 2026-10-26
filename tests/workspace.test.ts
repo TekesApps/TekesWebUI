@@ -6,9 +6,11 @@ import type { ThreadActionOutcome } from '@tekesagentkit/client-contract';
 import { textFingerprint, type Annotation } from '../src/annotations';
 
 type Call = {
-  op: string;
+  op?: string;
   endpoint: string;
-  method: string;
+  method?: string;
+  actionableId?: string;
+  expectedRevision?: number;
   rpcId: string;
   sessionId?: string;
   target?: string;
@@ -24,6 +26,23 @@ async function ready(
     await new Promise((resolve) => setTimeout(resolve, 1));
   }
 }
+
+test('family child drafts stay scoped to parent and child destinations', () => {
+  const w = new Workspace();
+  const parent = { endpoint: 'native', sessionId: 'parent-a' };
+  const otherParent = { endpoint: 'native', sessionId: 'parent-b' };
+  w.setDraft('parent composer draft');
+  w.setChildDraft(parent, 'child-a', 'first child draft');
+  w.setChildDraft(parent, 'child-b', 'second child draft');
+  w.setChildDraft(otherParent, 'child-a', 'other parent draft');
+
+  assert.equal(w.childDraft(parent, 'child-a'), 'first child draft');
+  assert.equal(w.childDraft(parent, 'child-b'), 'second child draft');
+  assert.equal(w.childDraft(otherParent, 'child-a'), 'other parent draft');
+  assert.equal(w.snapshot().draft, 'parent composer draft');
+  w.dispose();
+});
+
 function fixture(
   t: TestContext,
   prompt: (call: Call) => Promise<unknown> = async () => ({ accepted: true }),
@@ -36,6 +55,7 @@ function fixture(
   picker: (call: Call) => Promise<{ path: string | null }> = async () => ({
     path: null,
   }),
+  permissions?: (call: Call) => Promise<unknown>,
 ) {
   const calls: Call[] = [];
   const endpoints: Endpoint[] = ['tekes', 'pi'].map((kind) => ({
@@ -51,6 +71,9 @@ function fixture(
         'composer.compileAnnotations',
         'thread.actions',
         'thread.performAction',
+        ...(permissions
+          ? ['approvals.policy', 'approvals.mode', 'approvals.select']
+          : []),
       ],
       supportsArchiveSession: true,
     },
@@ -131,7 +154,7 @@ function fixture(
             },
           }),
         );
-      } else if (['models.list', 'session.models'].includes(call.method))
+      } else if (['models.list', 'session.models'].includes(call.method ?? ''))
         value = catalog;
       else if (call.method === 'session.initialPresets')
         value = {
@@ -143,6 +166,8 @@ function fixture(
         };
       else if (call.method === 'attachments.policy')
         value = { inlineMediaTypes: [], maxAttachmentsPerMessage: 8 };
+      else if (call.method?.startsWith('approvals.'))
+        value = await permissions!(call);
       else if (call.method === 'session.create')
         value = { sessionId: 'created' };
       else if (call.method === 'session.uploadFile')
@@ -188,6 +213,25 @@ function fixture(
   );
   return { calls, endpoints, w: new Workspace() };
 }
+
+test('family approval responses stay bound to the pane endpoint after selection moves', async (t) => {
+  const { w, calls } = fixture(t);
+  try {
+    await w.connect('browser');
+    await ready(w);
+    await w.select({ endpoint: 'tekes', sessionId: 'parent' });
+    await ready(w);
+    await w.select({ endpoint: 'pi', sessionId: 'other' });
+    await ready(w);
+    await w.respondAt('tekes', 'approval-1', 3, { outcome: 'allowed-once' });
+    const response = calls.find((call) => call.op === 'respond');
+    assert.equal(response?.endpoint, 'tekes');
+    assert.equal(response?.actionableId, 'approval-1');
+    assert.equal(response?.expectedRevision, 3);
+  } finally {
+    w.dispose();
+  }
+});
 test('pending files and preset choices remain scoped to a Harness destination', async (t) => {
   const { w, calls } = fixture(t);
   try {
@@ -434,7 +478,7 @@ test('thread actions render shared definitions and dispatch to their explicit ta
     );
     assert.equal(
       calls.filter((c) =>
-        ['session.rename', 'session.archive'].includes(c.method),
+        ['session.rename', 'session.archive'].includes(c.method ?? ''),
       ).length,
       0,
     );
@@ -585,4 +629,158 @@ test('an open native folder picker cannot replace a newer destination or open tw
   } finally {
     w.dispose();
   }
+});
+
+const permissionPolicy = {
+  threadLevel: [
+    { value: 'read-only', title: 'Read Only' },
+    { value: 'workspace-write', title: 'Workspace Write' },
+    { value: 'danger-full-access', title: 'Full Access' },
+  ],
+  serverLevel: { options: [], currentValue: null },
+};
+function permissionFixture(
+  t: TestContext,
+  select?: (call: Call) => Promise<void>,
+  read?: (call: Call) => Promise<string>,
+) {
+  const modes = new Map<string, string>();
+  return fixture(t, undefined, undefined, undefined, async (call) => {
+    if (call.method === 'approvals.policy') return permissionPolicy;
+    const key = call.endpoint + ':' + call.payload.sessionId;
+    if (call.method === 'approvals.select') {
+      await select?.(call);
+      modes.set(key, String(call.payload.mode));
+      return { accepted: true };
+    }
+    return {
+      mode: read ? await read(call) : modes.get(key) || 'workspace-write',
+    };
+  });
+}
+test('new-chat permission is applied and read back before any prompt; draft choice is destination scoped', async (t) => {
+  const { w, calls } = permissionFixture(t);
+  await w.connect('browser');
+  await ready(w);
+  await w.choosePermission('read-only');
+  w.setDraft('request');
+  assert.equal(
+    calls.some((c) => c.method === 'approvals.select'),
+    false,
+  );
+  w.newSession('/authorized', 'pi');
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, null);
+  w.newSession('/authorized', 'tekes');
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  await w.submit();
+  await ready(w);
+  const selected = calls.findIndex((c) => c.method === 'approvals.select');
+  const prompt = calls.findIndex((c) => c.method === 'session.prompt');
+  assert.ok(selected >= 0 && prompt > selected);
+  assert.equal(calls[selected].payload.mode, 'read-only');
+  assert.ok(
+    calls
+      .slice(selected + 1, prompt)
+      .some((c) => c.method === 'approvals.mode'),
+  );
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  w.dispose();
+});
+test('failed permission update never admits a prompt and preserves the new-chat draft for explicit retry', async (t) => {
+  let fail = true;
+  const { w, calls } = permissionFixture(t, async () => {
+    if (fail) throw new Error('permission refused');
+  });
+  await w.connect('browser');
+  await ready(w);
+  await w.choosePermission('read-only');
+  w.setDraft('keep this input');
+  await w.submit();
+  assert.equal(
+    calls.some((c) => c.method === 'session.prompt'),
+    false,
+  );
+  assert.equal(w.snapshot().draft, 'keep this input');
+  const create = calls.find((c) => c.method === 'session.create')!;
+  fail = false;
+  await w.submit();
+  assert.equal(
+    calls.filter((c) => c.method === 'session.create').at(-1)!.rpcId,
+    create.rpcId,
+  );
+  assert.equal(calls.filter((c) => c.method === 'session.prompt').length, 1);
+  w.dispose();
+});
+test('existing-session permission updates show only confirmed modes and late replies cannot overwrite another destination', async (t) => {
+  let release!: () => void;
+  let delaying = false;
+  const { w } = permissionFixture(t, async () => {
+    if (delaying)
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+  });
+  await w.connect('browser');
+  await ready(w);
+  await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, 'workspace-write');
+  await w.choosePermission('read-only');
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  delaying = true;
+  const selecting = w.choosePermission('danger-full-access');
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  assert.equal(w.snapshot().permissionLoading, true);
+  while (!release) await new Promise((resolve) => setTimeout(resolve, 1));
+  w.newSession('/other', 'pi');
+  await ready(w);
+  release();
+  await selecting;
+  assert.equal(w.snapshot().permissionMode, null);
+  assert.equal(w.snapshot().permissionError, '');
+  w.dispose();
+});
+test('unknown effective permissions are never guessed or used to admit a prompt', async (t) => {
+  const { w, calls } = permissionFixture(
+    t,
+    undefined,
+    async () => 'unknown-mode',
+  );
+  await w.connect('browser');
+  await ready(w);
+  await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+  await ready(w);
+  w.setDraft('blocked');
+  assert.ok(w.snapshot().permissionError);
+  assert.equal(w.canSend(), false);
+  await w.submit();
+  assert.equal(
+    calls.some((c) => c.method === 'session.prompt'),
+    false,
+  );
+  w.dispose();
+});
+
+test('a policy changed by another client is read before admission instead of sending under a stale mode', async (t) => {
+  let current = 'workspace-write';
+  const { w, calls } = permissionFixture(t, undefined, async () => current);
+  await w.connect('browser');
+  await ready(w);
+  await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, 'workspace-write');
+  current = 'read-only';
+  w.setDraft('keep the draft');
+  await w.submit();
+  assert.equal(
+    calls.some((c) => c.method === 'session.prompt'),
+    false,
+  );
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  assert.equal(w.snapshot().draft, 'keep the draft');
+  await w.submit();
+  assert.equal(calls.filter((c) => c.method === 'session.prompt').length, 1);
+  w.dispose();
 });

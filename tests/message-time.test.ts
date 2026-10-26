@@ -77,10 +77,12 @@ const view: View = {
   endpoint: 'e',
   sessionId: 's',
   run: {
+    scope: { endpointId: 'e', threadId: 's', sessionId: 's' },
+    jobs: [],
     phase: 'idle',
     canSubmit: true,
     canCancel: false,
-    connection: { phase: 'connected' },
+    connection: { phase: 'connected', canSubmit: true, historyIsStale: false },
     actionables: [],
     queue: [],
   },

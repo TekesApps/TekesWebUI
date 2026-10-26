@@ -38,6 +38,7 @@ import { Dialog } from './components/Dialog';
 import { Composer } from './components/Composer';
 import { Sidebar } from './components/Sidebar';
 import { SidebarDivider } from './components/SidebarDivider';
+import { FamilyPanel } from './components/FamilyPanel';
 import {
   Menu as PopupMenu,
   MenuItem,
@@ -68,6 +69,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const language = useLocale();
   const s = useSyncExternalStore(w.subscribe, w.snapshot, w.snapshot);
   const [settings, setSettings] = useState(false),
+    [familyOpen, setFamilyOpen] = useState(false),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
   const [renameTarget, setRenameTarget] = useState<
@@ -269,6 +271,14 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                   {t(phaseLabels[s.view?.run.phase || 'loading'] || '')}
                 </span>
                 <span className="harness-badge">{selectedEndpoint?.name}</span>
+                <button
+                  className="icon-button family-toggle"
+                  type="button"
+                  aria-expanded={familyOpen}
+                  onClick={() => setFamilyOpen((value) => !value)}
+                >
+                  {familyOpen ? t('关闭任务') : t('任务')}
+                </button>
                 <SessionActions
                   workspace={w}
                   state={s}
@@ -402,6 +412,13 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               }}
             >
               <div className="conversation">
+                {familyOpen && s.selected && (
+                  <FamilyPanel
+                    key={`${s.selected.endpoint}:${s.selected.sessionId}`}
+                    workspace={w}
+                    address={s.selected}
+                  />
+                )}
                 {s.view?.transcript?.hasMoreBefore && (
                   <button
                     className="history-button"

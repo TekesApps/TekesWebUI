@@ -56,10 +56,16 @@ test('streamed Markdown types a paced prefix, preserves semantic nodes, and flus
     endpoint: 'live',
     sessionId: 'session',
     run: {
+      scope: { endpointId: 'live', threadId: 'session', sessionId: 'session' },
+      jobs: [],
       phase: 'running',
       canSubmit: true,
       canCancel: true,
-      connection: { phase: 'connected' },
+      connection: {
+        phase: 'connected',
+        canSubmit: true,
+        historyIsStale: false,
+      },
       actionables: [],
       queue: [],
     },

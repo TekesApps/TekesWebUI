@@ -40,6 +40,8 @@ import {
   type Frame,
   type Ready,
 } from './runtime.js';
+import { configuration } from './configuration.js';
+import { providerCredential } from './credentials.js';
 
 const CLI = fileURLToPath(import.meta.url);
 const PROJECT = resolve(dirname(CLI), '..');
@@ -53,6 +55,7 @@ const { values, positionals } = parseArgs({
     'runtime-dir': { type: 'string', default: DEFAULT_ROOT },
     'agentkit-source': { type: 'string' },
     'agentkit-binary': { type: 'string' },
+    'in-place': { type: 'boolean' },
     'web-root': { type: 'string', default: join(PROJECT, 'dist') },
     'kernel-binary-dir': { type: 'string' },
     'kernel-data-root': {
@@ -100,20 +103,26 @@ async function start(options: Options): Promise<void> {
   options.agentkitBinary = await realpath(options.agentkitBinary);
   options.kernelBinaryDir = await realpath(options.kernelBinaryDir);
   await verifyKernel(options.kernelBinaryDir);
-  const digest = sha256(await readFile(options.agentkitBinary));
-  const installed = join(
-    await privateRoot(join(root, 'bin')),
-    'agentkit-' + digest,
-  );
-  try {
-    await copyFile(options.agentkitBinary, installed, constants.COPYFILE_EXCL);
-    await chmod(installed, 0o700);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  if (!options.inPlace) {
+    const digest = sha256(await readFile(options.agentkitBinary));
+    const installed = join(
+      await privateRoot(join(root, 'bin')),
+      'agentkit-' + digest,
+    );
+    try {
+      await copyFile(
+        options.agentkitBinary,
+        installed,
+        constants.COPYFILE_EXCL,
+      );
+      await chmod(installed, 0o700);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    if (sha256(await readFile(installed)) !== digest)
+      throw new Error('Frozen AgentKit binary hash mismatch');
+    options.agentkitBinary = installed;
   }
-  if (sha256(await readFile(installed)) !== digest)
-    throw new Error('Frozen AgentKit binary hash mismatch');
-  options.agentkitBinary = installed;
   await mkdir(options.workspace, { recursive: true });
   options.workspace = await realpath(options.workspace);
   const settings = await jsonFile<Settings>(options.settings);
@@ -122,11 +131,10 @@ async function start(options: Options): Promise<void> {
     options.kernelDataRoot,
     options.kernelBinaryDir,
   );
-  const credential = process.env[options.credentialEnv]?.trim();
-  if (!credential)
-    throw new Error(
-      'Selected provider credential unavailable; supply the named credential environment',
-    );
+  const credential = await providerCredential(
+    options.credentialEnv,
+    provider.id,
+  );
   const endpoints: Frame['endpoints'] = [];
   const registry = await readFile(options.piRegistry).then(
     () => true,
@@ -317,6 +325,7 @@ async function main(): Promise<void> {
     piRuntime: resolve(values['pi-runtime']),
     dshURL: values['dsh-url'],
     dshCookieEnv: values['dsh-cookie-env'],
+    inPlace: values['in-place'] === true,
   });
 }
 main().catch((error) => {

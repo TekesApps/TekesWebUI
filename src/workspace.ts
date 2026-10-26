@@ -682,6 +682,7 @@ export class Workspace {
       desiredModel = this.state.model;
     const desiredPermission = this.permissionChoices.get(key);
     const permissionPolicy = this.state.permissionPolicy;
+    const attachmentPolicy = this.state.attachmentPolicy;
     const existingPermission = this.state.selected
       ? this.state.permissionMode
       : desiredPermission;
@@ -778,6 +779,21 @@ export class Workspace {
       for (let i = 0; i < files.length; i++) {
         const attachment = files[i],
           uploadKey = `${targetKey}:${attachment.id}`;
+        const mediaType = attachment.file.type || 'application/octet-stream';
+        if (
+          mediaType.toLowerCase().startsWith('image/') &&
+          attachmentPolicy?.inlineMediaTypes.some(
+            (accepted) => accepted.toLowerCase() === mediaType.toLowerCase(),
+          )
+        ) {
+          content.push({
+            type: 'image',
+            mediaType,
+            data: await fileBase64(attachment.file),
+            name: attachment.file.name,
+          });
+          continue;
+        }
         if (this.key() === targetKey)
           this.update({
             submissionStage: t('上传附件 {0}/{1}', i + 1, files.length),
@@ -790,7 +806,7 @@ export class Workspace {
             {
               sessionId: target.sessionId,
               name: attachment.file.name,
-              mediaType: attachment.file.type || 'application/octet-stream',
+              mediaType,
               data: await fileBase64(attachment.file),
             },
             attachment.id,

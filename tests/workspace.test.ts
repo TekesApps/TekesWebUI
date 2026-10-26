@@ -1,7 +1,7 @@
 import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { Workspace } from '../src/workspace';
-import type { Endpoint } from '../src/types';
+import type { AttachmentPolicy, Endpoint } from '../src/types';
 import type { ThreadActionOutcome } from '@tekesagentkit/client-contract';
 import { textFingerprint, type Annotation } from '../src/annotations';
 
@@ -56,6 +56,10 @@ function fixture(
     path: null,
   }),
   permissions?: (call: Call) => Promise<unknown>,
+  attachmentPolicy: AttachmentPolicy = {
+    inlineMediaTypes: [],
+    maxAttachmentsPerMessage: 8,
+  },
 ) {
   const calls: Call[] = [];
   const endpoints: Endpoint[] = ['tekes', 'pi'].map((kind) => ({
@@ -164,8 +168,7 @@ function fixture(
               : [{ id: 'default' }],
           defaultID: call.endpoint === 'tekes' ? 'coding' : 'default',
         };
-      else if (call.method === 'attachments.policy')
-        value = { inlineMediaTypes: [], maxAttachmentsPerMessage: 8 };
+      else if (call.method === 'attachments.policy') value = attachmentPolicy;
       else if (call.method?.startsWith('approvals.'))
         value = await permissions!(call);
       else if (call.method === 'session.create')
@@ -213,6 +216,81 @@ function fixture(
   );
   return { calls, endpoints, w: new Workspace() };
 }
+
+test('mixed image and file attachments follow the advertised inline policy in input order', async (t) => {
+  const { w, calls } = fixture(t, undefined, undefined, undefined, undefined, {
+    inlineMediaTypes: ['image/png'],
+    maxAttachmentsPerMessage: 8,
+  });
+  try {
+    await w.connect('browser');
+    await ready(w);
+    await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+    await ready(w);
+    w.setDraft('Mixed attachment request');
+    const pixels = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    w.addFiles([
+      new File([pixels], 'first.png', { type: 'image/png' }),
+      new File(['attached notes'], 'notes.txt', { type: 'text/plain' }),
+      new File([pixels], 'second.png', { type: 'image/png' }),
+    ]);
+    await w.submit();
+
+    const uploads = calls.filter(
+      (call) => call.method === 'session.uploadFile',
+    );
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].payload.name, 'notes.txt');
+    const prompt = calls.find((call) => call.method === 'session.prompt');
+    assert.deepEqual(prompt?.payload.content, [
+      { type: 'text', text: 'Mixed attachment request' },
+      {
+        type: 'image',
+        mediaType: 'image/png',
+        name: 'first.png',
+        data: btoa(String.fromCharCode(...pixels)),
+      },
+      { type: 'file', receiptId: 'upload-receipt' },
+      {
+        type: 'image',
+        mediaType: 'image/png',
+        name: 'second.png',
+        data: btoa(String.fromCharCode(...pixels)),
+      },
+    ]);
+  } finally {
+    w.dispose();
+  }
+});
+
+test('image media absent from the public inline policy uses the upload receipt path', async (t) => {
+  const { w, calls } = fixture(t);
+  try {
+    await w.connect('browser');
+    await ready(w);
+    await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+    await ready(w);
+    w.setDraft('Reference fallback');
+    w.addFiles([
+      new File([new Uint8Array([1, 2, 3])], 'photo.png', { type: 'image/png' }),
+    ]);
+    await w.submit();
+
+    assert.equal(
+      calls.filter((call) => call.method === 'session.uploadFile').length,
+      1,
+    );
+    assert.deepEqual(
+      calls.find((call) => call.method === 'session.prompt')?.payload.content,
+      [
+        { type: 'text', text: 'Reference fallback' },
+        { type: 'file', receiptId: 'upload-receipt' },
+      ],
+    );
+  } finally {
+    w.dispose();
+  }
+});
 
 test('family approval responses stay bound to the pane endpoint after selection moves', async (t) => {
   const { w, calls } = fixture(t);

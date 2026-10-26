@@ -110,6 +110,8 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
         bridge,
         '--kernel-binary-dir',
         binary,
+        '--kernel-data-root',
+        join(root, 'owned-kernel-data'),
         '--web-root',
         web,
         '--workspace',
@@ -171,6 +173,13 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
       assert.equal(alive(ready.pid), false);
       assert.equal(alive(ready.kernelPid!), false);
       assert.equal(alive(ready.agentkitPid!), false);
+      // The daily manager starts without low-level overrides. Reuse the saved
+      // paths, including the isolated data root, after a real cold stop.
+      const restarted = JSON.parse((await invoke('start')).stdout) as Ready;
+      assert.notEqual(restarted.instance, ready.instance);
+      ready = restarted;
+      assert.ok(alive(ready.kernelPid!));
+      await invoke('stop');
     } finally {
       if (ready && alive(ready.pid)) await invoke('stop').catch(() => {});
       await rm(root, { recursive: true, force: true });

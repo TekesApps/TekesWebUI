@@ -25,14 +25,7 @@ import {
   LIMIT,
   openPrivateAppend,
 } from './private.js';
-import {
-  kernelProjection,
-  verifyKernel,
-  selected,
-  sha256,
-  exec,
-  type Settings,
-} from './config.js';
+import { verifyKernel, sha256, exec, type Settings } from './config.js';
 import {
   active,
   serve,
@@ -41,7 +34,12 @@ import {
   type Ready,
 } from './runtime.js';
 import { configuration } from './configuration.js';
-import { providerCredential } from './credentials.js';
+import { readCredential } from './credentials.js';
+import {
+  resolveKernelLaunch,
+  selectedHostProvider,
+  ownedProviderCredential,
+} from './launch-configuration.js';
 
 const CLI = fileURLToPath(import.meta.url);
 const PROJECT = resolve(dirname(CLI), '..');
@@ -60,7 +58,7 @@ const { values, positionals } = parseArgs({
     'kernel-binary-dir': { type: 'string' },
     'kernel-data-root': {
       type: 'string',
-      default: join(SUPPORT, 'BuiltIn/kernel-0.9'),
+      default: join(homedir(), '.agents'),
     },
     workspace: {
       type: 'string',
@@ -71,6 +69,7 @@ const { values, positionals } = parseArgs({
       default: join(SUPPORT, 'Settings/providers-and-routers.json'),
     },
     'credential-env': { type: 'string', default: 'DEEPSEEK_KEY' },
+    'kernel-configuration-mode': { type: 'string', default: 'auto' },
     port: { type: 'string', default: '0' },
     'pi-registry': {
       type: 'string',
@@ -126,14 +125,10 @@ async function start(options: Options): Promise<void> {
   await mkdir(options.workspace, { recursive: true });
   options.workspace = await realpath(options.workspace);
   const settings = await jsonFile<Settings>(options.settings);
-  const { provider, launch } = kernelProjection(
+  const { launch, credentials } = await resolveKernelLaunch(
+    options,
     settings,
-    options.kernelDataRoot,
-    options.kernelBinaryDir,
-  );
-  const credential = await providerCredential(
-    options.credentialEnv,
-    provider.id,
+    readCredential,
   );
   const endpoints: Frame['endpoints'] = [];
   const registry = await readFile(options.piRegistry).then(
@@ -151,11 +146,14 @@ async function start(options: Options): Promise<void> {
     );
     await realpath(node);
     await realpath(cli);
-    const enabled = selected(settings.agentSelections?.pi);
-    if (enabled.size !== 1 || !enabled.has(provider.id))
-      throw new Error(
-        'Pi must select the same real DeepSeek connection as Kernel',
-      );
+    const provider = selectedHostProvider(settings, 'pi');
+    if (!provider) throw new Error('Pi has no configured provider');
+    const credential = await ownedProviderCredential(
+      options,
+      settings,
+      provider,
+      readCredential,
+    );
     endpoints.push({
       id: 'pi:' + dirname(options.piRegistry),
       kind: 'pi',
@@ -206,7 +204,7 @@ async function start(options: Options): Promise<void> {
     kernelLaunch: launch,
     kernelBootstrap: {
       endpointToken: randomBytes(32).toString('hex'),
-      credentials: { [provider.id]: credential },
+      credentials,
     },
     endpoints,
   };
@@ -307,6 +305,17 @@ async function main(): Promise<void> {
   }
   if (command !== 'start')
     throw new Error('Unknown command; use start, status, open or stop');
+  const hasLaunchOverrides = Object.keys(values).some(
+    (key) =>
+      key !== 'runtime-dir' &&
+      process.argv
+        .slice(2)
+        .some((arg) => arg === '--' + key || arg.startsWith('--' + key + '=')),
+  );
+  if (!hasLaunchOverrides) {
+    await start(await configuration(root));
+    return;
+  }
   const port = Number(values.port);
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error('Invalid loopback port');
@@ -320,6 +329,9 @@ async function main(): Promise<void> {
     workspace: resolve(values.workspace),
     settings: resolve(values.settings),
     credentialEnv: values['credential-env'],
+    kernelConfigurationMode: values[
+      'kernel-configuration-mode'
+    ] as Options['kernelConfigurationMode'],
     port,
     piRegistry: resolve(values['pi-registry']),
     piRuntime: resolve(values['pi-runtime']),

@@ -32,6 +32,9 @@ function sanitized(root: string, options: Options): Options {
     ...values,
     port: options.port,
     ...(options.inPlace === true ? { inPlace: true } : {}),
+    ...(options.kernelConfigurationMode
+      ? { kernelConfigurationMode: options.kernelConfigurationMode }
+      : {}),
     runtimeDir: root,
   } as unknown as Options;
 }

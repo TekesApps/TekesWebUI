@@ -40,13 +40,33 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service starts the verified Kernel 0.9.4 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+The local service starts the verified Kernel 0.9.5 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
 using the installed Pi runtime. DSH connects to an existing external service; it is
-not launched by this CLI. No AgentKit/Kernel/native App code changes are required.
+not launched by this CLI. Native UI is not required.
 
 On macOS the directory button invokes the local OS folder chooser. Only a confirmed
 canonical directory is granted as the Kernel session's cwd/read/write roots, while
 tool/network policy remains intact. AgentKit has no directory-browsing API.
+
+## Existing Native configuration
+
+Native defaults to `~/.agents`. Existing `config/providers.json` and
+`config/settings.json` are authoritative: the host uses Kernel's `existing`
+configuration mode, omits the provider document from the launch request, and
+never republishes either file. The configured default model is retained. A
+missing or invalid document fails startup; there is no fallback to a new empty
+profile. No historical threads are moved.
+
+Only credentials already owned by WebUI or explicitly matched to the configured
+provider id, credential reference and endpoint are bound through the private
+bootstrap pipe. Other providers remain configured and report unavailable
+credentials when used. Tekes App's protected Keychain is not accessed by this
+service. Pi uses its own selected provider and original registry/session root;
+DSH uses the saved external connection and its own durable data.
+
+`--kernel-configuration-mode existing` makes this behavior explicit. `auto` also
+selects it whenever either canonical config file exists. `provided` is reserved
+for a fresh, explicitly isolated fixture root and is rejected for `~/.agents`.
 
 ## First-time developer configuration
 

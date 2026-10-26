@@ -33,6 +33,7 @@ export interface Options {
   dshURL: string;
   dshCookieEnv: string;
   inPlace?: boolean;
+  kernelConfigurationMode?: 'auto' | 'provided' | 'existing';
 }
 export interface Frame {
   instance: string;

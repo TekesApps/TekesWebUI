@@ -445,10 +445,10 @@ function TranscriptContents({
         <p className="loading-state">{t('会话已准备好，发送消息开始。')}</p>
       )}
       {view.run.queue.map((queued, i) => (
-        <div className="queued" key={i}>
+        <div className="queued" key={queued.id ?? i}>
           <small>{t('等待执行')}</small>
           <p>
-            {queued.content
+            {queued.message?.content
               ?.filter((c) => c.type === 'text')
               .map((c) => c.text)
               .join('\n')}

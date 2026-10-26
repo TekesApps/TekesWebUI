@@ -549,3 +549,24 @@ test('unassigned inputs and multiple session notices retain occurrence order bef
     );
   }
 });
+
+test('shared queue renders its public message content and never transport metadata', () => {
+  const queued = view([]);
+  queued.run.queue = [
+    {
+      id: 'input:17',
+      placement: 'queued',
+      message: {
+        content: [
+          { type: 'text', text: 'AKWEB_QUEUED 这是排队的独立输入。' },
+          { type: 'image', text: 'not display text' },
+        ],
+      },
+    },
+  ];
+  const html = renderToStaticMarkup(
+    createElement(Transcript, { view: queued }),
+  );
+  assert.match(html, /AKWEB_QUEUED 这是排队的独立输入。/);
+  assert.doesNotMatch(html, /input:17|not display text/);
+});

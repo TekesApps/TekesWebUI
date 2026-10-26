@@ -191,7 +191,11 @@ export interface RunPresentation {
     message?: string | null;
   };
   actionables: Actionable[];
-  queue: { content?: { type: string; text?: string }[] }[];
+  queue: {
+    id?: string;
+    placement?: string;
+    message?: { content?: { type: string; text?: string }[] };
+  }[];
   jobs: unknown[];
   error?: string | null;
 }

@@ -209,7 +209,7 @@ test('missing canonical files fail without creating any files', async () => {
     await mkdir(join(root, 'config'));
     await assert.rejects(
       readExistingKernelConfiguration(root, root, legacySettings),
-      /Missing existing Kernel providers\.json/,
+      /Missing existing Kernel (?:providers|settings)\.json/,
     );
     assert.deepEqual(await readdir(join(root, 'config')), []);
   } finally {

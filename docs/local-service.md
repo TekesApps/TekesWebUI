@@ -40,7 +40,7 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service starts the verified Kernel 0.9.9 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. Kernel 0.9.9 fixes context-tool archive notifications so existing and fresh connections agree on active sessions (TekesKernel #95). AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+The local service verifies the pinned Kernel 0.9.10 bundle. AgentKit 0.4.0 remains a delivery candidate until its applicable gates and immutable release pin are complete. Kernel 0.9.10 retains context-tool archive notifications so existing and fresh connections agree on active sessions (#95), and shortens sandbox probe completion waits while preserving confinement checks (#97). AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
 using the installed Pi runtime. DSH connects to an existing external service; it is
 not launched by this CLI. Native UI is not required.
 

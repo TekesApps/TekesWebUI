@@ -16,6 +16,7 @@ import {
   openPrivateAppend,
 } from './private.js';
 import { KERNEL_PIN } from './config.js';
+import type { Harness } from './harnesses.js';
 
 export interface Options {
   runtimeDir: string;
@@ -32,6 +33,7 @@ export interface Options {
   piRuntime: string;
   dshURL: string;
   dshCookieEnv: string;
+  harnesses?: Harness[];
   inPlace?: boolean;
   kernelConfigurationMode?: 'auto' | 'provided' | 'existing';
 }
@@ -353,6 +355,8 @@ export async function serve(
       directories,
       bridge: runtime,
       attachDSH: async (cookie) => {
+        if (options.harnesses && !options.harnesses.includes('dsh'))
+          throw new Error('DSH is not enabled for this service');
         const value = await runtime.request({
           op: 'configureDSH',
           endpoint: 'dsh-loopback-default',

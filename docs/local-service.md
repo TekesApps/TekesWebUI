@@ -21,6 +21,20 @@ or a second service. `npm start -- --no-open` skips opening the browser. Closing
 the browser or terminal does not stop work. Restart with `npm stop` and `npm start`.
 There is no launch-at-login service or automatic deployment/update in this change.
 
+For a Native-only service, stop the current service and use
+`npm start -- --harnesses native`. This selection is saved for subsequent starts;
+`npm start -- --harnesses native,dsh` or `native,pi,dsh` explicitly enables those
+additional Harnesses. Omitting the option retains the saved selection; legacy
+configurations keep all three enabled. Native remains required by this local
+Kernel launcher. Unknown, empty or duplicate selections fail. Changing a running
+service's selection requires stopping it first.
+
+A disabled Pi or DSH is not initialized: its registry, runtime, provider selection
+and connection credentials are not loaded. Existing paths, configuration and
+Harness data are retained for later re-enabling. Enabled Harnesses keep their
+normal validation and readiness requirements. The low-level host accepts the
+same `--harnesses` option, including with otherwise saved launch references.
+
 Setup imports the existing private `start-options.json` into
 `~/.agents/client/agent-web/service-options.json`. This small configuration contains
 references to the existing binaries, assets, workspace, settings and data roots;

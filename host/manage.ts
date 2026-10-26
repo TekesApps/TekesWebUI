@@ -9,6 +9,7 @@ import { kernelProjection, verifyKernel, type Settings } from './config.js';
 import { readCredential, saveCredential } from './credentials.js';
 import { secretQuestion } from './prompts.js';
 import { configuration, saveConfiguration } from './configuration.js';
+import { parseHarnesses } from './harnesses.js';
 
 const CLI = fileURLToPath(import.meta.url);
 const PROJECT = resolve(dirname(CLI), '..');
@@ -33,14 +34,28 @@ async function main(): Promise<void> {
     options: {
       'runtime-dir': { type: 'string', default: DEFAULT_ROOT },
       'no-open': { type: 'boolean', default: false },
+      harnesses: { type: 'string' },
     },
   });
   const command = positionals[0] ?? 'start';
   if (!['setup', 'start', 'stop', 'status', 'open'].includes(command))
     throw new Error('Use setup, start, stop, status or open');
+  if (
+    values.harnesses !== undefined &&
+    command !== 'start' &&
+    command !== 'setup'
+  )
+    throw new Error('--harnesses is only valid for setup or start');
+  const harnesses =
+    values.harnesses === undefined
+      ? undefined
+      : parseHarnesses(values.harnesses);
   const root = await privateRoot(values['runtime-dir']);
   if (command === 'setup') {
-    const options = await configuration(root);
+    const options = {
+      ...(await configuration(root)),
+      ...(harnesses ? { harnesses } : {}),
+    };
     await verifyKernel(options.kernelBinaryDir);
     await access(options.agentkitBinary);
     await access(join(options.webRoot, 'index.html'));
@@ -66,8 +81,20 @@ async function main(): Promise<void> {
     return;
   }
   if (command === 'start') {
-    if (!(await active(root))) {
-      const options = await configuration(root);
+    if (await active(root)) {
+      if (harnesses) {
+        const options = await configuration(root);
+        if (
+          JSON.stringify(parseHarnesses(options.harnesses)) !==
+          JSON.stringify(harnesses)
+        )
+          throw new Error('Stop the service before changing --harnesses');
+      }
+    } else {
+      const options = {
+        ...(await configuration(root)),
+        ...(harnesses ? { harnesses } : {}),
+      };
       await saveConfiguration(root, options);
       await runCLI(root, 'start');
     }

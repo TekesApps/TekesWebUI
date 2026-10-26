@@ -62,3 +62,23 @@ test('invalid saved paths fail without silently overriding the chosen configurat
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('an explicit Native selection survives saved configuration without changing disabled runtime references', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tekes-options-'));
+  try {
+    const source: Options = {
+      ...options(root),
+      harnesses: ['native'],
+      piRegistry: join(root, 'existing-registry'),
+    };
+    await saveConfiguration(root, source);
+    assert.deepEqual(await configuration(root), source);
+    await writePrivate(
+      join(root, 'service-options.json'),
+      JSON.stringify({ ...source, harnesses: ['native', 'pi', 'pi'] }),
+    );
+    await assert.rejects(configuration(root), /Invalid harnesses/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -3,6 +3,7 @@ import { rename } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { readPrivate, writePrivate } from './private.js';
 import type { Options } from './runtime.js';
+import { parseHarnesses } from './harnesses.js';
 
 const STRING_KEYS = [
   'agentkitSource',
@@ -31,6 +32,9 @@ function sanitized(root: string, options: Options): Options {
   return {
     ...values,
     port: options.port,
+    ...(options.harnesses !== undefined
+      ? { harnesses: parseHarnesses(options.harnesses) }
+      : {}),
     ...(options.inPlace === true ? { inPlace: true } : {}),
     ...(options.kernelConfigurationMode
       ? { kernelConfigurationMode: options.kernelConfigurationMode }

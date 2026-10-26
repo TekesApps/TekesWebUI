@@ -33,7 +33,8 @@ import {
   type Frame,
   type Ready,
 } from './runtime.js';
-import { configuration } from './configuration.js';
+import { configuration, saveConfiguration } from './configuration.js';
+import { parseHarnesses } from './harnesses.js';
 import { readCredential } from './credentials.js';
 import {
   resolveKernelLaunch,
@@ -69,6 +70,7 @@ const { values, positionals } = parseArgs({
       default: join(SUPPORT, 'Settings/providers-and-routers.json'),
     },
     'credential-env': { type: 'string', default: 'DEEPSEEK_KEY' },
+    harnesses: { type: 'string' },
     'kernel-configuration-mode': { type: 'string', default: 'auto' },
     port: { type: 'string', default: '0' },
     'pi-registry': {
@@ -131,13 +133,16 @@ async function start(options: Options): Promise<void> {
     readCredential,
   );
   const endpoints: Frame['endpoints'] = [];
-  const registry = await readFile(options.piRegistry).then(
-    () => true,
-    (error) => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-      throw error;
-    },
-  );
+  const harnesses = options.harnesses ?? parseHarnesses(undefined);
+  const registry =
+    harnesses.includes('pi') &&
+    (await readFile(options.piRegistry).then(
+      () => true,
+      (error) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+        throw error;
+      },
+    ));
   if (registry) {
     const node = join(options.piRuntime, 'node/bin/node');
     const cli = join(
@@ -177,25 +182,27 @@ async function start(options: Options): Promise<void> {
         ]),
       },
     });
-  } else options.piRegistry = '';
-  let cookie = process.env[options.dshCookieEnv];
-  if (!cookie) {
-    try {
-      const saved = JSON.parse(
-        await readPrivate(join(root, 'dsh-connection.json')),
-      ) as { url: string; cookie: string };
-      if (saved.url === options.dshURL) cookie = saved.cookie;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  } else if (harnesses.includes('pi')) options.piRegistry = '';
+  if (harnesses.includes('dsh')) {
+    let cookie = process.env[options.dshCookieEnv];
+    if (!cookie) {
+      try {
+        const saved = JSON.parse(
+          await readPrivate(join(root, 'dsh-connection.json')),
+        ) as { url: string; cookie: string };
+        if (saved.url === options.dshURL) cookie = saved.cookie;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
+    endpoints.push({
+      id: 'dsh-loopback-default',
+      kind: 'dsh',
+      name: 'DeepSeek Harness',
+      url: options.dshURL,
+      ...(cookie ? { cookie } : {}),
+    });
   }
-  endpoints.push({
-    id: 'dsh-loopback-default',
-    kind: 'dsh',
-    name: 'DeepSeek Harness',
-    url: options.dshURL,
-    ...(cookie ? { cookie } : {}),
-  });
   const frame: Frame = {
     instance: randomBytes(16).toString('hex'),
     sessionURLScheme: 'tekes',
@@ -252,9 +259,14 @@ async function main(): Promise<void> {
   const command = positionals[0];
   if (values.help || !command) {
     console.log(
-      'TekesWebUI local service: start | status | open | stop\nstart --agentkit-source PATH --agentkit-binary PATH --kernel-binary-dir PATH [--port 65150]\nSee docs/local-service.md for configuration.',
+      'TekesWebUI local service: start | status | open | stop\nstart --agentkit-source PATH --agentkit-binary PATH --kernel-binary-dir PATH [--port 65150] [--harnesses native,pi,dsh]\nSee docs/local-service.md for configuration.',
     );
     return;
+  }
+  if (values.harnesses !== undefined) {
+    parseHarnesses(values.harnesses);
+    if (command !== 'start')
+      throw new Error('--harnesses is only valid for start');
   }
   const root = await privateRoot(values['runtime-dir']);
   if (command === 'status') {
@@ -305,14 +317,23 @@ async function main(): Promise<void> {
   }
   if (command !== 'start')
     throw new Error('Unknown command; use start, status, open or stop');
-  const hasLaunchOverrides = Object.keys(values).some(
+  const launchOverrides = Object.keys(values).filter(
     (key) =>
       key !== 'runtime-dir' &&
       process.argv
         .slice(2)
         .some((arg) => arg === '--' + key || arg.startsWith('--' + key + '=')),
   );
-  if (!hasLaunchOverrides) {
+  if (launchOverrides.length === 1 && launchOverrides[0] === 'harnesses') {
+    const options = {
+      ...(await configuration(root)),
+      harnesses: parseHarnesses(values.harnesses),
+    };
+    await start(options);
+    await saveConfiguration(root, options);
+    return;
+  }
+  if (!launchOverrides.length) {
     await start(await configuration(root));
     return;
   }
@@ -333,6 +354,7 @@ async function main(): Promise<void> {
       'kernel-configuration-mode'
     ] as Options['kernelConfigurationMode'],
     port,
+    harnesses: parseHarnesses(values.harnesses),
     piRegistry: resolve(values['pi-registry']),
     piRuntime: resolve(values['pi-runtime']),
     dshURL: values['dsh-url'],

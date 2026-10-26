@@ -181,7 +181,13 @@ export function createHostServer(options: HttpOptions): Server {
             writable_roots: [options.workspace],
             toolchain_roots: ['/bin', '/usr/bin'],
             network: false,
-            allowed_tools: ['read', 'write', 'edit', 'shell'],
+            allowed_tools: [
+              'read',
+              'write',
+              'edit',
+              'shell',
+              'ask_user_questions',
+            ],
           },
         );
         delete payload.cwd;

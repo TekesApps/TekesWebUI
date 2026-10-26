@@ -257,12 +257,29 @@ test('HTTP enforces browser/app authentication, origin, asset containment and op
         op: 'call',
         endpoint: 'tekes-loopback-default',
         method: 'session.create',
-        payload: { cwd: root },
+        payload: {
+          cwd: root,
+          execution: {
+            cwd: other,
+            read_roots: ['/'],
+            writable_roots: ['/'],
+            toolchain_roots: ['/'],
+            network: true,
+            allowed_tools: ['untrusted-browser-tool'],
+            mcp: [{ name: 'untrusted-browser-server' }],
+          },
+        },
       });
       const payload = fixture.calls[0].payload as Wire;
       assert.equal('cwd' in payload, false);
-      assert.deepEqual((payload.execution as Wire).writable_roots, [root]);
-      assert.equal((payload.execution as Wire).network, false);
+      assert.deepEqual(payload.execution, {
+        cwd: root,
+        read_roots: [root],
+        writable_roots: [root],
+        toolchain_roots: ['/bin', '/usr/bin'],
+        network: false,
+        allowed_tools: ['read', 'write', 'edit', 'shell', 'ask_user_questions'],
+      });
       assert.deepEqual(
         await (
           await fixture.api({

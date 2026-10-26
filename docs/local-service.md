@@ -40,7 +40,7 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service starts the verified Kernel 0.9.7 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+The local service starts the verified Kernel 0.9.8 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
 using the installed Pi runtime. DSH connects to an existing external service; it is
 not launched by this CLI. Native UI is not required.
 
@@ -100,3 +100,10 @@ dialog and real model acceptance are separate from these checks.
 Kernel 0.9.7 also distinguishes retired endpoint projection caches from semantic
 ledgers during recovery. It retains strict rejection of damaged semantic history;
 this is not a general data repair or a database migration.
+
+Kernel 0.9.8 exposes recognized pre-tool-catalog development histories as read-only
+through the public endpoint, including bounded pagination. Missing tool catalogs
+still prevent execution: the service does not fabricate catalog facts or rewrite
+historical messages. AgentKit shared presentation consumes `historyAccess` to
+disable mutations while retaining readable transcripts. Unknown historical formats
+continue to fail closed.

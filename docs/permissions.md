@@ -29,9 +29,15 @@ capabilities, and the host does not replace the Harness permission decision.
 
 ## Validation status
 
-This consumer requires the immutable AgentKit contract pin for the delivery
-candidate. That public version is not available yet, so dependency installation,
-tests, browser checks, and live Harness checks have not been run for this slice.
-Do not use a local package override as release evidence. Once the exact public pin
-is available, validate through `npm ci` and the candidate's recorded verification
-matrix.
+The consumer pins the public AgentKit contract archive at
+`f5fa01662d556af1454063bd6286793d55bd1d0a`; no local package override is required.
+WebUI candidate `5524a4054a5e48d151a3696eb625c1aeee4917ab` passed 109 tests,
+the complete build, and exact-head CI. These are consumer checks, not proof of
+actual Harness enforcement or browser approval interactions.
+
+The current three-Harness permission readback attempt stopped at a disconnected
+AgentKit process before obtaining permission results. Live catalog/read/select,
+Pi tool-hook enforcement, approval/question interactions, and browser draft
+retention remain acceptance work under AgentKit #73 and #58. The observed service
+failure is retained and must be diagnosed; it does not change the supported
+permission contract or authorize automatic mutation retries.

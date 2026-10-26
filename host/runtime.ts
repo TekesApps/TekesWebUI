@@ -172,8 +172,10 @@ export async function serve(
   let server: ReturnType<typeof createHostServer> | undefined;
   let directories: DirectoryAuthority | undefined;
   let stopping = false;
+  let terminationReason = 'startup-failure';
   const stop = () => {
     stopping = true;
+    terminationReason = 'host-signal';
   };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
@@ -366,6 +368,7 @@ export async function serve(
       join(root, 'ready.json'),
       JSON.stringify(descriptor, null, 2),
     );
+    terminationReason = 'service-stopping';
     while (
       !stopping &&
       kernel.exitCode === null &&
@@ -378,11 +381,36 @@ export async function serve(
           () => true,
           () => false,
         )
-      )
+      ) {
+        terminationReason = 'stop-file';
         break;
+      }
       await delay(200);
     }
+    if (terminationReason === 'service-stopping') {
+      terminationReason =
+        kernel.exitCode !== null || kernel.signalCode !== null
+          ? 'kernel-exit'
+          : 'agentkit-exit';
+    }
+  } catch (error) {
+    terminationReason = 'startup-error';
+    const code =
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof error.code === 'string' &&
+      /^[A-Z0-9_]+$/.test(error.code)
+        ? error.code
+        : 'unclassified';
+    await log.write(
+      `service-terminated reason=${terminationReason} category=${code}\n`,
+    );
+    throw error;
   } finally {
+    await log.write(
+      `service-terminated reason=${terminationReason} kernelCode=${kernel?.exitCode ?? 'null'} kernelSignal=${kernel?.signalCode ?? 'null'} agentkitCode=${bridge?.process.exitCode ?? 'null'} agentkitSignal=${bridge?.process.signalCode ?? 'null'}\n`,
+    );
     directories?.close();
     server?.close();
     server?.closeAllConnections();

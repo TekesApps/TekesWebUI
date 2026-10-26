@@ -8,6 +8,8 @@ import {
   writeFile,
   symlink,
   open,
+  chmod,
+  readFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +18,7 @@ import { DirectoryAuthority } from '../host/directory.js';
 import { createHostServer, type HttpOptions } from '../host/http.js';
 import { kernelProjection, type Settings } from '../host/config.js';
 import { Bridge, type Wire } from '../host/bridge.js';
+import { LIMIT } from '../host/private.js';
 import {
   privateRoot,
   writePrivate,
@@ -364,4 +367,56 @@ test('stopping the service aborts an open native chooser without granting access
     authority.close();
     await assert.rejects(pending, /aborted/);
     assert.equal((await authority.execution('kernel', root, {})).cwd, root);
+  }));
+
+test('bridge failures log bounded metadata without protocol content', async () =>
+  temporary(async (root) => {
+    const logPath = join(root, 'bridge.log');
+    const log = await open(logPath, 'a', 0o600);
+    const cases = [
+      {
+        name: 'invalid-json',
+        source: `#!/usr/bin/env node\nprocess.stdin.resume(); setTimeout(() => process.stdout.write('{"secret":"SENSITIVE_SENTINEL"\\n'), 20);`,
+        reason: 'stdout-invalid-json',
+      },
+      {
+        name: 'oversized-frame',
+        source: `#!/usr/bin/env node\nprocess.stdin.resume(); setTimeout(() => process.stdout.write('x'.repeat(${LIMIT + 1})), 20);`,
+        reason: 'stdout-frame-too-large',
+      },
+      {
+        name: 'child-exit',
+        source: '#!/usr/bin/env node\nprocess.exit(17);',
+        reason: 'child-exit',
+      },
+    ];
+    try {
+      for (const item of cases) {
+        const binary = join(root, item.name);
+        await writeFile(binary, item.source, { mode: 0o700 });
+        await chmod(binary, 0o700);
+        const bridge = new Bridge(
+          binary,
+          { credential: 'SENSITIVE_SENTINEL' },
+          log.fd,
+        );
+        const exited = once(bridge.process, 'exit');
+        await assert.rejects(
+          bridge.request({ op: 'diagnostic' }),
+          /disconnected/,
+        );
+        await exited;
+      }
+    } finally {
+      await log.close();
+    }
+    const contents = await readFile(logPath, 'utf8');
+    assert.match(contents, /reason=stdout-invalid-json category=parse-failed/);
+    assert.match(
+      contents,
+      /reason=stdout-frame-too-large category=limit-exceeded/,
+    );
+    assert.match(contents, /event=child-exit code=17 signal=null/);
+    assert.doesNotMatch(contents, /SENSITIVE_SENTINEL/);
+    assert.doesNotMatch(contents, /"secret"/);
   }));

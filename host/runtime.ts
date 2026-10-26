@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { open, mkdir, rm, realpath, readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { Bridge, type Wire } from './bridge.js';
@@ -64,6 +64,54 @@ export interface Ready {
   hostVersion: string;
   runtimeDirectory: string;
   workspace: string;
+}
+
+export interface PiRegistrySession {
+  id: string;
+  cwd: string;
+  sessionFile: string;
+}
+
+/** Read the legacy WebUI array or the AgentKit public keyed-session manifest. */
+export function piRegistrySessions(
+  value: unknown,
+  registryPath: string,
+): PiRegistrySession[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Invalid Pi registry');
+  const sessions = (value as { sessions?: unknown }).sessions;
+  let rows: Array<[string | undefined, unknown]>;
+  if (Array.isArray(sessions)) {
+    rows = sessions.map((row) => [undefined, row]);
+  } else if (sessions && typeof sessions === 'object') {
+    rows = Object.entries(sessions);
+  } else {
+    throw new Error('Invalid Pi registry sessions');
+  }
+
+  return rows.map(([key, candidate]) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate))
+      throw new Error('Invalid Pi registry session');
+    const row = candidate as { id?: unknown; cwd?: unknown; file?: unknown };
+    if (
+      typeof row.id !== 'string' ||
+      !/^[a-zA-Z0-9_-]+$/.test(row.id) ||
+      (key !== undefined && key !== row.id) ||
+      typeof row.cwd !== 'string' ||
+      !isAbsolute(row.cwd)
+    )
+      throw new Error('Invalid Pi registry session pointer');
+
+    // Retain the actual native history pointer; adopted files need not be named
+    // after the AgentKit id. The adapter validates its canonical session root.
+    const sessionFile =
+      key === undefined
+        ? join(dirname(registryPath), 'sessions', row.id + '.jsonl')
+        : row.file;
+    if (typeof sessionFile !== 'string' || !isAbsolute(sessionFile))
+      throw new Error('Invalid Pi registry session file');
+    return { id: row.id, cwd: row.cwd, sessionFile };
+  });
 }
 export async function active(root: string): Promise<boolean> {
   const ready = await jsonFile<Ready>(join(root, 'ready.json')).catch(
@@ -261,17 +309,9 @@ export async function serve(
     const pi = rows.find((e) => e.kind === 'pi');
     if (pi && options.piRegistry) {
       await waitReady(pi.id);
-      const registry = await jsonFile<{
-        sessions: { id: string; cwd: string }[];
-      }>(options.piRegistry);
-      for (const row of registry.sessions) {
-        if (!/^[a-zA-Z0-9_-]+$/.test(row.id))
-          throw new Error('Invalid Pi registry session ID');
-        const path = join(
-          dirname(options.piRegistry),
-          'sessions',
-          row.id + '.jsonl',
-        );
+      const registry = await jsonFile<unknown>(options.piRegistry);
+      for (const row of piRegistrySessions(registry, options.piRegistry)) {
+        const path = row.sessionFile;
         try {
           await readFile(path);
         } catch (error) {

@@ -40,7 +40,7 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service starts the verified Kernel 0.9.5 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+The local service starts the verified Kernel 0.9.6 bundle and AgentKit 0.4.0 candidate after their exact immutable pins are published. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
 using the installed Pi runtime. DSH connects to an existing external service; it is
 not launched by this CLI. Native UI is not required.
 
@@ -53,7 +53,8 @@ tool/network policy remains intact. AgentKit has no directory-browsing API.
 Native defaults to `~/.agents`. Existing `config/providers.json` and
 `config/settings.json` are authoritative: the host uses Kernel's `existing`
 configuration mode, omits the provider document from the launch request, and
-never republishes either file. The configured default model is retained. A
+never republishes either file. Existing formatted JSON is validated and normalized
+only in memory; its original bytes remain untouched. The configured default model is retained. A
 missing or invalid document fails startup; there is no fallback to a new empty
 profile. No historical threads are moved.
 

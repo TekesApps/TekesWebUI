@@ -278,7 +278,14 @@ test('HTTP enforces browser/app authentication, origin, asset containment and op
         writable_roots: [root],
         toolchain_roots: ['/bin', '/usr/bin'],
         network: false,
-        allowed_tools: ['read', 'write', 'edit', 'shell', 'ask_user_questions'],
+        allowed_tools: [
+          'read',
+          'write',
+          'edit',
+          'shell',
+          'ask_user_questions',
+          'context',
+        ],
       });
       assert.deepEqual(
         await (

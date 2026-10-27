@@ -106,6 +106,7 @@
   "AgentKit 未提供会话操作接口，请升级服务。": "AgentKit does not provide thread actions. Please upgrade the service.",
   "会话操作目标不匹配。": "Chat action target mismatch.",
   "需要你的回答": "Your answer is needed",
+  "取消问题": "Cancel question",
   "需要你的确认": "Your approval is needed",
   "请在 App 中处理此请求。": "Handle this request in the app.",
   "输入回答": "Enter an answer",

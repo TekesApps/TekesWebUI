@@ -6,6 +6,7 @@ import type {
   TranscriptLiveUsage,
   TranscriptReportedUsage,
   ThreadActionDefinition,
+  QuestionCancellationOutcome,
 } from '@tekesagentkit/client-contract';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -151,6 +152,7 @@ export interface Actionable {
   revision: number;
   sessionId: string;
   kind: string;
+  cancelOutcome?: QuestionCancellationOutcome;
   payload: {
     title?: string;
     description?: string;

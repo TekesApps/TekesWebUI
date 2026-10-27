@@ -141,9 +141,20 @@ export function ActionCard({
                 </div>
               );
             })}
-            <button className="primary" type="submit">
-              {busy ? t('正在提交…') : t('提交回答')}
-            </button>
+            <div className="dialog-actions">
+              {action.cancelOutcome && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void respond(action.cancelOutcome)}
+                >
+                  {t('取消问题')}
+                </button>
+              )}
+              <button className="primary" type="submit">
+                {busy ? t('正在提交…') : t('提交回答')}
+              </button>
+            </div>
           </fieldset>
         </form>
       ) : (

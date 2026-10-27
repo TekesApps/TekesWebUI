@@ -320,5 +320,6 @@
   "任务属于当前会话或来源不可用": "Task belongs to this session or its source is unavailable",
   "子代理": "Subagents",
   "发送": "Send",
+  "停止运行": "Stop run",
   "子代理会话已断开，请重新打开": "The subagent session disconnected. Reopen it to continue."
 }

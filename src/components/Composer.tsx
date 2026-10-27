@@ -427,6 +427,26 @@ export function Composer({
                 }}
               />
             )}
+            {s.view?.run.canCancel && (
+              <button
+                className="stop-button"
+                type="button"
+                aria-label={t('停止运行')}
+                title={t('停止运行')}
+                onClick={() => void w.cancel()}
+              >
+                <Square size={13} />
+              </button>
+            )}
+            <button
+              className="send-button"
+              type="submit"
+              aria-label={t('发送')}
+              title={t('发送')}
+              disabled={!w.canSend()}
+            >
+              <ArrowUp size={18} />
+            </button>
           </div>
         </div>
         {(s.controlsError || s.permissionError) && (

@@ -36,6 +36,8 @@ function view(items: Item[], tools: Tool[] = [], phase = 'idle'): View {
     endpoint: 'endpoint',
     sessionId: 'session',
     run: {
+      connectionEpoch: 1,
+      canUpdateQueue: false,
       scope: {
         endpointId: 'endpoint',
         threadId: 'session',

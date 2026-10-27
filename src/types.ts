@@ -7,6 +7,7 @@ import type {
   TranscriptReportedUsage,
   ThreadActionDefinition,
   QuestionCancellationOutcome,
+  RunPresentation as AgentKitRunPresentation,
 } from '@tekesagentkit/client-contract';
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -181,7 +182,10 @@ export interface View extends Address {
   };
 }
 
-export interface RunPresentation {
+export interface RunPresentation extends Pick<
+  AgentKitRunPresentation,
+  'connectionEpoch' | 'canUpdateQueue'
+> {
   scope: { endpointId: string; threadId: string; sessionId: string };
   phase: string;
   canSubmit: boolean;
@@ -196,7 +200,7 @@ export interface RunPresentation {
   queue: {
     id?: string;
     placement?: string;
-    message?: { content?: { type: string; text?: string }[] };
+    message?: { content?: Json[] };
   }[];
   jobs: unknown[];
   error?: string | null;

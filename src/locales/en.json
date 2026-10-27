@@ -220,6 +220,7 @@
   "正在思考": "Thinking",
   "会话已准备好，发送消息开始。": "This chat is ready. Send a message to begin.",
   "等待执行": "Waiting to run",
+  "移除排队消息": "Remove queued message",
   "产物": "Artifacts",
   "系统提示": "System notice",
   "事件 · {0}": "Event · {0}",

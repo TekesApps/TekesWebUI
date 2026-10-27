@@ -290,6 +290,21 @@ export class Workspace {
       },
       rpcId,
     );
+  removeQueuedInput = (
+    address: Address,
+    itemId: string,
+    connectionEpoch: number,
+  ) =>
+    this.clientOrThrow().call(
+      address.endpoint,
+      'agent.queue.remove',
+      {
+        sessionId: address.sessionId,
+        itemId,
+        connectionEpoch,
+      },
+      crypto.randomUUID(),
+    );
   private clientOrThrow() {
     if (!this.client) throw new AuthenticationError(t('请先连接本机服务。'));
     return this.client;

@@ -435,6 +435,21 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 >
                   <Transcript
                     view={s.view}
+                    onRemoveQueued={async (
+                      address,
+                      itemId,
+                      connectionEpoch,
+                    ) => {
+                      try {
+                        await w.removeQueuedInput(
+                          address,
+                          itemId,
+                          connectionEpoch,
+                        );
+                      } catch (error) {
+                        w.actionFailed(error);
+                      }
+                    }}
                     onTurnAction={async (address, actionId) => {
                       try {
                         await w.performThreadAction(address, actionId);

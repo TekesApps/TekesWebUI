@@ -15,6 +15,8 @@ function fixture(): View {
     endpoint: 'e',
     sessionId: 's',
     run: {
+      connectionEpoch: 1,
+      canUpdateQueue: false,
       scope: { endpointId: 'e', threadId: 's', sessionId: 's' },
       jobs: [],
       phase: 'running',

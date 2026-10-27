@@ -1039,6 +1039,16 @@ summary::-webkit-details-marker {
   color: var(--secondary);
   font-size: 10px;
 }
+.queued-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.queued-remove {
+  width: 24px;
+  height: 24px;
+  color: var(--secondary);
+}
 .queued p {
   margin: 5px 0 0;
 }

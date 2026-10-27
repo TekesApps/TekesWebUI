@@ -89,6 +89,8 @@ test('history renders recovered annotation cards safely without exposing the tra
     endpoint: 'kernel',
     sessionId: 's',
     run: {
+      connectionEpoch: 1,
+      canUpdateQueue: false,
       scope: { endpointId: 'kernel', threadId: 's', sessionId: 's' },
       jobs: [],
       phase: 'idle',

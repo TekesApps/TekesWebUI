@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "2.2.1",
-    "@tekesagentkit/client-contract": "https://codeload.github.com/TekesApps/TekesAgentKit/tar.gz/8dde861a560bc0ecc6fe14ba2fa688e37a64893e",
+    "@tekesagentkit/client-contract": "https://codeload.github.com/TekesApps/TekesAgentKit/tar.gz/58950714b1c48f21c1465b929d3fb795f6f03ce2",
     "@tekesui/icons": "https://codeload.github.com/TekesApps/TekesUI/tar.gz/80d6b05649234f953ea452d42e1cbed369fdddbb",
     "react": "19.3.1",
     "react-dom": "19.3.1",

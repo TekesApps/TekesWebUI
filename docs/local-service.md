@@ -54,7 +54,7 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service verifies the pinned Kernel 0.9.10 bundle. AgentKit 0.4.0 remains a delivery candidate until its applicable gates and immutable release pin are complete. Kernel 0.9.10 retains context-tool archive notifications so existing and fresh connections agree on active sessions (#95), and shortens sandbox probe completion waits while preserving confinement checks (#97). AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+The local service verifies the pinned Kernel 0.9.11 bundle and its published source revision and binary hashes. Use the `TekesKernel-0.9.11-macos-arm64-source-bound.tar.gz` release asset; the original asset omitted its compile-time source revision and is rejected by the strict host. Kernel 0.9.11 avoids cloning in-memory records during bounded child-history projection; protocol and validation behavior remain unchanged (#99). AgentKit 0.4.0 remains a delivery candidate until its applicable gates and immutable release pin are complete. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
 using the installed Pi runtime. DSH connects to an existing external service; it is
 not launched by this CLI. Native UI is not required.
 

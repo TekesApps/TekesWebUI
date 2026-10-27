@@ -9,9 +9,9 @@ export const exec = promisify(execFile);
 export const KERNEL_PIN = {
   format: 1,
   repository: 'https://github.com/TekesApps/TekesKernel.git',
-  tag: 'v0.9.10',
-  version: '0.9.10',
-  revision: '186afd170f6863871e4d5c70c670a868cba839b3',
+  tag: 'v0.9.11',
+  version: '0.9.11',
+  revision: '8e60e0f1e8cd8837edf3beaaa7fb07a98b0b34f8',
 };
 export interface Model {
   id: string;
@@ -139,10 +139,14 @@ export async function verifyKernel(binary: string): Promise<void> {
     { env: cleanEnvironment(), timeout: 15000, maxBuffer: 65536 },
   );
   const identity = JSON.parse(stdout) as {
+    format: number;
+    identifier: string;
     version: string;
     source_revision: string;
   };
   if (
+    identity.format !== 1 ||
+    identity.identifier !== 'com.tekes.kernel.supervisor' ||
     identity.version !== KERNEL_PIN.version ||
     identity.source_revision !== KERNEL_PIN.revision
   )

@@ -46,7 +46,7 @@ test(
       await writeFile(join(web, 'index.html'), '<p>fixture</p>');
       const kernelSource = `#!/usr/bin/env node
 if (process.argv.includes('--describe-build')) {
- console.log(JSON.stringify({version:${JSON.stringify(KERNEL_PIN.version)},source_revision:${JSON.stringify(KERNEL_PIN.revision)}}));
+ console.log(JSON.stringify({format:1,identifier:'com.tekes.kernel.supervisor',version:${JSON.stringify(KERNEL_PIN.version)},source_revision:${JSON.stringify(KERNEL_PIN.revision)}}));
 } else {
  let data=Buffer.alloc(0), sent=false;
  process.stdin.on('data', part=>{data=Buffer.concat([data,part]);

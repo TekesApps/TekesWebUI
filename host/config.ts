@@ -9,9 +9,9 @@ export const exec = promisify(execFile);
 export const KERNEL_PIN = {
   format: 1,
   repository: 'https://github.com/TekesApps/TekesKernel.git',
-  tag: 'v0.9.12',
-  version: '0.9.12',
-  revision: 'afb568e9b4934f5a47ba036b981236210876a9f4',
+  tag: 'v0.9.13',
+  version: '0.9.13',
+  revision: '460fe94cf4c337cc0abcd0f60ce3123017fe4037',
 };
 export interface Model {
   id: string;

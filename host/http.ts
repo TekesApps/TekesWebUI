@@ -188,6 +188,7 @@ export function createHostServer(options: HttpOptions): Server {
               'shell',
               'ask_user_questions',
               'context',
+              'task',
             ],
           },
         );

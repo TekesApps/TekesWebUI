@@ -285,6 +285,7 @@ test('HTTP enforces browser/app authentication, origin, asset containment and op
           'shell',
           'ask_user_questions',
           'context',
+          'task',
         ],
       });
       assert.deepEqual(

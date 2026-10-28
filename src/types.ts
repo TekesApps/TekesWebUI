@@ -153,6 +153,7 @@ export interface Actionable {
   revision: number;
   sessionId: string;
   kind: string;
+  responseAvailable?: boolean;
   cancelOutcome?: QuestionCancellationOutcome;
   payload: {
     title?: string;

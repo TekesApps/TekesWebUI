@@ -20,8 +20,9 @@ export function ActionCard({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const payload = action.payload;
+  const responseDisabled = busy || action.responseAvailable === false;
   async function respond(outcome: unknown) {
-    if (busy) return;
+    if (responseDisabled) return;
     setBusy(true);
     setError('');
     try {
@@ -51,7 +52,7 @@ export function ActionCard({
       {action.kind === 'approval' ? (
         <div className="dialog-actions">
           <button
-            disabled={busy}
+            disabled={responseDisabled}
             onClick={() =>
               void respond({
                 sessionId: action.sessionId,
@@ -64,7 +65,7 @@ export function ActionCard({
           </button>
           <button
             className="primary"
-            disabled={busy}
+            disabled={responseDisabled}
             onClick={() =>
               void respond({
                 sessionId: action.sessionId,
@@ -91,7 +92,7 @@ export function ActionCard({
             });
           }}
         >
-          <fieldset disabled={busy}>
+          <fieldset disabled={responseDisabled}>
             {payload.questions.map((q) => {
               const answer = answers[q.id] || { selected: [], custom: '' };
               return (
@@ -145,13 +146,17 @@ export function ActionCard({
               {action.cancelOutcome && (
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={responseDisabled}
                   onClick={() => void respond(action.cancelOutcome)}
                 >
                   {t('取消问题')}
                 </button>
               )}
-              <button className="primary" type="submit">
+              <button
+                className="primary"
+                type="submit"
+                disabled={responseDisabled}
+              >
                 {busy ? t('正在提交…') : t('提交回答')}
               </button>
             </div>

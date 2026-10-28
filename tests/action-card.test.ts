@@ -8,6 +8,101 @@ import { setLocale } from '../src/i18n';
 import type { Actionable } from '../src/types';
 import type { Workspace } from '../src/workspace';
 
+test('history-unavailable actionables stay visible but cannot respond until control availability returns', async () => {
+  const dom = new JSDOM('<div id="root"></div>');
+  const originals = ['window', 'document', 'IS_REACT_ACT_ENVIRONMENT'].map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  );
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  });
+  setLocale('en');
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  const action: Actionable = {
+    id: 'question-action',
+    revision: 17,
+    sessionId: 'child-session',
+    kind: 'question',
+    responseAvailable: false,
+    cancelOutcome: { sessionId: 'child-session', cancelQuestion: true },
+    payload: {
+      questions: [
+        { id: 'question-call', question: 'Choose', options: [{ label: 'A' }] },
+      ],
+    },
+  };
+  const calls: unknown[][] = [];
+  const workspace = {
+    respond: async (...args: unknown[]) => {
+      calls.push(args);
+    },
+  } as unknown as Workspace;
+  try {
+    await act(async () =>
+      root.render(createElement(ActionCard, { action, workspace })),
+    );
+    assert.match(container.textContent!, /Choose/);
+    assert.ok(
+      [...container.querySelectorAll('button')].every(
+        (button) => button.disabled,
+      ),
+      'question reply and cancellation controls are disabled',
+    );
+    await act(async () =>
+      container
+        .querySelector('form')!
+        .dispatchEvent(
+          new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+        ),
+    );
+    assert.equal(calls.length, 0, 'a stale form event is not dispatched');
+
+    action.kind = 'approval';
+    action.payload = { approvalId: 'approval-1' };
+    await act(async () =>
+      root.render(createElement(ActionCard, { action, workspace })),
+    );
+    assert.equal(container.querySelectorAll('button').length, 2);
+    assert.ok(
+      [...container.querySelectorAll('button')].every(
+        (button) => button.disabled,
+      ),
+      'both approval outcomes are disabled',
+    );
+
+    action.kind = 'question';
+    action.responseAvailable = true;
+    action.payload = {
+      questions: [
+        { id: 'question-call', question: 'Choose', options: [{ label: 'A' }] },
+      ],
+    };
+    await act(async () =>
+      root.render(createElement(ActionCard, { action, workspace })),
+    );
+    await act(async () =>
+      container
+        .querySelector('form')!
+        .dispatchEvent(
+          new dom.window.Event('submit', { bubbles: true, cancelable: true }),
+        ),
+    );
+    assert.equal(calls.length, 1, 'the existing response path resumes');
+    assert.deepEqual(calls[0].slice(0, 2), [action.id, action.revision]);
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+    setLocale('zh-CN');
+    for (const [key, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  }
+});
+
 test('question cancellation consumes only the supplied outcome, prevents duplicate responses and recovers from errors', async () => {
   const dom = new JSDOM('<div id="root"></div>');
   const originals = ['window', 'document', 'IS_REACT_ACT_ENVIRONMENT'].map(

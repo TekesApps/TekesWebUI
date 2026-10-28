@@ -132,7 +132,10 @@ test('provider projection preserves Responses, enabled models and credential iso
     kernelProjection(settings, '/host/kernel', '/published/bin'),
   );
 });
-async function httpFixture(root: string) {
+async function httpFixture(
+  root: string,
+  bridgeRequest: (request: Wire) => Promise<unknown> = async () => [],
+) {
   const assets = join(root, 'assets');
   await mkdir(assets);
   await writeFile(join(assets, 'index.html'), '<p>UI</p>');
@@ -156,7 +159,7 @@ async function httpFixture(root: string) {
       request: async (request) => {
         calls.push(request);
         if (request.op === 'call') mutations++;
-        return [];
+        return bridgeRequest(request);
       },
       observe: (_request, deliver) => {
         deliver({ value: { baseline: true } });
@@ -200,6 +203,35 @@ async function httpFixture(root: string) {
     },
   };
 }
+test('explicit reconnect is authenticated, forwarded once and preserves its failure without replaying calls', () =>
+  temporary(async (root) => {
+    const fixture = await httpFixture(root, async (request) => {
+      if (request.op === 'reconnect') throw new Error('authentication expired');
+      return [];
+    });
+    try {
+      const response = await fixture.api({
+        op: 'reconnect',
+        endpoint: 'tekes-loopback-default',
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        error: 'authentication expired',
+      });
+      assert.deepEqual(fixture.calls, [
+        { op: 'reconnect', endpoint: 'tekes-loopback-default' },
+      ]);
+      assert.equal(fixture.mutations, 0);
+      assert.equal(
+        (await fixture.api({ op: 'reconnect', endpoint: 'native' }, 'wrong'))
+          .status,
+        401,
+      );
+    } finally {
+      fixture.server.close();
+      fixture.server.closeAllConnections();
+    }
+  }));
 test('HTTP enforces browser/app authentication, origin, asset containment and operation boundaries', () =>
   temporary(async (root) => {
     const fixture = await httpFixture(root);

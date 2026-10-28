@@ -72,6 +72,9 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     [familyOpen, setFamilyOpen] = useState(false),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
+  const [reconnecting, setReconnecting] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [renameTarget, setRenameTarget] = useState<
     (Address & { actionId: string }) | null
   >(null);
@@ -121,6 +124,18 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     setRenameError('');
     setMobile(false);
     setRenaming(true);
+  }
+
+  function reconnectEndpoint(endpoint: string) {
+    if (reconnecting.has(endpoint)) return;
+    setReconnecting((current) => new Set(current).add(endpoint));
+    void w.reconnectEndpoint(endpoint).finally(() => {
+      setReconnecting((current) => {
+        const next = new Set(current);
+        next.delete(endpoint);
+        return next;
+      });
+    });
   }
 
   useEffect(() => {
@@ -588,10 +603,21 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 <span>
                   {e.connection === 'ready'
                     ? e.host?.product.version || t('已连接')
-                    : t('重新连接中')}
+                    : typeof e.connection === 'object'
+                      ? t('连接失败')
+                      : t('重新连接中')}
                 </span>
                 {typeof e.connection === 'object' && (
                   <small>{e.connection.failed}</small>
+                )}
+                {e.canReconnect && (
+                  <button
+                    type="button"
+                    disabled={reconnecting.has(e.id)}
+                    onClick={() => reconnectEndpoint(e.id)}
+                  >
+                    {reconnecting.has(e.id) ? t('重新连接中') : t('重新连接')}
+                  </button>
                 )}
               </div>
             ))}

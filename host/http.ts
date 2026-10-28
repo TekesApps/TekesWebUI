@@ -152,6 +152,7 @@ export function createHostServer(options: HttpOptions): Server {
       if (
         ![
           'endpoints',
+          'reconnect',
           'describe',
           'snapshot',
           'call',

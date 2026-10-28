@@ -60,6 +60,7 @@ function fixture(
     inlineMediaTypes: [],
     maxAttachmentsPerMessage: 8,
   },
+  reconnect?: (call: Call) => Promise<Endpoint>,
 ) {
   const calls: Call[] = [];
   const endpoints: Endpoint[] = ['tekes', 'pi'].map((kind) => ({
@@ -113,6 +114,10 @@ function fixture(
           directoryPicker: { endpoints: ['tekes', 'pi'] },
         };
       else if (call.op === 'host.pickDirectory') value = await picker(call);
+      else if (call.op === 'reconnect')
+        value = reconnect
+          ? await reconnect(call)
+          : endpoints.find((endpoint) => endpoint.id === call.endpoint)!;
       else if (call.op === 'follow') {
         const value =
           call.target === 'state'
@@ -216,6 +221,86 @@ function fixture(
   );
   return { calls, endpoints, w: new Workspace() };
 }
+
+test('explicit reconnect sends one recovery request and never replays a business operation', async (t) => {
+  let finish!: (endpoint: Endpoint) => void;
+  const { w, calls, endpoints } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    () =>
+      new Promise<Endpoint>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  try {
+    await w.connect('browser');
+    await ready(w);
+    const before = calls.filter((call) => call.op === 'call').length;
+    const first = w.reconnectEndpoint('tekes');
+    const second = w.reconnectEndpoint('tekes');
+    await ready(
+      w,
+      () => calls.filter((call) => call.op === 'reconnect').length === 1,
+    );
+    assert.equal(calls.filter((call) => call.op === 'call').length, before);
+    finish({ ...endpoints[0], connection: 'ready', canReconnect: false });
+    await Promise.all([first, second]);
+    assert.equal(calls.filter((call) => call.op === 'reconnect').length, 1);
+    assert.equal(
+      w.snapshot().endpoints.find((endpoint) => endpoint.id === 'tekes')
+        ?.connection,
+      'ready',
+    );
+    assert.equal(
+      calls.some(
+        (call) => call.method === 'session.prompt' || call.op === 'respond',
+      ),
+      false,
+    );
+  } finally {
+    w.dispose();
+  }
+});
+
+test('explicit reconnect keeps authentication and protocol errors visible', async (t) => {
+  let errorMessage = 'authentication expired';
+  const { w, calls } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    async () => {
+      throw new Error(errorMessage);
+    },
+  );
+  try {
+    await w.connect('browser');
+    await ready(w);
+    for (const message of [
+      'authentication expired',
+      'protocol version mismatch',
+    ]) {
+      errorMessage = message;
+      await w.reconnectEndpoint('tekes');
+      assert.equal(w.snapshot().error, message);
+    }
+    assert.equal(calls.filter((call) => call.op === 'reconnect').length, 2);
+    assert.equal(
+      calls.some(
+        (call) => call.method === 'session.prompt' || call.op === 'respond',
+      ),
+      false,
+    );
+  } finally {
+    w.dispose();
+  }
+});
 
 test('mixed image and file attachments follow the advertised inline policy in input order', async (t) => {
   const { w, calls } = fixture(t, undefined, undefined, undefined, undefined, {

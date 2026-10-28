@@ -38,6 +38,8 @@
   "从 CLI 启动入口打开页面，可自动完成认证。": "Open the page through the CLI launcher to authenticate automatically.",
   "连接到你的工作空间": "Connect to your workspace",
   "重新连接中": "Reconnecting",
+  "重新连接": "Reconnect",
+  "连接失败": "Connection failed",
   "已连接": "Connected",
   "外观": "Appearance",
   "跟随系统": "System",

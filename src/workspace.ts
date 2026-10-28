@@ -142,6 +142,7 @@ export class Workspace {
   private actionReads = new Map<string, Promise<ThreadActionsPresentation>>();
   private actionReceipts = new Map<string, string>();
   private actionRequests = new Map<string, Promise<ThreadActionOutcome>>();
+  private reconnectRequests = new Map<string, Promise<void>>();
   private uploadReceipts = new Map<string, UploadReceipt>();
   readonly titles = new TitleReceipts();
   readonly drafts = new DraftStore(browserStorage());
@@ -309,6 +310,35 @@ export class Workspace {
     if (!this.client) throw new AuthenticationError(t('请先连接本机服务。'));
     return this.client;
   }
+  reconnectEndpoint = (endpointId: string): Promise<void> => {
+    const pending = this.reconnectRequests.get(endpointId);
+    if (pending) return pending;
+    const client = this.clientOrThrow();
+    const epoch = this.bootEpoch;
+    const request = Promise.resolve().then(async () => {
+      try {
+        const description = await client.unary<Endpoint>({
+          op: 'reconnect',
+          endpoint: endpointId,
+        });
+        if (epoch === this.bootEpoch && this.client === client)
+          this.update({
+            endpoints: this.state.endpoints.map((endpoint) =>
+              endpoint.id === endpointId ? description : endpoint,
+            ),
+            error: '',
+          });
+      } catch (error) {
+        if (epoch === this.bootEpoch && this.client === client)
+          this.fail(error);
+      } finally {
+        if (this.reconnectRequests.get(endpointId) === request)
+          this.reconnectRequests.delete(endpointId);
+      }
+    });
+    this.reconnectRequests.set(endpointId, request);
+    return request;
+  };
   private fail = (error: unknown) => {
     if (error instanceof DOMException && error.name === 'AbortError') return;
     if (error instanceof AuthenticationError) {

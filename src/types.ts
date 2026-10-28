@@ -16,6 +16,7 @@ export interface Endpoint {
   kind: string;
   name: string;
   connection: 'ready' | 'connecting' | 'stopped' | { failed: string };
+  canReconnect?: boolean;
   host?: { product: { version: string } };
   capabilities?: { methods?: string[]; supportsArchiveSession?: boolean };
 }

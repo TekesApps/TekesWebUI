@@ -214,9 +214,9 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
       previousAddress = w.key();
     followBottom.current = false;
     setHistoryBusy(true);
-    await w.earlier();
+    const loaded = await w.earlier();
     requestAnimationFrame(() => {
-      if (w.key() === previousAddress)
+      if (loaded && w.key() === previousAddress)
         node.scrollTop = top + node.scrollHeight - previousHeight;
     });
     setHistoryBusy(false);

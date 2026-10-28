@@ -222,6 +222,67 @@ function fixture(
   return { calls, endpoints, w: new Workspace() };
 }
 
+test('Earlier completion and errors stay bound to the mounted view', async (t) => {
+  for (const mode of [
+    'switch',
+    'return-to-same-address',
+    'current-error',
+    'current-success',
+  ]) {
+    await t.test(mode, async (t) => {
+      const { w } = fixture(t);
+      const baseFetch = globalThis.fetch;
+      let finish: ((response: Response) => void) | undefined;
+      t.mock.method(
+        globalThis,
+        'fetch',
+        async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+          const body = JSON.parse(String(init?.body || '{}'));
+          if (body.op === 'earlier')
+            return new Promise<Response>((resolve) => {
+              finish = resolve;
+            });
+          return baseFetch(url, init);
+        },
+      );
+      try {
+        await w.connect('browser');
+        await ready(w);
+        await w.select({ endpoint: 'tekes', sessionId: 'a' });
+        await ready(w, () => w.snapshot().view?.sessionId === 'a');
+        const loading = w.earlier();
+        await ready(w, () => Boolean(finish));
+        if (mode === 'switch' || mode === 'return-to-same-address') {
+          await w.select({ endpoint: 'tekes', sessionId: 'b' });
+          await ready(w, () => w.snapshot().view?.sessionId === 'b');
+          if (mode === 'return-to-same-address') {
+            await w.select({ endpoint: 'tekes', sessionId: 'a' });
+            await ready(w, () => w.snapshot().view?.sessionId === 'a');
+          }
+        }
+        finish!(
+          Response.json(
+            mode === 'current-success'
+              ? { value: { loaded: true } }
+              : { error: 'protocol: stale history page result' },
+          ),
+        );
+        assert.equal(
+          await loading,
+          mode === 'current-success',
+          'only a current successful page can restore its reading anchor',
+        );
+        assert.equal(
+          w.snapshot().error,
+          mode === 'current-error' ? 'protocol: stale history page result' : '',
+        );
+      } finally {
+        w.dispose();
+      }
+    });
+  }
+});
+
 test('explicit reconnect sends one recovery request and never replays a business operation', async (t) => {
   let finish!: (endpoint: Endpoint) => void;
   const { w, calls, endpoints } = fixture(

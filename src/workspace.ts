@@ -1283,11 +1283,21 @@ export class Workspace {
   }
   async earlier() {
     const s = this.state.selected;
-    if (!s) return;
+    if (!s) return false;
+    const epoch = this.epoch,
+      connectionEpoch = this.state.view?.run.connectionEpoch;
+    const stillCurrent = () =>
+      epoch === this.epoch &&
+      connectionEpoch === this.state.view?.run.connectionEpoch;
     try {
-      await this.clientOrThrow().unary({ op: 'earlier', ...s });
+      const result = await this.clientOrThrow().unary<{ loaded: boolean }>({
+        op: 'earlier',
+        ...s,
+      });
+      return stillCurrent() && result.loaded;
     } catch (error) {
-      this.fail(error);
+      if (stillCurrent()) this.fail(error);
+      return false;
     }
   }
   async respond(

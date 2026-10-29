@@ -8,6 +8,8 @@ import {
   writeFile,
   symlink,
   open,
+  readFile,
+  chmod,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -21,6 +23,7 @@ import {
   writePrivate,
   readPrivate,
   cleanEnvironment,
+  LIMIT,
 } from '../host/private.js';
 
 async function temporary(run: (root: string) => Promise<void>) {
@@ -364,4 +367,110 @@ test('stopping the service aborts an open native chooser without granting access
     authority.close();
     await assert.rejects(pending, /aborted/);
     assert.equal((await authority.execution('kernel', root, {})).cwd, root);
+  }));
+
+test('bridge failures log bounded metadata without protocol content', async () =>
+  temporary(async (root) => {
+    const logPath = join(root, 'bridge.log');
+    const log = await open(logPath, 'a', 0o600);
+    const cases = [
+      {
+        name: 'invalid-json',
+        source: `#!/usr/bin/env node\nprocess.stdin.resume(); setTimeout(() => process.stdout.write('{"secret":"SENSITIVE_SENTINEL"\\n'), 20);`,
+        reason: 'stdout-invalid-json',
+      },
+      {
+        name: 'oversized-frame',
+        source: `#!/usr/bin/env node\nprocess.stdin.resume(); setTimeout(() => process.stdout.write('x'.repeat(${LIMIT + 1})), 20);`,
+        reason: 'stdout-frame-too-large',
+      },
+      {
+        name: 'child-exit',
+        source: '#!/usr/bin/env node\nprocess.exit(17);',
+        reason: 'child-exit',
+      },
+    ];
+    try {
+      for (const item of cases) {
+        const binary = join(root, item.name);
+        await writeFile(binary, item.source, { mode: 0o700 });
+        await chmod(binary, 0o700);
+        const bridge = new Bridge(
+          binary,
+          { credential: 'SENSITIVE_SENTINEL' },
+          log.fd,
+        );
+        const exited = once(bridge.process, 'exit');
+        await assert.rejects(
+          bridge.request({ op: 'diagnostic' }),
+          /disconnected/,
+        );
+        await exited;
+      }
+    } finally {
+      await log.close();
+    }
+    const contents = await readFile(logPath, 'utf8');
+    assert.match(contents, /reason=stdout-invalid-json category=parse-failed/);
+    assert.match(
+      contents,
+      /reason=stdout-frame-too-large category=limit-exceeded/,
+    );
+    assert.match(contents, /event=child-exit code=17 signal=null/);
+    assert.doesNotMatch(contents, /SENSITIVE_SENTINEL/);
+    assert.doesNotMatch(contents, /"secret"/);
+  }));
+
+test('bridge rejects an oversized complete frame when its newline arrives in the next chunk', async () =>
+  temporary(async (root) => {
+    const logPath = join(root, 'bridge-newline.log');
+    const log = await open(logPath, 'a', 0o600);
+    const binary = join(root, 'oversized-newline');
+    await writeFile(
+      binary,
+      `#!/usr/bin/env node
+const { createInterface } = require('node:readline');
+const lines = createInterface({ input: process.stdin });
+lines.on('line', (line) => {
+  const request = JSON.parse(line);
+  if (request.op === 'oversized-newline') {
+    const header = JSON.stringify({ id: request.id }).slice(0, -1) + ',"value":"';
+    process.stdout.write(header + 'x'.repeat(${LIMIT} - header.length));
+  } else if (request.op === 'release-newline') {
+    process.stdout.write('"}\\n');
+  }
+});
+`,
+      { mode: 0o700 },
+    );
+    const bridge = new Bridge(binary, { endpoints: [] }, log.fd);
+    let bytes = 0;
+    bridge.process.stdout.on('data', (chunk: Buffer) => {
+      bytes += chunk.length;
+      // Send the closing bytes only after the host received the entire prefix.
+      // The assembled line is valid JSON; reject its size rather than a parse error.
+      if (bytes === LIMIT)
+        bridge.process.stdin.write('{"op":"release-newline"}\n');
+    });
+    let outcome: string;
+    try {
+      outcome = await bridge.request({ op: 'oversized-newline' }).then(
+        () => 'admitted',
+        () => 'rejected',
+      );
+    } finally {
+      bridge.close();
+      if (
+        bridge.process.exitCode === null &&
+        bridge.process.signalCode === null
+      )
+        await once(bridge.process, 'exit');
+      await log.close();
+    }
+    assert.equal(outcome, 'rejected');
+    assert.equal(bytes, LIMIT + 3);
+    assert.match(
+      await readFile(logPath, 'utf8'),
+      /reason=stdout-frame-too-large category=limit-exceeded/,
+    );
   }));

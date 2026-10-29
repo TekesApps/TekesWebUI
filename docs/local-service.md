@@ -7,7 +7,7 @@ to `dist-host/`. The service uses only Node built-ins at runtime.
 ## Run
 
 Use Node 22.12+ (or 20.19+), the exact published AgentKit `v0.3.7`
-(`a8610a420bad72eaedcf706b30df87153a0f3e16`), and the unmodified Kernel `v0.9.0`
+(`a8610a420bad72eaedcf706b30df87153a0f3e16`), and the unmodified Kernel `v0.9.3`
 bundle. The Kernel revision and binary hashes are verified before launch.
 Build AgentKit with `cargo build --locked -p tekes-agent-web` in its checkout.
 

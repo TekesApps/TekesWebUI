@@ -29,15 +29,28 @@ capabilities, and the host does not replace the Harness permission decision.
 
 ## Validation status
 
-The consumer pins the public AgentKit contract archive at
-`f5fa01662d556af1454063bd6286793d55bd1d0a`; no local package override is required.
-WebUI candidate `5524a4054a5e48d151a3696eb625c1aeee4917ab` passed 109 tests,
-the complete build, and exact-head CI. These are consumer checks, not proof of
-actual Harness enforcement or browser approval interactions.
+The consumer pins the public declaration archive at
+`58950714b1c48f21c1465b929d3fb795f6f03ce2`; no local declaration override is
+required. The declaration file is unchanged in Core candidate
+`ece62fb7648ef87d45530baff33fa97e90120bd2`. Web c319's unit/build/CI results are
+listed in [delivery integration](agentkit-delivery-integration.md). In particular,
+`tests/workspace.test.ts` covers readback before admission, failed-update draft
+retention, destination fencing, unknown modes and a policy changed by another
+client. These checks do not prove actual Harness enforcement.
 
-The current three-Harness permission readback attempt stopped at a disconnected
-AgentKit process before obtaining permission results. Live catalog/read/select,
-Pi tool-hook enforcement, approval/question interactions, and browser draft
-retention remain acceptance work under AgentKit #73 and #58. The observed service
-failure is retained and must be diagnosed; it does not change the supported
-permission contract or authorize automatic mutation retries.
+Version-scoped real slices are recorded in AgentKit #73:
+[Pi 1.3.0 tool blocking/ask allow/deny](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6417310220)
+and [question responses](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6418184525)
+used Core372; [DSH mode readback](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6417864795)
+used Core4fd; [Native browser approval](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6443545856)
+used Core3e6c/Webcd7283/Kernel012. Later
+[history-fault/control separation](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6482814207)
+used Corede7/50ae and Web41e9/Kernel017. Each slice retains its exact program and
+raw evidence. The initial disconnected-pipe
+attempt and subsequent capture failures remain historical failures; they are not
+the current result for every Harness.
+
+Those slices do not establish c319/ece/018 browser, real-model or full three-Harness
+acceptance. Final applicable live checks and integration remain open under #73,
+#55 and #58; see the [remaining responsibilities](delivery-acceptance.md).
+Failures never authorize automatic mutation retries or guessed effective modes.

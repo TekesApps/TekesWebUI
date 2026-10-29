@@ -7,7 +7,11 @@ The functional source under review is Web
 `c319de5b5e4249ca0bfd3850ab971ca67b83f97e`, Core
 `dc98950f3256e9a68cc9641426c6b00122d85a1c`, public Kernel 0.9.18 /
 `1a7e5367781c4a7ada51a57330e4772dd54fc182` and declaration pin
-`58950714b1c48f21c1465b929d3fb795f6f03ce2`. Package 0.2.0 remains a candidate.
+`58950714b1c48f21c1465b929d3fb795f6f03ce2`. Package 0.2.0 remains a candidate. Startup-only fix `60e0104` subsequently changes
+binary intake and canonical credential setup; its affected Node checks are recorded
+in [integration](agentkit-delivery-integration.md). Browser/HTTP/runtime inputs are
+unchanged, and their accepted evidence retains the identities above. Published
+WebUI 0.1.24 / AgentKit 0.3.9 maintenance is separate from this stage.
 
 Two Native protocol subsets are now coordinator-accepted on that Core commit's
 local source-bound Web executable SHA256

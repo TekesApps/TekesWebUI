@@ -37,8 +37,8 @@ operation is the already available `earlier` response `{loaded:boolean}`; it add
 no AgentKit method, presentation field or Harness capability. The stronger
 connection-epoch fence remains in this delivery candidate. This maintenance was integrated
 independently under #55/#58, without treating the AgentKit stage's performance
-failures as a blocker for these fixes. Its source-bound release assets are prepared;
-merge alone does not establish publication or daily-entry upgrade. It does not
+failures as a blocker for these fixes. Its 0.1.24 maintenance release is published; publication does not establish a
+daily-entry upgrade. It does not
 enable the broader family/permission/queue delivery.
 
 The complete PR #14 has a concrete service dependency beyond its public DTO pin:
@@ -54,9 +54,10 @@ The complete PR #14 has a concrete service dependency beyond its public DTO pin:
   `responseAvailable` and `cancelOutcome` when present.
 
 These are implemented by the accepted Core dc98950 candidate. Public AgentKit
-[main b68ddc7](https://github.com/TekesApps/TekesAgentKit/blob/b68ddc71d81dd39156be229acbb97a1ffb5f6f5e/crates/web/src/lib.rs), inspected on 2026-10-29, lacks
+[main 4cb15a6](https://github.com/TekesApps/TekesAgentKit/blob/4cb15a61ca3dfd860c70a3db13b61b2146c40efe/crates/web/src/lib.rs), inspected on 2026-10-30, lacks
 the family/child service dispatch, queue removal and `reconnect` operation. Its
-latest published release is still v0.3.8. DTO `5895071` supplies declarations,
+latest maintenance release is now v0.3.9; it still does not contain the stage
+family/child/queue/reconnect APIs. DTO `5895071` supplies declarations,
 not these running capabilities. The existing launcher freezes a user-supplied
 binary hash; it does not install a compatible AgentKit release. Complete delivery
 therefore needs the matching service implementation and its applicable #58/#59
@@ -65,6 +66,24 @@ The separately published Kernel 0.9.18 is available; that alone does not supply
 AgentKit's missing service methods. Existing-runtime configuration and Kernel-pin
 changes are outside PR #15's maintenance scope and are not independently claimed
 as validated against the older service by the c319/dc evidence.
+
+The startup-only follow-up in `60e0104` fixes two concrete Web intake defects:
+binary-only startup no longer requires an unused source checkout, and setup uses
+the same canonical configuration mode/default provider as startup. Credential
+setup retains the provider/reference/endpoint ownership boundary and does not
+rewrite canonical files. Thirteen affected Node checks pass, including real CLI
+cold-start/stop/restart and real manager setup with isolated protocol fixtures;
+old startup and setup failures remain in the existing raw evidence. Test-fixture
+construction failures are retained separately. These checks do not use a real
+Keychain, Kernel, model or browser. The `src/`, HTTP, bridge and runtime files are
+unchanged, so accepted browser/P1/history evidence remains scoped to c319/dc/05.
+
+Current Core PR75 `b92305005a885ce746a754507acdba22ca1fd5b0` has identical
+`crates/web`, contract and DTO inputs to dc98950 at this consumption boundary;
+DTO SHA256 remains `23ab36b59f60d98ddcd963a3b55d48326c5ce3c4350c266466f1ee7dad8d2305`.
+This confirms that no Web declaration update is needed; it is not a new runtime
+acceptance claim for b923. Final Native consumer startup, cold credential binding
+and release input conditions are in [local service](local-service.md#final-native-consumer-and-release-conditions).
 
 ## Version-scoped verification and remaining delivery
 

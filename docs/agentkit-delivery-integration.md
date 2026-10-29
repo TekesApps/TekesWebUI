@@ -27,15 +27,19 @@ delivery slice.
 
 ## Independent maintenance and runtime dependencies
 
-[PR #15](https://github.com/TekesApps/TekesWebUI/pull/15) extracts private bridge
-failure diagnostics and mounted-view Earlier completion/error fencing onto main
-`03b1966`. It retains main's DTO `f1daa0f` and Kernel 0.9.3 pins. Its only history
+[PR #15](https://github.com/TekesApps/TekesWebUI/pull/15) merged private bridge
+failure diagnostics, newline frame-limit enforcement and mounted-view Earlier
+completion/error fencing into main `fbdbdaa4d80c150da44fa4d4af65378557ee2d54`,
+based on `03b1966`. Maintenance version 0.1.24 retains DTO `f1daa0f` and Kernel
+0.9.3 pins; this candidate absorbs that main while retaining its own 0.2.0 version,
+DTO589 and public018 pins. Its only history
 operation is the already available `earlier` response `{loaded:boolean}`; it adds
 no AgentKit method, presentation field or Harness capability. The stronger
-connection-epoch fence remains in this delivery candidate. This maintenance can
-be reviewed and integrated independently under #55/#58, without treating the
-AgentKit stage's performance failures as a blocker for these fixes. It does not
-release or enable the broader family/permission/queue delivery.
+connection-epoch fence remains in this delivery candidate. This maintenance was integrated
+independently under #55/#58, without treating the AgentKit stage's performance
+failures as a blocker for these fixes. Its source-bound release assets are prepared;
+merge alone does not establish publication or daily-entry upgrade. It does not
+enable the broader family/permission/queue delivery.
 
 The complete PR #14 has a concrete service dependency beyond its public DTO pin:
 

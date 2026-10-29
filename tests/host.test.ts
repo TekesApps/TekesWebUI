@@ -477,3 +477,57 @@ test('bridge failures log bounded metadata without protocol content', async () =
     assert.doesNotMatch(contents, /SENSITIVE_SENTINEL/);
     assert.doesNotMatch(contents, /"secret"/);
   }));
+
+test('bridge rejects an oversized complete frame when its newline arrives in the next chunk', async () =>
+  temporary(async (root) => {
+    const logPath = join(root, 'bridge-newline.log');
+    const log = await open(logPath, 'a', 0o600);
+    const binary = join(root, 'oversized-newline');
+    await writeFile(
+      binary,
+      `#!/usr/bin/env node
+const { createInterface } = require('node:readline');
+const lines = createInterface({ input: process.stdin });
+lines.on('line', (line) => {
+  const request = JSON.parse(line);
+  if (request.op === 'oversized-newline') {
+    const header = JSON.stringify({ id: request.id }).slice(0, -1) + ',"value":"';
+    process.stdout.write(header + 'x'.repeat(${LIMIT} - header.length));
+  } else if (request.op === 'release-newline') {
+    process.stdout.write('"}\\n');
+  }
+});
+`,
+      { mode: 0o700 },
+    );
+    const bridge = new Bridge(binary, { endpoints: [] }, log.fd);
+    let bytes = 0;
+    bridge.process.stdout.on('data', (chunk: Buffer) => {
+      bytes += chunk.length;
+      // Send the closing bytes only after the host received the entire prefix.
+      // The assembled line is valid JSON; reject its size rather than a parse error.
+      if (bytes === LIMIT)
+        bridge.process.stdin.write('{"op":"release-newline"}\n');
+    });
+    let outcome: string;
+    try {
+      outcome = await bridge.request({ op: 'oversized-newline' }).then(
+        () => 'admitted',
+        () => 'rejected',
+      );
+    } finally {
+      bridge.close();
+      if (
+        bridge.process.exitCode === null &&
+        bridge.process.signalCode === null
+      )
+        await once(bridge.process, 'exit');
+      await log.close();
+    }
+    assert.equal(outcome, 'rejected');
+    assert.equal(bytes, LIMIT + 3);
+    assert.match(
+      await readFile(logPath, 'utf8'),
+      /reason=stdout-frame-too-large category=limit-exceeded/,
+    );
+  }));

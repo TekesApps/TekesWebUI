@@ -54,7 +54,7 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service verifies the pinned Kernel 0.9.12 bundle and its published source revision and binary hashes. Use the `TekesKernel-0.9.12-macos-arm64.tar.gz` release asset (SHA256 `5f9b3078e803b31b83715562f2de6c82becd0a3d2501284a5388957465c0a94e`). Kernel 0.9.12 reuses an immutable ledger scan during publication and preserves the existing recovery and validation contracts (#101); its MCP cleanup also requires proof that an already-reaped process group no longer exists before accepting EPERM (#104). AgentKit 0.4.0 remains a delivery candidate until its applicable gates and immutable release pin are complete. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+The local service verifies the pinned Kernel 0.9.18 bundle and its published source revision and binary hashes. Use the `TekesKernel-0.9.18-macos-arm64.tar.gz` release asset (SHA256 `d9608f4fcdc28f5adf5c191a7c882500c36770e708bea21f5aaa753d31549603`), published from source `1a7e5367781c4a7ada51a57330e4772dd54fc182`. Kernel 0.9.18 avoids scanning unused actionable requests during journal page and open reads, while preserving verification, frozen cuts and historical submission hydration (#118). AgentKit 0.4.0 remains a delivery candidate until its applicable gates and immutable release pin are complete. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
 using the installed Pi runtime. DSH connects to an existing external service; it is
 not launched by this CLI. Native UI is not required.
 

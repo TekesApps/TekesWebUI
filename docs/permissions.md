@@ -50,6 +50,18 @@ fix evidence. Live HTTP wire bytes were not captured: that branch is verified by
 the HTTP fixture and public specification, not described as a live packet trace.
 P1 made zero prompts/provider requests and all owned processes exited.
 
+The coordinator also accepted the [finite Native browser P2–P4 subset](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6495941549)
+on Web c319, the same local dc98950 executable (SHA256 `05f5…`) and public018.
+A new owned synthetic entry was actually permitted by the browser tool and used
+normal product login. P2's explicit fixture rejection retained the Chinese draft,
+forwarded no select and admitted no prompt. P3's second public client changed the
+mode; the browser's first Send reported the change and retained the parent draft.
+P4 held a real select while navigating: after its Workspace Write reply, the
+other target still showed Read Only with its independent draft and no inherited
+error/loading state. The initial equal-mode observation is retained; the distinct
+values provide the decisive isolation evidence. No Task or prompt was added, and
+all five owned processes retired. The old refused manual entry was not accessed.
+
 Version-scoped real slices are recorded in AgentKit #73:
 [Pi 1.3.0 tool blocking/ask allow/deny](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6417310220)
 and [question responses](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6418184525)
@@ -62,7 +74,8 @@ raw evidence. The initial disconnected-pipe
 attempt and subsequent capture failures remain historical failures; they are not
 the current result for every Harness.
 
-Those slices do not establish c319/dc98950/018 browser, real-model or full three-Harness
-acceptance. Final applicable live checks and integration remain open under #73,
-#55 and #58; see the [remaining responsibilities](delivery-acceptance.md).
+The accepted Native browser subset does not establish real-model quality, actual
+tool enforcement or full three-Harness acceptance. Original manual-instance
+recovery, performance and final integration remain separate under #55, #56 and
+#58; see the [remaining responsibilities](delivery-acceptance.md).
 Failures never authorize automatic mutation retries or guessed effective modes.

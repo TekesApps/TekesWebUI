@@ -28,7 +28,7 @@ delivery slice.
 ## Version-scoped verification and remaining delivery
 
 The reviewed functional Web candidate is `c319de5b5e4249ca0bfd3850ab971ca67b83f97e`,
-paired for the next acceptance work with Core
+paired for the accepted Native subsets with Core
 `dc98950f3256e9a68cc9641426c6b00122d85a1c` and published Kernel 0.9.18 /
 `1a7e5367781c4a7ada51a57330e4772dd54fc182`. On c319, 134 tests passed, zero
 failed and one original opt-in pipe test was skipped. Build and scoped formatting
@@ -47,6 +47,24 @@ recovery covers all13 events at cut12, five pages per phase, and equal complete
 projections after normal restart. These are public-protocol results, not browser
 rendering, tool enforcement, manual-instance recovery or performance acceptance.
 
+The coordinator subsequently accepted the finite Native browser
+[P2–P4 permission/draft subset](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6495941549)
+and [C1/C2 child navigation subset](https://github.com/TekesApps/TekesAgentKit/issues/74#issuecomment-6495941974)
+on that same Web c319/Core dc98950/public018 identity. The actual Core executable
+was the local committed-source build SHA256
+`05f5d5f5e695ad81a6b0432c0d5a30d6e2c6b1dbcbd25b5f838cd6b986dda319`,
+not the separately compiled public-Git consumer. A newly owned, browser-permitted
+entry used normal product login and reused one completed synthetic Task/child.
+Observed UI results cover rejection without admission and with draft retention,
+first-Send stale-mode refusal, late permission reply isolation with distinct modes,
+and the same child's read-only result/source with parent draft preserved through
+Back/Close/reopen. Reopening obtained a different public handle. No new Task or
+prompt was submitted; all five owned processes exited normally and were absent.
+Raw CUA/AX, screenshot, relay/Core outputs and cleanup remain in the existing
+`web-native-browser-fixture-20261029/real-delivery.json` Browser evidence. The
+prior protocol snapshot and driver failures remain preserved. The short child
+reached EOF; this is not long-history pagination or performance acceptance.
+
 Earlier actual Family, permission, queue and recovery slices exist, with their
 original Core/Web/Kernel identities in AgentKit
 [#73](https://github.com/TekesApps/TekesAgentKit/issues/73) and
@@ -55,6 +73,8 @@ as c319/dc98950/018 acceptance. The old f5 pipe consumer, failures and skipped-t
 records also retain their original identities.
 
 See [Web acceptance responsibilities and full-history recovery](delivery-acceptance.md)
-for the remaining finite checks. The candidates are not merged or released, and
+for the remaining gates. The original manual instance at port 50114 still has no
+permitted full-history restart acceptance; #56 retains seven applicable performance
+failures and twelve `not_run` cases. The candidates are not merged or released, and
 the daily entry has not been upgraded. The unique current delivery status is
 [AgentKit Epic #14](https://github.com/TekesApps/TekesAgentKit/issues/14).

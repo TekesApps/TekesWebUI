@@ -29,13 +29,13 @@ binary or independent public-Git consumer result:
 
 ## Responsibilities and remaining gates
 
-| Issue                                                                            | Web responsibility and existing checks                                                                                                                                                                                                               | Remaining acceptance or integration                                                                                                                                                                                                                      |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#55: protocol/recovery](https://github.com/TekesApps/TekesAgentKit/issues/55)   | Consume public projections, retain errors, preserve drafts, never retry uncertain mutations. `api.test.ts`, `workspace.test.ts` and `queue-controls.test.ts` cover these consumer boundaries.                                                        | Native P1 and isolated full-history protocol subsets above are accepted. Applicable browser/model, original manual-instance recovery and Core-owned performance gates remain open. Prior failures/unrun cases and the three-end Issue remain.            |
-| [#73: permission contract](https://github.com/TekesApps/TekesAgentKit/issues/73) | Immutable public DTO consumption, advertised modes, readback before send, failed-update draft retention and destination fencing. See `permissions.test.ts`, permission cases in `workspace.test.ts` and [permission evidence scope](permissions.md). | Latest-program applicable browser/permission invalidation and failed-draft checks; each Harness's actual enforcement is separately source-bound. Core owns authority, hooks and adapters. Main integration remains required.                             |
-| [#74: tasks/children](https://github.com/TekesApps/TekesAgentKit/issues/74)      | `FamilyPanel` consumes shared Summary/catalog/Run/Transcript, validates endpoint/parent/child/handle/epoch and keeps parent drafts separate. Workspace tests cover child draft scopes and approval endpoint fencing.                                 | Applicable live child/page/navigation checks on the final program. Prior Native read-only child evidence cannot establish DSH/Pi continuation or approval, or latest-candidate browser acceptance. Core validates stale handles, cuts and legal actions. |
-| [#58: integration](https://github.com/TekesApps/TekesAgentKit/issues/58)         | Supply exact-source review, public-pin/bridge compatibility, Web CI, preserved WIP and version-scoped evidence. The c319 local/build/CI results are linked in [integration](agentkit-delivery-integration.md).                                       | Final affected acceptance and review; coordinator merges the selected scope and verifies main CI. Passing draft-head CI alone is not integration.                                                                                                        |
-| [#59: release](https://github.com/TekesApps/TekesAgentKit/issues/59)             | Document pins, candidate status, consumer instructions and unverified scope; retain the strict public Kernel verifier.                                                                                                                               | Coordinator records exact merged/tested release source, immutable tag/artifacts and main CI, then performs the authorized entry upgrade. No release or daily-entry upgrade has occurred here.                                                            |
+| Issue                                                                            | Web responsibility and existing checks                                                                                                                                                                                                               | Remaining acceptance or integration                                                                                                                                                                                                                |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#55: protocol/recovery](https://github.com/TekesApps/TekesAgentKit/issues/55)   | Consume public projections, retain errors, preserve drafts, never retry uncertain mutations. `api.test.ts`, `workspace.test.ts` and `queue-controls.test.ts` cover these consumer boundaries.                                                        | Native P1, isolated full-history protocol and finite Native browser subsets are accepted. Model scope, original manual-instance recovery and Core-owned performance gates remain open. Prior failures/unrun cases and the three-end Issue remain.  |
+| [#73: permission contract](https://github.com/TekesApps/TekesAgentKit/issues/73) | Immutable public DTO consumption, advertised modes, readback before send, failed-update draft retention and destination fencing. See `permissions.test.ts`, permission cases in `workspace.test.ts` and [permission evidence scope](permissions.md). | P2–P4 Native browser rejection/draft, stale-mode first Send and late-reply isolation are accepted. Each Harness's actual enforcement is separately source-bound. Core owns authority, hooks and adapters. Main integration remains required.       |
+| [#74: tasks/children](https://github.com/TekesApps/TekesAgentKit/issues/74)      | `FamilyPanel` consumes shared Summary/catalog/Run/Transcript, validates endpoint/parent/child/handle/epoch and keeps parent drafts separate. Workspace tests cover child draft scopes and approval endpoint fencing.                                 | C1/C2 Native same-child read-only/source/parent-draft/close-reopen browser checks are accepted. Short-child EOF does not establish long-history pagination, DSH/Pi continuation or approval. Core validates stale handles, cuts and legal actions. |
+| [#58: integration](https://github.com/TekesApps/TekesAgentKit/issues/58)         | Supply exact-source review, public-pin/bridge compatibility, Web CI, preserved WIP and version-scoped evidence. The c319 local/build/CI results are linked in [integration](agentkit-delivery-integration.md).                                       | Final affected acceptance and review; coordinator merges the selected scope and verifies main CI. Passing draft-head CI alone is not integration.                                                                                                  |
+| [#59: release](https://github.com/TekesApps/TekesAgentKit/issues/59)             | Document pins, candidate status, consumer instructions and unverified scope; retain the strict public Kernel verifier.                                                                                                                               | Coordinator records exact merged/tested release source, immutable tag/artifacts and main CI, then performs the authorized entry upgrade. No release or daily-entry upgrade has occurred here.                                                      |
 
 The current source already separates live controls from history errors, exposes
 explicit reconnect and fences Earlier completions to their mounted view. The
@@ -43,16 +43,44 @@ reconnect and Earlier tests in `tests/workspace.test.ts` check those Web behavio
 They do not substitute for the corresponding live source/runtime evidence.
 No browser-owned Run, queue, permission or child state machine is introduced.
 
-For the selected Native delivery, the remaining browser batch is finite: permission
-failure draft/no-admission, stale mode readback before Send, late permission reply
-after navigation, and one actual Task/child reused for source/readonly/parent-draft
-navigation. Reuse unchanged deterministic stale-handle/epoch/page tests; collect
-only affected missing browser behavior. No repeat of accepted P1 or isolated
-full-history recovery is required without a relevant change. This does not waive
-the original applicable performance failures or final review/CI/consumer/main
-gates. Pi/DSH, desktop and the inaccessible original manual instance are separately
-scoped work, not additional cases in this Native browser batch. A Native delivery
-does not automatically close a linked Issue's remaining three-end criteria.
+## Accepted finite Native browser subset
+
+The coordinator independently accepted [P2–P4](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6495941549)
+and [C1/C2](https://github.com/TekesApps/TekesAgentKit/issues/74#issuecomment-6495941974)
+on the exact Web c319/Core dc98950/local05f5/public018 identity above. A new owned
+entry was actually permitted by the browser tool and used normal product login;
+only the already completed `case-live-002` synthetic Task/child was reused.
+
+- P2: Send received an explicit fixture transport rejection, retained its Chinese
+  draft, forwarded no select and admitted no prompt.
+- P3: a second public client changed the parent mode; the browser's first Send
+  displayed the mode-change error and retained the Chinese parent draft.
+- P4: a real select was held during navigation and then released. The parent
+  reply was Workspace Write while the selected target remained Read Only with
+  its independent draft, error and loading state preserved. The earlier
+  equal-mode observation is retained; the distinct-mode repeat proves isolation.
+- C1/C2: normal Tasks navigation opened the actual child UUID, Read Only, all
+  eight result lines and Task Completed source input, without a child composer.
+  The parent draft survived Back/Close/reopen, and reopening the same child
+  returned a different public handle with the expected scope and read-only Run.
+
+The coordinator checked actual CUA trees/diffs, screenshot/AX, relay/Core outputs,
+seven evidence hashes and retirement. Existing
+`web-native-browser-fixture-20261029/real-delivery.json` records the Browser scope
+and `case-live-002/ui-batch-001` evidence; the pre-browser protocol snapshot is
+retained unchanged. There were zero new Tasks and zero `session.prompt` forwards.
+Node, relay, both Core clients and Kernel exited normally; all five known owned
+PIDs were absent. No refused old entry or original manual token was accessed.
+This is the local committed-source executable, not public-Git binary runtime
+acceptance. The child has five events and EOF; no long-history paging claim is made.
+
+The selected Native browser batch is complete. Accepted P1 and isolated full-history
+recovery were not repeated. The original manual instance at port 50114 still has
+no permitted full-history restart capture. The original seven applicable
+performance failures and twelve `not_run` cases remain under #56. Final
+review/CI/consumer/main and release gates remain; Pi/DSH and desktop acceptance
+are separately scoped. No stage-wide merge, release or daily-entry upgrade is
+established by this subset, and it does not close the broader three-end Issues.
 
 ## Full-history recovery protocol
 

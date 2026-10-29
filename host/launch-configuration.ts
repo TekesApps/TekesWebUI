@@ -7,7 +7,10 @@ import {
   type Provider,
   type Settings,
 } from './config.js';
-import { readExistingKernelConfiguration } from './existing-kernel.js';
+import {
+  readExistingKernelConfiguration,
+  type CanonicalProvider,
+} from './existing-kernel.js';
 import type { Options } from './runtime.js';
 import type { Wire } from './bridge.js';
 
@@ -54,12 +57,7 @@ export async function ownedProviderCredential(
   return secret;
 }
 
-export async function resolveKernelLaunch(
-  options: Options,
-  settings: Settings,
-  lookup: Lookup,
-  environment: NodeJS.ProcessEnv = process.env,
-): Promise<{ launch: Wire; credentials: Record<string, string> }> {
+async function kernelConfigurationMode(options: Options) {
   let mode = options.kernelConfigurationMode ?? 'auto';
   if (mode === 'auto') {
     const files = await Promise.all(
@@ -79,11 +77,90 @@ export async function resolveKernelLaunch(
         ? 'existing'
         : 'provided';
   }
+  if (
+    mode === 'provided' &&
+    resolve(options.kernelDataRoot) === join(homedir(), '.agents')
+  )
+    throw new Error(
+      'The current .agents directory requires existing configuration mode',
+    );
+  return mode;
+}
+
+function ownsCanonicalProvider(
+  owner: Provider | undefined,
+  provider: CanonicalProvider,
+) {
+  return (
+    owner?.id === provider.id &&
+    owner.credentialReference === provider.credential_key &&
+    owner.baseURL.replace(/\/+$/, '') === provider.endpoint.replace(/\/+$/, '')
+  );
+}
+
+/** Configure only the selected launch provider; canonical documents remain read-only. */
+export async function setupKernelCredential(
+  options: Options,
+  settings: Settings,
+  credentials: {
+    read: Lookup;
+    save: (account: string, secret: string) => Promise<void>;
+    prompt: (message: string) => Promise<string>;
+  },
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  const mode = await kernelConfigurationMode(options);
+  let account: string,
+    providerId: string,
+    allowEnvironment = true;
+  if (mode === 'existing') {
+    const current = await readExistingKernelConfiguration(
+      options.kernelDataRoot,
+      options.kernelBinaryDir,
+      settings,
+    );
+    const provider = current.providers.providers.find(
+      (entry) => entry.id === current.defaultProvider,
+    );
+    if (!provider?.credential_key) return;
+    account = provider.credential_key;
+    providerId = provider.id;
+    allowEnvironment = ownsCanonicalProvider(
+      selectedHostProvider(settings, 'tekes'),
+      provider,
+    );
+  } else if (mode === 'provided') {
+    const { provider } = kernelProjection(
+      settings,
+      options.kernelDataRoot,
+      options.kernelBinaryDir,
+    );
+    account = provider.id;
+    providerId = provider.id;
+  } else throw new Error('Invalid Kernel configuration mode');
+  const saved =
+    (await credentials.read(account)) ||
+    (account !== providerId ? await credentials.read(providerId) : undefined);
+  const secret =
+    (allowEnvironment
+      ? environment[options.credentialEnv]?.trim()
+      : undefined) ||
+    saved ||
+    (await credentials.prompt(
+      `Provider API key for ${providerId} (hidden; saved in macOS Keychain): `,
+    ));
+  if (!secret) throw new Error('Provider API key is required');
+  if (secret !== saved) await credentials.save(account, secret);
+}
+
+export async function resolveKernelLaunch(
+  options: Options,
+  settings: Settings,
+  lookup: Lookup,
+  environment: NodeJS.ProcessEnv = process.env,
+): Promise<{ launch: Wire; credentials: Record<string, string> }> {
+  const mode = await kernelConfigurationMode(options);
   if (mode === 'provided') {
-    if (resolve(options.kernelDataRoot) === join(homedir(), '.agents'))
-      throw new Error(
-        'The current .agents directory requires existing configuration mode',
-      );
     const { provider, launch } = kernelProjection(
       settings,
       options.kernelDataRoot,
@@ -114,13 +191,7 @@ export async function resolveKernelLaunch(
     let secret = await lookup(ref);
     for (const provider of providers) {
       if (!secret) secret = await lookup(provider.id);
-      if (
-        !secret &&
-        owner?.id === provider.id &&
-        owner.credentialReference === ref &&
-        owner.baseURL.replace(/\/+$/, '') ===
-          provider.endpoint.replace(/\/+$/, '')
-      )
+      if (!secret && ownsCanonicalProvider(owner, provider))
         secret = environment[options.credentialEnv]?.trim();
     }
     if (secret) {

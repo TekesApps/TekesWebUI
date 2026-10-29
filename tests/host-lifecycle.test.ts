@@ -104,8 +104,6 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
         }),
       );
       const args = [
-        '--agentkit-source',
-        root,
         '--agentkit-binary',
         bridge,
         '--kernel-binary-dir',
@@ -267,6 +265,60 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
       ready = restarted;
       assert.ok(alive(ready.kernelPid!));
       await invoke('stop');
+      // Setup uses canonical configuration even without any legacy provider.
+      // A credential-free default exercises the real manager without Keychain I/O.
+      const dataRoot = join(root, 'owned-kernel-data');
+      await mkdir(join(dataRoot, 'config'), { recursive: true });
+      const canonical = {
+        format: 1,
+        revision: 1,
+        providers: [
+          {
+            id: 'local-glm',
+            adapter: 'responses',
+            dialect: 'openai_responses_v1',
+            endpoint: 'http://127.0.0.1:1',
+            models: [
+              {
+                id: 'glm',
+                profile: 'fixture',
+                enabled: true,
+                context_window_tokens: 128000,
+                compact_trigger_tokens: 100000,
+              },
+            ],
+          },
+        ],
+      };
+      const providerBytes = JSON.stringify(canonical);
+      const selectionBytes = JSON.stringify({
+        format: 1,
+        revision: 1,
+        default_provider: 'local-glm',
+        default_model: 'glm',
+      });
+      await writeFile(join(dataRoot, 'config/providers.json'), providerBytes);
+      await writeFile(join(dataRoot, 'config/settings.json'), selectionBytes);
+      await writeFile(settings, JSON.stringify({ providers: [] }));
+      await exec(
+        process.execPath,
+        [manager, 'setup', '--runtime-dir', runtime],
+        { timeout: 20000 },
+      );
+      assert.equal(
+        await readFile(join(dataRoot, 'config/providers.json'), 'utf8'),
+        providerBytes,
+      );
+      assert.equal(
+        await readFile(join(dataRoot, 'config/settings.json'), 'utf8'),
+        selectionBytes,
+      );
+      assert.equal(
+        JSON.parse(
+          await readFile(join(runtime, 'service-options.json'), 'utf8'),
+        ).agentkitSource,
+        '',
+      );
     } finally {
       if (ready && alive(ready.pid)) await invoke('stop').catch(() => {});
       await rm(root, { recursive: true, force: true });

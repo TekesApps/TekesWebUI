@@ -1,7 +1,7 @@
 export async function secretQuestion(prompt: string): Promise<string> {
   if (!process.stdin.isTTY)
     throw new Error(
-      'Run npm run setup interactively, or provide DEEPSEEK_KEY once during setup',
+      'Run npm run setup interactively to configure the selected provider credential',
     );
   process.stdout.write(prompt);
   const input = process.stdin;

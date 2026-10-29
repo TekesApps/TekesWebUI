@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   resolveKernelLaunch,
+  setupKernelCredential,
   ownedProviderCredential,
 } from '../host/launch-configuration.js';
 import type { Options } from '../host/runtime.js';
@@ -203,6 +204,144 @@ test('a fresh explicit fixture keeps the legacy provided-mode contract', async (
       1,
     );
     assert.deepEqual(result.credentials, { deepseek: 'OWNED_TEST_SECRET' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('setup configures the canonical GLM default without assigning a legacy DeepSeek key to it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tekes-setup-glm-'));
+  try {
+    const before = await configured(root);
+    const saved = new Map<string, string>();
+    const prompts: string[] = [];
+    await setupKernelCredential(
+      options(root),
+      settings,
+      {
+        read: async (account) => saved.get(account),
+        save: async (account, secret) => {
+          saved.set(account, secret);
+        },
+        prompt: async (message) => {
+          prompts.push(message);
+          return 'GLM_SETUP_SECRET';
+        },
+      },
+      { HOST_SELECTED_KEY: 'DEEPSEEK_OWNER_SECRET' },
+    );
+    assert.deepEqual([...saved], [['key-glm', 'GLM_SETUP_SECRET']]);
+    assert.equal(prompts.length, 1);
+    assert.match(prompts[0], /for glm /);
+    const launch = await resolveKernelLaunch(
+      options(root),
+      settings,
+      async (ref) => saved.get(ref),
+      {},
+    );
+    assert.deepEqual(launch.credentials, { 'key-glm': 'GLM_SETUP_SECRET' });
+    assert.deepEqual(
+      await Promise.all(
+        ['providers.json', 'settings.json'].map((name) =>
+          readFile(join(root, 'config', name)),
+        ),
+      ),
+      before,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('canonical setup reuses its saved credential without requiring a legacy provider selection', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tekes-setup-saved-'));
+  try {
+    await configured(root);
+    await setupKernelCredential(
+      options(root),
+      { providers: [] },
+      {
+        read: async (ref) =>
+          ref === 'key-glm' ? 'SAVED_GLM_SECRET' : undefined,
+        save: async () => {
+          assert.fail('unchanged saved key must not be rewritten');
+        },
+        prompt: async () => {
+          assert.fail('saved canonical key must not prompt');
+        },
+      },
+      { HOST_SELECTED_KEY: 'UNRELATED_SECRET' },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('canonical setup accepts an environment key only for its matching provider reference and endpoint', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tekes-setup-owned-'));
+  try {
+    await configured(root);
+    const owner: Settings = {
+      providers: [
+        { ...settings.providers[0], id: 'glm', credentialReference: 'key-glm' },
+      ],
+      agentSelections: { tekes: { providerIDs: ['glm'] } },
+    };
+    const saved: Array<[string, string]> = [];
+    await setupKernelCredential(
+      options(root),
+      owner,
+      {
+        read: async () => undefined,
+        save: async (account, secret) => {
+          saved.push([account, secret]);
+        },
+        prompt: async () => {
+          assert.fail('owned environment key must not prompt');
+        },
+      },
+      { HOST_SELECTED_KEY: 'OWNED_GLM_SECRET' },
+    );
+    assert.deepEqual(saved, [['key-glm', 'OWNED_GLM_SECRET']]);
+    owner.providers[0].baseURL = 'https://different.example';
+    await setupKernelCredential(
+      options(root),
+      owner,
+      {
+        read: async () => undefined,
+        save: async (account, secret) => {
+          saved.push([account, secret]);
+        },
+        prompt: async () => 'EXPLICIT_GLM_SECRET',
+      },
+      { HOST_SELECTED_KEY: 'WRONG_ENDPOINT_SECRET' },
+    );
+    assert.deepEqual(saved[1], ['key-glm', 'EXPLICIT_GLM_SECRET']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('canonical setup validates documents before reading or saving credentials', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tekes-setup-invalid-'));
+  try {
+    await mkdir(join(root, 'config'));
+    await writeFile(join(root, 'config/settings.json'), '{}');
+    await writeFile(join(root, 'config/providers.json'), '{broken');
+    await assert.rejects(
+      setupKernelCredential(options(root), settings, {
+        read: async () => {
+          assert.fail('invalid config must not read Keychain');
+        },
+        save: async () => {
+          assert.fail('invalid config must not write Keychain');
+        },
+        prompt: async () => {
+          assert.fail('invalid config must not prompt');
+        },
+      }),
+      /providers.json/,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

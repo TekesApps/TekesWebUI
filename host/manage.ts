@@ -5,7 +5,8 @@ import { spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { DEFAULT_ROOT, privateRoot, jsonFile } from './private.js';
 import { active } from './runtime.js';
-import { kernelProjection, verifyKernel, type Settings } from './config.js';
+import { verifyKernel, type Settings } from './config.js';
+import { setupKernelCredential } from './launch-configuration.js';
 import { readCredential, saveCredential } from './credentials.js';
 import { secretQuestion } from './prompts.js';
 import { configuration, saveConfiguration } from './configuration.js';
@@ -60,20 +61,11 @@ async function main(): Promise<void> {
     await access(options.agentkitBinary);
     await access(join(options.webRoot, 'index.html'));
     const settings = await jsonFile<Settings>(options.settings);
-    const { provider } = kernelProjection(
-      settings,
-      options.kernelDataRoot,
-      options.kernelBinaryDir,
-    );
-    const saved = await readCredential(provider.id);
-    const secret =
-      process.env[options.credentialEnv]?.trim() ||
-      saved ||
-      (await secretQuestion(
-        'Provider API key (hidden; saved in macOS Keychain): ',
-      ));
-    if (!secret) throw new Error('Provider API key is required');
-    if (secret !== saved) await saveCredential(provider.id, secret);
+    await setupKernelCredential(options, settings, {
+      read: readCredential,
+      save: saveCredential,
+      prompt: secretQuestion,
+    });
     await saveConfiguration(root, options);
     console.log(
       'Existing runtime configuration saved. No runtime files were downloaded or copied. Run npm start.',

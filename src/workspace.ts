@@ -908,11 +908,17 @@ export class Workspace {
   }
   async earlier() {
     const s = this.state.selected;
-    if (!s) return;
+    if (!s) return false;
+    const epoch = this.epoch;
     try {
-      await this.clientOrThrow().unary({ op: 'earlier', ...s });
+      const result = await this.clientOrThrow().unary<{ loaded: boolean }>({
+        op: 'earlier',
+        ...s,
+      });
+      return epoch === this.epoch && result.loaded;
     } catch (error) {
-      this.fail(error);
+      if (epoch === this.epoch) this.fail(error);
+      return false;
     }
   }
   async respond(

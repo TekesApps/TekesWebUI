@@ -5,15 +5,33 @@ This is a finite handoff snapshot dated 2026-10-29. The unique current status is
 document neither closes the linked Issues nor replaces their acceptance criteria.
 The functional source under review is Web
 `c319de5b5e4249ca0bfd3850ab971ca67b83f97e`, Core
-`ece62fb7648ef87d45530baff33fa97e90120bd2`, public Kernel 0.9.18 /
+`dc98950f3256e9a68cc9641426c6b00122d85a1c`, public Kernel 0.9.18 /
 `1a7e5367781c4a7ada51a57330e4772dd54fc182` and declaration pin
 `58950714b1c48f21c1465b929d3fb795f6f03ce2`. Package 0.2.0 remains a candidate.
+
+Two Native protocol subsets are now coordinator-accepted on that Core commit's
+local source-bound Web executable SHA256
+`05f5d5f5e695ad81a6b0432c0d5a30d6e2c6b1dbcbd25b5f838cd6b986dda319`
+and actual public018. This is a local committed-source build, not a published
+binary or independent public-Git consumer result:
+
+- [P1 permission protocol](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6492230643):
+  catalog/select/readback, invalid selection's structured remote error, unchanged
+  mode and explicit restoration; zero prompts/provider requests and owned exit.
+  The original correlation failure, incorrect passed receipt and repair evidence
+  retain their identities. This does not prove browser behavior or tool enforcement.
+- [Complete isolated recovery](https://github.com/TekesApps/TekesAgentKit/issues/55#issuecomment-6492336841):
+  two completed synthetic turns; frozen cut12, all13 events, five real cursor pages
+  to EOF before and after normal restart; complete event payloads, SessionProjection,
+  Transcript and source projection equal. Recovery used no `op:call`, provider
+  count did not increase, and owned processes exited. [#56 records the same scoped result](https://github.com/TekesApps/TekesAgentKit/issues/56#issuecomment-6492336343)
+  while retaining its original performance failures and unrun cases.
 
 ## Responsibilities and remaining gates
 
 | Issue                                                                            | Web responsibility and existing checks                                                                                                                                                                                                               | Remaining acceptance or integration                                                                                                                                                                                                                      |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#55: protocol/recovery](https://github.com/TekesApps/TekesAgentKit/issues/55)   | Consume public projections, retain errors, preserve drafts, never retry uncertain mutations. `api.test.ts`, `workspace.test.ts` and `queue-controls.test.ts` cover these consumer boundaries.                                                        | Latest-program applicable live protocol/model/recovery evidence and Core-owned performance gates remain open. Prior failures and unrun cases remain visible. Web unit tests do not close the three-end protocol Issue.                                   |
+| [#55: protocol/recovery](https://github.com/TekesApps/TekesAgentKit/issues/55)   | Consume public projections, retain errors, preserve drafts, never retry uncertain mutations. `api.test.ts`, `workspace.test.ts` and `queue-controls.test.ts` cover these consumer boundaries.                                                        | Native P1 and isolated full-history protocol subsets above are accepted. Applicable browser/model, original manual-instance recovery and Core-owned performance gates remain open. Prior failures/unrun cases and the three-end Issue remain.            |
 | [#73: permission contract](https://github.com/TekesApps/TekesAgentKit/issues/73) | Immutable public DTO consumption, advertised modes, readback before send, failed-update draft retention and destination fencing. See `permissions.test.ts`, permission cases in `workspace.test.ts` and [permission evidence scope](permissions.md). | Latest-program applicable browser/permission invalidation and failed-draft checks; each Harness's actual enforcement is separately source-bound. Core owns authority, hooks and adapters. Main integration remains required.                             |
 | [#74: tasks/children](https://github.com/TekesApps/TekesAgentKit/issues/74)      | `FamilyPanel` consumes shared Summary/catalog/Run/Transcript, validates endpoint/parent/child/handle/epoch and keeps parent drafts separate. Workspace tests cover child draft scopes and approval endpoint fencing.                                 | Applicable live child/page/navigation checks on the final program. Prior Native read-only child evidence cannot establish DSH/Pi continuation or approval, or latest-candidate browser acceptance. Core validates stale handles, cuts and legal actions. |
 | [#58: integration](https://github.com/TekesApps/TekesAgentKit/issues/58)         | Supply exact-source review, public-pin/bridge compatibility, Web CI, preserved WIP and version-scoped evidence. The c319 local/build/CI results are linked in [integration](agentkit-delivery-integration.md).                                       | Final affected acceptance and review; coordinator merges the selected scope and verifies main CI. Passing draft-head CI alone is not integration.                                                                                                        |
@@ -24,6 +42,17 @@ explicit reconnect and fences Earlier completions to their mounted view. The
 reconnect and Earlier tests in `tests/workspace.test.ts` check those Web behaviors.
 They do not substitute for the corresponding live source/runtime evidence.
 No browser-owned Run, queue, permission or child state machine is introduced.
+
+For the selected Native delivery, the remaining browser batch is finite: permission
+failure draft/no-admission, stale mode readback before Send, late permission reply
+after navigation, and one actual Task/child reused for source/readonly/parent-draft
+navigation. Reuse unchanged deterministic stale-handle/epoch/page tests; collect
+only affected missing browser behavior. No repeat of accepted P1 or isolated
+full-history recovery is required without a relevant change. This does not waive
+the original applicable performance failures or final review/CI/consumer/main
+gates. Pi/DSH, desktop and the inaccessible original manual instance are separately
+scoped work, not additional cases in this Native browser batch. A Native delivery
+does not automatically close a linked Issue's remaining three-end criteria.
 
 ## Full-history recovery protocol
 
@@ -68,9 +97,9 @@ Kernel descriptor. Missing entry authority is an explicit collection blocker.
    Protocol equality, authentication, UI rendering and performance are distinct
    results; an offline comparison proves only equality of its supplied captures.
 
-The prior recovery handoff has an offline comparator and six retained checks,
-including rejection cases. It has no permitted live entry for the manually owned
-instance and no full-cut before/after restart capture. That remains unverified.
-An independent isolated fixture would prove only its own data and version scope;
+The prior recovery handoff's offline comparator and six checks, including rejection
+cases, remain retained. The original manually owned instance still has no permitted
+live entry or full-cut before/after restart capture; its recovery remains unverified.
+The accepted isolated fixture proves only its own data and version scope;
 it cannot retroactively establish recovery of the original manual instance.
-Earlier Core012/Web13df/Kernel017 captures are not latest c319/ece/018 acceptance.
+Earlier Core012/Web13df/Kernel017 captures are not latest c319/dc98950/018 acceptance.

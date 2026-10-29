@@ -29,7 +29,7 @@ delivery slice.
 
 The reviewed functional Web candidate is `c319de5b5e4249ca0bfd3850ab971ca67b83f97e`,
 paired for the next acceptance work with Core
-`ece62fb7648ef87d45530baff33fa97e90120bd2` and published Kernel 0.9.18 /
+`dc98950f3256e9a68cc9641426c6b00122d85a1c` and published Kernel 0.9.18 /
 `1a7e5367781c4a7ada51a57330e4772dd54fc182`. On c319, 134 tests passed, zero
 failed and one original opt-in pipe test was skipped. Build and scoped formatting
 passed; the unchanged strict verifier accepted the actual public Kernel bundle,
@@ -39,11 +39,19 @@ including all four executable hashes and compiled identity. Exact-head
 The build retains its existing warning about a minified chunk exceeding 500 kB.
 These checks do not execute the configured real-model/browser workflow.
 
+On Core dc98950's local source-bound Web program and public018, the coordinator
+has since accepted the [Native P1 permission protocol subset](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6492230643)
+and [isolated full-history restart recovery](https://github.com/TekesApps/TekesAgentKit/issues/55#issuecomment-6492336841).
+P1 covers catalog/select/readback, structured rejection and mode preservation;
+recovery covers all13 events at cut12, five pages per phase, and equal complete
+projections after normal restart. These are public-protocol results, not browser
+rendering, tool enforcement, manual-instance recovery or performance acceptance.
+
 Earlier actual Family, permission, queue and recovery slices exist, with their
 original Core/Web/Kernel identities in AgentKit
 [#73](https://github.com/TekesApps/TekesAgentKit/issues/73) and
 [#74](https://github.com/TekesApps/TekesAgentKit/issues/74). They are not relabeled
-as c319/ece/018 acceptance. The old f5 pipe consumer, failures and skipped-test
+as c319/dc98950/018 acceptance. The old f5 pipe consumer, failures and skipped-test
 records also retain their original identities.
 
 See [Web acceptance responsibilities and full-history recovery](delivery-acceptance.md)

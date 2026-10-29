@@ -32,11 +32,23 @@ capabilities, and the host does not replace the Harness permission decision.
 The consumer pins the public declaration archive at
 `58950714b1c48f21c1465b929d3fb795f6f03ce2`; no local declaration override is
 required. The declaration file is unchanged in Core candidate
-`ece62fb7648ef87d45530baff33fa97e90120bd2`. Web c319's unit/build/CI results are
+`dc98950f3256e9a68cc9641426c6b00122d85a1c`. Web c319's unit/build/CI results are
 listed in [delivery integration](agentkit-delivery-integration.md). In particular,
 `tests/workspace.test.ts` covers readback before admission, failed-update draft
 retention, destination fencing, unknown modes and a policy changed by another
 client. These checks do not prove actual Harness enforcement.
+
+The coordinator accepted the [Native P1 protocol subset on dc98950/public018](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6492230643),
+using the local source-bound Web program recorded in
+[delivery acceptance](delivery-acceptance.md). An actual invalid selection now
+returns the structured remote `invalid-request`; effective mode remains
+`read-only`, and explicit restoration reads back `workspace-write`. The adapter
+fix retains structured non-200 HTTP-carrier errors while keeping RPC correlation
+mandatory for normal server responses. Original correlation-error failures and
+the initially incorrect passed receipt remain preserved alongside the red/green
+fix evidence. Live HTTP wire bytes were not captured: that branch is verified by
+the HTTP fixture and public specification, not described as a live packet trace.
+P1 made zero prompts/provider requests and all owned processes exited.
 
 Version-scoped real slices are recorded in AgentKit #73:
 [Pi 1.3.0 tool blocking/ask allow/deny](https://github.com/TekesApps/TekesAgentKit/issues/73#issuecomment-6417310220)
@@ -50,7 +62,7 @@ raw evidence. The initial disconnected-pipe
 attempt and subsequent capture failures remain historical failures; they are not
 the current result for every Harness.
 
-Those slices do not establish c319/ece/018 browser, real-model or full three-Harness
+Those slices do not establish c319/dc98950/018 browser, real-model or full three-Harness
 acceptance. Final applicable live checks and integration remain open under #73,
 #55 and #58; see the [remaining responsibilities](delivery-acceptance.md).
 Failures never authorize automatic mutation retries or guessed effective modes.

@@ -104,8 +104,6 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
         }),
       );
       const args = [
-        '--agentkit-source',
-        root,
         '--agentkit-binary',
         bridge,
         '--kernel-binary-dir',

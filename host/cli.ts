@@ -86,17 +86,14 @@ async function start(options: Options): Promise<void> {
   const root = options.runtimeDir;
   if (await active(root))
     throw new Error('Host is already running; use status or open');
-  if (
-    !options.agentkitBinary ||
-    !options.agentkitSource ||
-    !options.kernelBinaryDir
-  )
+  if (!options.agentkitBinary || !options.kernelBinaryDir)
     throw new Error(
-      'start requires explicit --agentkit-source, --agentkit-binary and --kernel-binary-dir',
+      'start requires explicit --agentkit-binary and --kernel-binary-dir',
     );
   options.webRoot = await realpath(options.webRoot);
   await readFile(join(options.webRoot, 'index.html'));
-  options.agentkitSource = await realpath(options.agentkitSource);
+  if (options.agentkitSource)
+    options.agentkitSource = await realpath(options.agentkitSource);
   options.agentkitBinary = await realpath(options.agentkitBinary);
   options.kernelBinaryDir = await realpath(options.kernelBinaryDir);
   await verifyKernel(options.kernelBinaryDir);
@@ -246,7 +243,7 @@ async function main(): Promise<void> {
   const command = positionals[0];
   if (values.help || !command) {
     console.log(
-      'TekesWebUI local service: start | status | open | stop\nstart --agentkit-source PATH --agentkit-binary PATH --kernel-binary-dir PATH [--port 65150]\nSee docs/local-service.md for configuration.',
+      'TekesWebUI local service: start | status | open | stop\nstart --agentkit-binary PATH --kernel-binary-dir PATH [--agentkit-source PATH] [--port 65150]\nSee docs/local-service.md for configuration.',
     );
     return;
   }

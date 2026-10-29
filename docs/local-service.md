@@ -24,7 +24,8 @@ npm run host -- status
 npm run host -- stop
 ```
 
-`--web-root` defaults to this project's `dist/`. All other source/binary overrides
+`--web-root` defaults to this project's `dist/`. A source checkout is optional for an existing AgentKit binary;
+`--agentkit-source` remains an explicit developer reference. All binary overrides
 are explicit; no sibling checkout is discovered. AgentKit is copied to a private,
 content-addressed executable. Production deployment can freeze `dist-host/`,
 `package.json` and `dist/` together in an immutable release directory.

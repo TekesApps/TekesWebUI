@@ -41,6 +41,12 @@ failures as a blocker for these fixes. Its 0.1.24 maintenance release is publish
 daily-entry upgrade. It does not
 enable the broader family/permission/queue delivery.
 
+[PR #16](https://github.com/TekesApps/TekesWebUI/pull/16) subsequently merged the
+binary-only startup fix into main `feb38f0c2117ab28c1b4a99ab99b6cadc2fb5eff`.
+Its 0.1.25 package is prepared against that source; publication remains separate.
+This candidate includes that main while retaining 0.2.0, DTO589, Kernel018 and
+the canonical credential setup below. Canonical setup was not added to maintenance.
+
 The complete PR #14 has a concrete service dependency beyond its public DTO pin:
 
 - Family views need `agent.familySnapshot`, `follow` targets `familyView`/`childView`,

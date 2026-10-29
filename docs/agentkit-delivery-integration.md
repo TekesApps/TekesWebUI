@@ -25,6 +25,43 @@ cannot populate another selected parent. The contract is defined in AgentKit's
 `docs/web-family-contract.md`. Artifact/file advanced previews remain outside this
 delivery slice.
 
+## Independent maintenance and runtime dependencies
+
+[PR #15](https://github.com/TekesApps/TekesWebUI/pull/15) extracts private bridge
+failure diagnostics and mounted-view Earlier completion/error fencing onto main
+`03b1966`. It retains main's DTO `f1daa0f` and Kernel 0.9.3 pins. Its only history
+operation is the already available `earlier` response `{loaded:boolean}`; it adds
+no AgentKit method, presentation field or Harness capability. The stronger
+connection-epoch fence remains in this delivery candidate. This maintenance can
+be reviewed and integrated independently under #55/#58, without treating the
+AgentKit stage's performance failures as a blocker for these fixes. It does not
+release or enable the broader family/permission/queue delivery.
+
+The complete PR #14 has a concrete service dependency beyond its public DTO pin:
+
+- Family views need `agent.familySnapshot`, `follow` targets `familyView`/`childView`,
+  and `agent.child.open/earlier/prompt/cancel/close`, with scoped handles and
+  connection epochs.
+- Queue removal needs `agent.queue.remove`, `RunPresentation.scope`,
+  `connectionEpoch` and `canUpdateQueue`. Explicit reconnect needs service
+  operation `reconnect`; the host must not emulate these operations.
+- Permission UI needs the advertised `approvals.policy/mode/select` contract;
+  actionable availability and question cancellation consume service-owned
+  `responseAvailable` and `cancelOutcome` when present.
+
+These are implemented by the accepted Core dc98950 candidate. Public AgentKit
+[main b68ddc7](https://github.com/TekesApps/TekesAgentKit/blob/b68ddc71d81dd39156be229acbb97a1ffb5f6f5e/crates/web/src/lib.rs), inspected on 2026-10-29, lacks
+the family/child service dispatch, queue removal and `reconnect` operation. Its
+latest published release is still v0.3.8. DTO `5895071` supplies declarations,
+not these running capabilities. The existing launcher freezes a user-supplied
+binary hash; it does not install a compatible AgentKit release. Complete delivery
+therefore needs the matching service implementation and its applicable #58/#59
+integration/release gates, rather than merely changing the Web dependency pin.
+The separately published Kernel 0.9.18 is available; that alone does not supply
+AgentKit's missing service methods. Existing-runtime configuration and Kernel-pin
+changes are outside PR #15's maintenance scope and are not independently claimed
+as validated against the older service by the c319/dc evidence.
+
 ## Version-scoped verification and remaining delivery
 
 The reviewed functional Web candidate is `c319de5b5e4249ca0bfd3850ab971ca67b83f97e`,

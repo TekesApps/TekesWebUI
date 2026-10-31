@@ -61,6 +61,7 @@ function fixture(
     maxAttachmentsPerMessage: 8,
   },
   reconnect?: (call: Call) => Promise<Endpoint>,
+  upload?: (call: Call) => Promise<unknown>,
 ) {
   const calls: Call[] = [];
   const endpoints: Endpoint[] = ['tekes', 'pi'].map((kind) => ({
@@ -179,14 +180,17 @@ function fixture(
       else if (call.method === 'session.create')
         value = { sessionId: 'created' };
       else if (call.method === 'session.uploadFile')
-        value = {
-          receiptId: 'upload-receipt',
-          file: {
-            attachmentId: 'attachment',
-            name: call.payload.name,
-            bytes: Buffer.from(call.payload.data as string, 'base64').length,
-          },
-        };
+        value = upload
+          ? await upload(call)
+          : {
+              receiptId: 'upload-receipt',
+              file: {
+                attachmentId: 'attachment',
+                name: call.payload.name,
+                bytes: Buffer.from(call.payload.data as string, 'base64')
+                  .length,
+              },
+            };
       else if (call.method === 'composer.compileAnnotations')
         value = { text: 'AgentKit compiled annotation input' };
       else if (call.method === 'thread.actions')
@@ -528,6 +532,136 @@ test('upload precedes admission; an old acknowledgement preserves text typed whi
     w.dispose();
   }
 });
+test('submission-stage stays with its destination when another acknowledgement settles', async (t) => {
+  for (const outcome of ['accepted', 'failed']) {
+    await t.test(outcome, async (t) => {
+      let acknowledgeA!: (value: unknown) => void,
+        rejectA!: (error: Error) => void,
+        acknowledgeB!: (value: unknown) => void,
+        uploadB!: (value: unknown) => void;
+      const pendingA = new Promise((resolve, reject) => {
+        acknowledgeA = resolve;
+        rejectA = reject;
+      });
+      const pendingB = new Promise((resolve) => {
+        acknowledgeB = resolve;
+      });
+      const pendingUpload = new Promise((resolve) => {
+        uploadB = resolve;
+      });
+      const { w, calls } = fixture(
+        t,
+        async (call) => (call.payload.sessionId === 'A' ? pendingA : pendingB),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        async (call) =>
+          call.payload.sessionId === 'B'
+            ? pendingUpload
+            : {
+                receiptId: 'A-upload',
+                file: {
+                  bytes: Buffer.from(call.payload.data as string, 'base64')
+                    .length,
+                },
+              },
+      );
+      const a = { endpoint: 'tekes', sessionId: 'A' },
+        b = { endpoint: 'pi', sessionId: 'B' };
+      try {
+        await w.connect('browser');
+        await w.select(a);
+        await ready(w);
+        w.setDraft('A original');
+        w.saveAnnotation(quote);
+        const aFile = new File(['A original file'], 'A-check.txt');
+        w.addFiles([aFile]);
+        await ready(w, () => w.canSend());
+        const sendingA = w.submit();
+        await ready(w, () =>
+          calls.some(
+            (c) => c.method === 'session.prompt' && c.payload.sessionId === 'A',
+          ),
+        );
+        const sendingStage = w.snapshot().submissionStage;
+        w.setDraft('A newer');
+        w.saveAnnotation({ ...quote, comment: 'A newer annotation' });
+        await w.select(b);
+        await ready(w);
+        w.setDraft('B original');
+        w.saveAnnotation({ ...quote, id: 'B-quote' });
+        const bFile = new File(['Known B bytes'], 'B-check.txt');
+        w.addFiles([bFile]);
+        await ready(w, () => w.canSend());
+        const sendingB = w.submit();
+        await ready(w, () =>
+          calls.some(
+            (c) =>
+              c.method === 'session.uploadFile' && c.payload.sessionId === 'B',
+          ),
+        );
+        const uploadingStage = w.snapshot().submissionStage;
+        assert.ok(uploadingStage);
+        assert.notEqual(uploadingStage, sendingStage);
+        w.setDraft('B newer');
+        w.saveAnnotation({
+          ...quote,
+          id: 'B-quote',
+          comment: 'B newer annotation',
+        });
+        if (outcome === 'accepted') acknowledgeA({ accepted: true });
+        else rejectA(new Error('A admission failed'));
+        await sendingA;
+        assert.equal(w.snapshot().submissionStage, uploadingStage);
+        assert.equal(w.snapshot().busy, true);
+        assert.deepEqual(w.snapshot().selected, b);
+        assert.equal(w.snapshot().draft, 'B newer');
+        assert.deepEqual(
+          w.snapshot().attachments.map((f) => f.file),
+          [bFile],
+        );
+        assert.equal(w.snapshot().annotations[0].comment, 'B newer annotation');
+        await w.select(a);
+        await ready(w);
+        assert.equal(w.snapshot().submissionStage, '');
+        assert.equal(w.snapshot().draft, 'A newer');
+        assert.deepEqual(
+          w.snapshot().attachments.map((f) => f.file),
+          outcome === 'accepted' ? [] : [aFile],
+        );
+        assert.equal(w.snapshot().annotations[0].comment, 'A newer annotation');
+        await w.select(b);
+        await ready(w);
+        assert.equal(w.snapshot().submissionStage, uploadingStage);
+        uploadB({ receiptId: 'B-upload', file: { bytes: bFile.size } });
+        await ready(w, () =>
+          calls.some(
+            (c) => c.method === 'session.prompt' && c.payload.sessionId === 'B',
+          ),
+        );
+        assert.equal(w.snapshot().submissionStage, sendingStage);
+        acknowledgeB({ accepted: true });
+        await sendingB;
+        assert.equal(w.snapshot().submissionStage, '');
+        assert.equal(w.snapshot().busy, false);
+        assert.equal(w.snapshot().draft, 'B newer');
+        assert.deepEqual(
+          w.snapshot().attachments.map((f) => f.file),
+          [],
+        );
+        assert.equal(w.snapshot().annotations[0].comment, 'B newer annotation');
+      } finally {
+        acknowledgeA({ accepted: true });
+        acknowledgeB({ accepted: true });
+        uploadB({ receiptId: 'cleanup', file: { bytes: 13 } });
+        w.dispose();
+      }
+    });
+  }
+});
+
 test('uncertain admission retains files and reuses confirmed upload receipts on explicit retry', async (t) => {
   let attempts = 0;
   const { w, calls } = fixture(t, async () => {

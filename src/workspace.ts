@@ -130,6 +130,7 @@ export class Workspace {
   private epoch = 0;
   private bootEpoch = 0;
   private pending = new Set<string>();
+  private submissionStages = new Map<string, string>();
   private creationIDs = new Map<string, string>();
   private submissionIDs = new Map<string, { id: string; signature: string }>();
   private attachmentDrafts = new Map<string, PendingAttachment[]>();
@@ -386,9 +387,14 @@ export class Workspace {
     this.update({
       draft: this.drafts.get(this.key()),
       busy: this.pending.has(this.key()),
+      submissionStage: this.submissionStages.get(this.key()) || '',
       attachments: this.attachmentDrafts.get(this.key()) || [],
       annotations: this.annotationDrafts.get(this.key()),
     });
+  }
+  private setSubmissionStage(key: string, stage: string) {
+    this.submissionStages.set(key, stage);
+    if (this.key() === key) this.update({ submissionStage: stage });
   }
   dispose() {
     ++this.bootEpoch;
@@ -745,11 +751,13 @@ export class Workspace {
       epoch = this.epoch,
       client = this.clientOrThrow();
     let targetKey = key;
+    const initialStage = target.sessionId ? t('正在发送') : t('正在创建会话');
     this.pending.add(key);
+    this.submissionStages.set(key, initialStage);
     this.update({
       busy: true,
       error: '',
-      submissionStage: target.sessionId ? t('正在发送') : t('正在创建会话'),
+      submissionStage: initialStage,
     });
     try {
       if (
@@ -790,6 +798,10 @@ export class Workspace {
         this.drafts.set(targetKey, text);
         this.drafts.clearIfUnchanged(key, text);
         this.pending.add(targetKey);
+        this.submissionStages.set(
+          targetKey,
+          this.submissionStages.get(key) || '',
+        );
         this.attachmentDrafts.set(targetKey, files);
         this.annotationDrafts.set(targetKey, annotations);
         this.annotationDrafts.acknowledge(key, annotations);
@@ -839,10 +851,10 @@ export class Workspace {
           });
           continue;
         }
-        if (this.key() === targetKey)
-          this.update({
-            submissionStage: t('上传附件 {0}/{1}', i + 1, files.length),
-          });
+        this.setSubmissionStage(
+          targetKey,
+          t('上传附件 {0}/{1}', i + 1, files.length),
+        );
         let uploaded = this.uploadReceipts.get(uploadKey);
         if (!uploaded) {
           uploaded = await client.call<UploadReceipt>(
@@ -885,8 +897,7 @@ export class Workspace {
         )
           throw new Error(t('权限已发生变化，请确认后重新发送'));
       }
-      if (this.key() === targetKey)
-        this.update({ submissionStage: t('正在发送') });
+      this.setSubmissionStage(targetKey, t('正在发送'));
       const signature = JSON.stringify([compiledText, files.map((f) => f.id)]);
       let receipt = this.submissionIDs.get(targetKey);
       if (!receipt || receipt.signature !== signature) {
@@ -921,8 +932,9 @@ export class Workspace {
     } finally {
       this.pending.delete(key);
       this.pending.delete(targetKey);
+      this.submissionStages.delete(key);
+      this.submissionStages.delete(targetKey);
       this.restoreDraft();
-      this.update({ submissionStage: '' });
     }
   }
   private async presetCatalog(endpoint: Endpoint): Promise<PresetCatalog> {

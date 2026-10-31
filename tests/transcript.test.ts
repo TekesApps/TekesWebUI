@@ -36,10 +36,22 @@ function view(items: Item[], tools: Tool[] = [], phase = 'idle'): View {
     endpoint: 'endpoint',
     sessionId: 'session',
     run: {
+      connectionEpoch: 1,
+      canUpdateQueue: false,
+      scope: {
+        endpointId: 'endpoint',
+        threadId: 'session',
+        sessionId: 'session',
+      },
+      jobs: [],
       phase,
       canSubmit: true,
       canCancel: phase === 'running',
-      connection: { phase: 'connected' },
+      connection: {
+        phase: 'connected',
+        canSubmit: true,
+        historyIsStale: false,
+      },
       actionables: [],
       queue: [],
     },
@@ -538,4 +550,25 @@ test('unassigned inputs and multiple session notices retain occurrence order bef
       4,
     );
   }
+});
+
+test('shared queue renders its public message content and never transport metadata', () => {
+  const queued = view([]);
+  queued.run.queue = [
+    {
+      id: 'input:17',
+      placement: 'queued',
+      message: {
+        content: [
+          { type: 'text', text: 'AKWEB_QUEUED 这是排队的独立输入。' },
+          { type: 'image', text: 'not display text' },
+        ],
+      },
+    },
+  ];
+  const html = renderToStaticMarkup(
+    createElement(Transcript, { view: queued }),
+  );
+  assert.match(html, /AKWEB_QUEUED 这是排队的独立输入。/);
+  assert.doesNotMatch(html, /input:17|not display text/);
 });

@@ -31,32 +31,27 @@ The local Node.js service in `host/` owns browser authentication, provider crede
 execution permissions, native folder selection, and detached startup. AgentKit owns normalized runtime and adapters.
 Neither the Kernel nor native ClientKit views are implemented here.
 
-## Build
+## Run the existing local runtime
 
-Use Node.js 22.12+ (or 20.19+).
-
-```sh
-npm ci
-npm test
-npm run build
-```
-
-The build produces browser assets in `dist/` and the CLI in `dist-host/`.
-Start the local service and open the authenticated browser entry point:
+The daily commands reuse the local runtime configuration already saved by the
+host. They do not download, package or install a second AgentKit/Kernel runtime.
 
 ```sh
-npm run host -- start --agentkit-source /absolute/path/to/TekesAgentKit \
-  --agentkit-binary /absolute/path/to/tekes-agent-web \
-  --kernel-binary-dir /absolute/path/to/BuiltInKernel --port 65150
-npm run host -- open
-npm run host -- status
-npm run host -- stop
+npm run setup    # Reuse saved paths; save the provider key in macOS Keychain
+npm start        # Start in background, or open the already running service
+npm stop
+npm run status
+npm run open
 ```
 
-See [local service configuration](docs/local-service.md) for the published pins,
-real model settings, credentials, native directory selection and background lifetime.
-No Python or separate host repository is required. The frontend calls `/api` on
-the same origin. A static preview alone does not start agents.
+Starting an already running service does not restart it or create another process.
+Closing the browser or terminal leaves tasks running. Use `npm start -- --no-open`
+for background startup without opening a browser.
+
+This is the existing-machine workflow. A machine without any saved host
+configuration still requires one explicit developer setup; see
+[the local service guide](docs/local-service.md). No release packaging, automatic
+binary installation or update/deployment command is included.
 
 For development against an already running local host:
 

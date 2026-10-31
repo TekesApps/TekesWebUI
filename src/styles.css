@@ -1,3 +1,4 @@
+@import './components/family.css';
 /* TekesWebUI: warm paper, quiet chrome, generous reading space.
    Visual reference: Caho1/open-claude-ui. Independently authored styles. */
 :root {
@@ -1037,6 +1038,16 @@ summary::-webkit-details-marker {
 .queued small {
   color: var(--secondary);
   font-size: 10px;
+}
+.queued-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.queued-remove {
+  width: 24px;
+  height: 24px;
+  color: var(--secondary);
 }
 .queued p {
   margin: 5px 0 0;

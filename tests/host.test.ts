@@ -8,8 +8,8 @@ import {
   writeFile,
   symlink,
   open,
-  readFile,
   chmod,
+  readFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,12 +18,12 @@ import { DirectoryAuthority } from '../host/directory.js';
 import { createHostServer, type HttpOptions } from '../host/http.js';
 import { kernelProjection, type Settings } from '../host/config.js';
 import { Bridge, type Wire } from '../host/bridge.js';
+import { LIMIT } from '../host/private.js';
 import {
   privateRoot,
   writePrivate,
   readPrivate,
   cleanEnvironment,
-  LIMIT,
 } from '../host/private.js';
 
 async function temporary(run: (root: string) => Promise<void>) {
@@ -132,7 +132,10 @@ test('provider projection preserves Responses, enabled models and credential iso
     kernelProjection(settings, '/host/kernel', '/published/bin'),
   );
 });
-async function httpFixture(root: string) {
+async function httpFixture(
+  root: string,
+  bridgeRequest: (request: Wire) => Promise<unknown> = async () => [],
+) {
   const assets = join(root, 'assets');
   await mkdir(assets);
   await writeFile(join(assets, 'index.html'), '<p>UI</p>');
@@ -156,7 +159,7 @@ async function httpFixture(root: string) {
       request: async (request) => {
         calls.push(request);
         if (request.op === 'call') mutations++;
-        return [];
+        return bridgeRequest(request);
       },
       observe: (_request, deliver) => {
         deliver({ value: { baseline: true } });
@@ -200,6 +203,35 @@ async function httpFixture(root: string) {
     },
   };
 }
+test('explicit reconnect is authenticated, forwarded once and preserves its failure without replaying calls', () =>
+  temporary(async (root) => {
+    const fixture = await httpFixture(root, async (request) => {
+      if (request.op === 'reconnect') throw new Error('authentication expired');
+      return [];
+    });
+    try {
+      const response = await fixture.api({
+        op: 'reconnect',
+        endpoint: 'tekes-loopback-default',
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        error: 'authentication expired',
+      });
+      assert.deepEqual(fixture.calls, [
+        { op: 'reconnect', endpoint: 'tekes-loopback-default' },
+      ]);
+      assert.equal(fixture.mutations, 0);
+      assert.equal(
+        (await fixture.api({ op: 'reconnect', endpoint: 'native' }, 'wrong'))
+          .status,
+        401,
+      );
+    } finally {
+      fixture.server.close();
+      fixture.server.closeAllConnections();
+    }
+  }));
 test('HTTP enforces browser/app authentication, origin, asset containment and operation boundaries', () =>
   temporary(async (root) => {
     const fixture = await httpFixture(root);
@@ -257,12 +289,37 @@ test('HTTP enforces browser/app authentication, origin, asset containment and op
         op: 'call',
         endpoint: 'tekes-loopback-default',
         method: 'session.create',
-        payload: { cwd: root },
+        payload: {
+          cwd: root,
+          execution: {
+            cwd: other,
+            read_roots: ['/'],
+            writable_roots: ['/'],
+            toolchain_roots: ['/'],
+            network: true,
+            allowed_tools: ['untrusted-browser-tool'],
+            mcp: [{ name: 'untrusted-browser-server' }],
+          },
+        },
       });
       const payload = fixture.calls[0].payload as Wire;
       assert.equal('cwd' in payload, false);
-      assert.deepEqual((payload.execution as Wire).writable_roots, [root]);
-      assert.equal((payload.execution as Wire).network, false);
+      assert.deepEqual(payload.execution, {
+        cwd: root,
+        read_roots: [root],
+        writable_roots: [root],
+        toolchain_roots: ['/bin', '/usr/bin'],
+        network: false,
+        allowed_tools: [
+          'read',
+          'write',
+          'edit',
+          'shell',
+          'ask_user_questions',
+          'context',
+          'task',
+        ],
+      });
       assert.deepEqual(
         await (
           await fixture.api({

@@ -25,14 +25,7 @@ import {
   LIMIT,
   openPrivateAppend,
 } from './private.js';
-import {
-  kernelProjection,
-  verifyKernel,
-  selected,
-  sha256,
-  exec,
-  type Settings,
-} from './config.js';
+import { verifyKernel, sha256, exec, type Settings } from './config.js';
 import {
   active,
   serve,
@@ -40,6 +33,14 @@ import {
   type Frame,
   type Ready,
 } from './runtime.js';
+import { configuration, saveConfiguration } from './configuration.js';
+import { parseHarnesses } from './harnesses.js';
+import { readCredential } from './credentials.js';
+import {
+  resolveKernelLaunch,
+  selectedHostProvider,
+  ownedProviderCredential,
+} from './launch-configuration.js';
 
 const CLI = fileURLToPath(import.meta.url);
 const PROJECT = resolve(dirname(CLI), '..');
@@ -53,11 +54,12 @@ const { values, positionals } = parseArgs({
     'runtime-dir': { type: 'string', default: DEFAULT_ROOT },
     'agentkit-source': { type: 'string' },
     'agentkit-binary': { type: 'string' },
+    'in-place': { type: 'boolean' },
     'web-root': { type: 'string', default: join(PROJECT, 'dist') },
     'kernel-binary-dir': { type: 'string' },
     'kernel-data-root': {
       type: 'string',
-      default: join(SUPPORT, 'BuiltIn/kernel-0.9'),
+      default: join(homedir(), '.agents'),
     },
     workspace: {
       type: 'string',
@@ -68,6 +70,8 @@ const { values, positionals } = parseArgs({
       default: join(SUPPORT, 'Settings/providers-and-routers.json'),
     },
     'credential-env': { type: 'string', default: 'DEEPSEEK_KEY' },
+    harnesses: { type: 'string' },
+    'kernel-configuration-mode': { type: 'string', default: 'auto' },
     port: { type: 'string', default: '0' },
     'pi-registry': {
       type: 'string',
@@ -97,41 +101,45 @@ async function start(options: Options): Promise<void> {
   options.agentkitBinary = await realpath(options.agentkitBinary);
   options.kernelBinaryDir = await realpath(options.kernelBinaryDir);
   await verifyKernel(options.kernelBinaryDir);
-  const digest = sha256(await readFile(options.agentkitBinary));
-  const installed = join(
-    await privateRoot(join(root, 'bin')),
-    'agentkit-' + digest,
-  );
-  try {
-    await copyFile(options.agentkitBinary, installed, constants.COPYFILE_EXCL);
-    await chmod(installed, 0o700);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  if (!options.inPlace) {
+    const digest = sha256(await readFile(options.agentkitBinary));
+    const installed = join(
+      await privateRoot(join(root, 'bin')),
+      'agentkit-' + digest,
+    );
+    try {
+      await copyFile(
+        options.agentkitBinary,
+        installed,
+        constants.COPYFILE_EXCL,
+      );
+      await chmod(installed, 0o700);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    if (sha256(await readFile(installed)) !== digest)
+      throw new Error('Frozen AgentKit binary hash mismatch');
+    options.agentkitBinary = installed;
   }
-  if (sha256(await readFile(installed)) !== digest)
-    throw new Error('Frozen AgentKit binary hash mismatch');
-  options.agentkitBinary = installed;
   await mkdir(options.workspace, { recursive: true });
   options.workspace = await realpath(options.workspace);
   const settings = await jsonFile<Settings>(options.settings);
-  const { provider, launch } = kernelProjection(
+  const { launch, credentials } = await resolveKernelLaunch(
+    options,
     settings,
-    options.kernelDataRoot,
-    options.kernelBinaryDir,
+    readCredential,
   );
-  const credential = process.env[options.credentialEnv]?.trim();
-  if (!credential)
-    throw new Error(
-      'Selected provider credential unavailable; supply the named credential environment',
-    );
   const endpoints: Frame['endpoints'] = [];
-  const registry = await readFile(options.piRegistry).then(
-    () => true,
-    (error) => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-      throw error;
-    },
-  );
+  const harnesses = options.harnesses ?? parseHarnesses(undefined);
+  const registry =
+    harnesses.includes('pi') &&
+    (await readFile(options.piRegistry).then(
+      () => true,
+      (error) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+        throw error;
+      },
+    ));
   if (registry) {
     const node = join(options.piRuntime, 'node/bin/node');
     const cli = join(
@@ -140,11 +148,14 @@ async function start(options: Options): Promise<void> {
     );
     await realpath(node);
     await realpath(cli);
-    const enabled = selected(settings.agentSelections?.pi);
-    if (enabled.size !== 1 || !enabled.has(provider.id))
-      throw new Error(
-        'Pi must select the same real DeepSeek connection as Kernel',
-      );
+    const provider = selectedHostProvider(settings, 'pi');
+    if (!provider) throw new Error('Pi has no configured provider');
+    const credential = await ownedProviderCredential(
+      options,
+      settings,
+      provider,
+      readCredential,
+    );
     endpoints.push({
       id: 'pi:' + dirname(options.piRegistry),
       kind: 'pi',
@@ -168,25 +179,27 @@ async function start(options: Options): Promise<void> {
         ]),
       },
     });
-  } else options.piRegistry = '';
-  let cookie = process.env[options.dshCookieEnv];
-  if (!cookie) {
-    try {
-      const saved = JSON.parse(
-        await readPrivate(join(root, 'dsh-connection.json')),
-      ) as { url: string; cookie: string };
-      if (saved.url === options.dshURL) cookie = saved.cookie;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  } else if (harnesses.includes('pi')) options.piRegistry = '';
+  if (harnesses.includes('dsh')) {
+    let cookie = process.env[options.dshCookieEnv];
+    if (!cookie) {
+      try {
+        const saved = JSON.parse(
+          await readPrivate(join(root, 'dsh-connection.json')),
+        ) as { url: string; cookie: string };
+        if (saved.url === options.dshURL) cookie = saved.cookie;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
+    endpoints.push({
+      id: 'dsh-loopback-default',
+      kind: 'dsh',
+      name: 'DeepSeek Harness',
+      url: options.dshURL,
+      ...(cookie ? { cookie } : {}),
+    });
   }
-  endpoints.push({
-    id: 'dsh-loopback-default',
-    kind: 'dsh',
-    name: 'DeepSeek Harness',
-    url: options.dshURL,
-    ...(cookie ? { cookie } : {}),
-  });
   const frame: Frame = {
     instance: randomBytes(16).toString('hex'),
     sessionURLScheme: 'tekes',
@@ -195,7 +208,7 @@ async function start(options: Options): Promise<void> {
     kernelLaunch: launch,
     kernelBootstrap: {
       endpointToken: randomBytes(32).toString('hex'),
-      credentials: { [provider.id]: credential },
+      credentials,
     },
     endpoints,
   };
@@ -243,9 +256,14 @@ async function main(): Promise<void> {
   const command = positionals[0];
   if (values.help || !command) {
     console.log(
-      'TekesWebUI local service: start | status | open | stop\nstart --agentkit-binary PATH --kernel-binary-dir PATH [--agentkit-source PATH] [--port 65150]\nSee docs/local-service.md for configuration.',
+      'TekesWebUI local service: start | status | open | stop\nstart --agentkit-binary PATH --kernel-binary-dir PATH [--agentkit-source PATH] [--port 65150] [--harnesses native,pi,dsh]\nSee docs/local-service.md for configuration.',
     );
     return;
+  }
+  if (values.harnesses !== undefined) {
+    parseHarnesses(values.harnesses);
+    if (command !== 'start')
+      throw new Error('--harnesses is only valid for start');
   }
   const root = await privateRoot(values['runtime-dir']);
   if (command === 'status') {
@@ -296,6 +314,26 @@ async function main(): Promise<void> {
   }
   if (command !== 'start')
     throw new Error('Unknown command; use start, status, open or stop');
+  const launchOverrides = Object.keys(values).filter(
+    (key) =>
+      key !== 'runtime-dir' &&
+      process.argv
+        .slice(2)
+        .some((arg) => arg === '--' + key || arg.startsWith('--' + key + '=')),
+  );
+  if (launchOverrides.length === 1 && launchOverrides[0] === 'harnesses') {
+    const options = {
+      ...(await configuration(root)),
+      harnesses: parseHarnesses(values.harnesses),
+    };
+    await start(options);
+    await saveConfiguration(root, options);
+    return;
+  }
+  if (!launchOverrides.length) {
+    await start(await configuration(root));
+    return;
+  }
   const port = Number(values.port);
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error('Invalid loopback port');
@@ -309,11 +347,16 @@ async function main(): Promise<void> {
     workspace: resolve(values.workspace),
     settings: resolve(values.settings),
     credentialEnv: values['credential-env'],
+    kernelConfigurationMode: values[
+      'kernel-configuration-mode'
+    ] as Options['kernelConfigurationMode'],
     port,
+    harnesses: parseHarnesses(values.harnesses),
     piRegistry: resolve(values['pi-registry']),
     piRuntime: resolve(values['pi-runtime']),
     dshURL: values['dsh-url'],
     dshCookieEnv: values['dsh-cookie-env'],
+    inPlace: values['in-place'] === true,
   });
 }
 main().catch((error) => {

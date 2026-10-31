@@ -7,7 +7,8 @@ function icon(slot: keyof typeof interfaceIcons) {
     return <TekesIcon {...props} name={interfaceIcons[slot]} />;
   };
 }
-export const ArrowDown = icon('ArrowDown'),
+export const ArrowLeft = icon('ArrowLeft'),
+  ArrowDown = icon('ArrowDown'),
   ArrowUp = icon('ArrowUp'),
   Archive = icon('Archive'),
   Check = icon('Check'),

@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { open, mkdir, rm, realpath, readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { Bridge, type Wire } from './bridge.js';
@@ -16,6 +16,7 @@ import {
   openPrivateAppend,
 } from './private.js';
 import { KERNEL_PIN } from './config.js';
+import type { Harness } from './harnesses.js';
 
 export interface Options {
   runtimeDir: string;
@@ -32,6 +33,9 @@ export interface Options {
   piRuntime: string;
   dshURL: string;
   dshCookieEnv: string;
+  harnesses?: Harness[];
+  inPlace?: boolean;
+  kernelConfigurationMode?: 'auto' | 'provided' | 'existing';
 }
 export interface Frame {
   instance: string;
@@ -62,6 +66,54 @@ export interface Ready {
   hostVersion: string;
   runtimeDirectory: string;
   workspace: string;
+}
+
+export interface PiRegistrySession {
+  id: string;
+  cwd: string;
+  sessionFile: string;
+}
+
+/** Read the legacy WebUI array or the AgentKit public keyed-session manifest. */
+export function piRegistrySessions(
+  value: unknown,
+  registryPath: string,
+): PiRegistrySession[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Invalid Pi registry');
+  const sessions = (value as { sessions?: unknown }).sessions;
+  let rows: Array<[string | undefined, unknown]>;
+  if (Array.isArray(sessions)) {
+    rows = sessions.map((row) => [undefined, row]);
+  } else if (sessions && typeof sessions === 'object') {
+    rows = Object.entries(sessions);
+  } else {
+    throw new Error('Invalid Pi registry sessions');
+  }
+
+  return rows.map(([key, candidate]) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate))
+      throw new Error('Invalid Pi registry session');
+    const row = candidate as { id?: unknown; cwd?: unknown; file?: unknown };
+    if (
+      typeof row.id !== 'string' ||
+      !/^[a-zA-Z0-9_-]+$/.test(row.id) ||
+      (key !== undefined && key !== row.id) ||
+      typeof row.cwd !== 'string' ||
+      !isAbsolute(row.cwd)
+    )
+      throw new Error('Invalid Pi registry session pointer');
+
+    // Retain the actual native history pointer; adopted files need not be named
+    // after the AgentKit id. The adapter validates its canonical session root.
+    const sessionFile =
+      key === undefined
+        ? join(dirname(registryPath), 'sessions', row.id + '.jsonl')
+        : row.file;
+    if (typeof sessionFile !== 'string' || !isAbsolute(sessionFile))
+      throw new Error('Invalid Pi registry session file');
+    return { id: row.id, cwd: row.cwd, sessionFile };
+  });
 }
 export async function active(root: string): Promise<boolean> {
   const ready = await jsonFile<Ready>(join(root, 'ready.json')).catch(
@@ -170,8 +222,10 @@ export async function serve(
   let server: ReturnType<typeof createHostServer> | undefined;
   let directories: DirectoryAuthority | undefined;
   let stopping = false;
+  let terminationReason = 'startup-failure';
   const stop = () => {
     stopping = true;
+    terminationReason = 'host-signal';
   };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
@@ -257,17 +311,9 @@ export async function serve(
     const pi = rows.find((e) => e.kind === 'pi');
     if (pi && options.piRegistry) {
       await waitReady(pi.id);
-      const registry = await jsonFile<{
-        sessions: { id: string; cwd: string }[];
-      }>(options.piRegistry);
-      for (const row of registry.sessions) {
-        if (!/^[a-zA-Z0-9_-]+$/.test(row.id))
-          throw new Error('Invalid Pi registry session ID');
-        const path = join(
-          dirname(options.piRegistry),
-          'sessions',
-          row.id + '.jsonl',
-        );
+      const registry = await jsonFile<unknown>(options.piRegistry);
+      for (const row of piRegistrySessions(registry, options.piRegistry)) {
+        const path = row.sessionFile;
         try {
           await readFile(path);
         } catch (error) {
@@ -309,6 +355,8 @@ export async function serve(
       directories,
       bridge: runtime,
       attachDSH: async (cookie) => {
+        if (options.harnesses && !options.harnesses.includes('dsh'))
+          throw new Error('DSH is not enabled for this service');
         const value = await runtime.request({
           op: 'configureDSH',
           endpoint: 'dsh-loopback-default',
@@ -364,6 +412,7 @@ export async function serve(
       join(root, 'ready.json'),
       JSON.stringify(descriptor, null, 2),
     );
+    terminationReason = 'service-stopping';
     while (
       !stopping &&
       kernel.exitCode === null &&
@@ -376,11 +425,36 @@ export async function serve(
           () => true,
           () => false,
         )
-      )
+      ) {
+        terminationReason = 'stop-file';
         break;
+      }
       await delay(200);
     }
+    if (terminationReason === 'service-stopping') {
+      terminationReason =
+        kernel.exitCode !== null || kernel.signalCode !== null
+          ? 'kernel-exit'
+          : 'agentkit-exit';
+    }
+  } catch (error) {
+    terminationReason = 'startup-error';
+    const code =
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof error.code === 'string' &&
+      /^[A-Z0-9_]+$/.test(error.code)
+        ? error.code
+        : 'unclassified';
+    await log.write(
+      `service-terminated reason=${terminationReason} category=${code}\n`,
+    );
+    throw error;
   } finally {
+    await log.write(
+      `service-terminated reason=${terminationReason} kernelCode=${kernel?.exitCode ?? 'null'} kernelSignal=${kernel?.signalCode ?? 'null'} agentkitCode=${bridge?.process.exitCode ?? 'null'} agentkitSignal=${bridge?.process.signalCode ?? 'null'}\n`,
+    );
     directories?.close();
     server?.close();
     server?.closeAllConnections();

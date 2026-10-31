@@ -1,14 +1,16 @@
 import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { Workspace } from '../src/workspace';
-import type { Endpoint } from '../src/types';
+import type { AttachmentPolicy, Endpoint } from '../src/types';
 import type { ThreadActionOutcome } from '@tekesagentkit/client-contract';
 import { textFingerprint, type Annotation } from '../src/annotations';
 
 type Call = {
-  op: string;
+  op?: string;
   endpoint: string;
-  method: string;
+  method?: string;
+  actionableId?: string;
+  expectedRevision?: number;
   rpcId: string;
   sessionId?: string;
   target?: string;
@@ -24,6 +26,23 @@ async function ready(
     await new Promise((resolve) => setTimeout(resolve, 1));
   }
 }
+
+test('family child drafts stay scoped to parent and child destinations', () => {
+  const w = new Workspace();
+  const parent = { endpoint: 'native', sessionId: 'parent-a' };
+  const otherParent = { endpoint: 'native', sessionId: 'parent-b' };
+  w.setDraft('parent composer draft');
+  w.setChildDraft(parent, 'child-a', 'first child draft');
+  w.setChildDraft(parent, 'child-b', 'second child draft');
+  w.setChildDraft(otherParent, 'child-a', 'other parent draft');
+
+  assert.equal(w.childDraft(parent, 'child-a'), 'first child draft');
+  assert.equal(w.childDraft(parent, 'child-b'), 'second child draft');
+  assert.equal(w.childDraft(otherParent, 'child-a'), 'other parent draft');
+  assert.equal(w.snapshot().draft, 'parent composer draft');
+  w.dispose();
+});
+
 function fixture(
   t: TestContext,
   prompt: (call: Call) => Promise<unknown> = async () => ({ accepted: true }),
@@ -36,6 +55,13 @@ function fixture(
   picker: (call: Call) => Promise<{ path: string | null }> = async () => ({
     path: null,
   }),
+  permissions?: (call: Call) => Promise<unknown>,
+  attachmentPolicy: AttachmentPolicy = {
+    inlineMediaTypes: [],
+    maxAttachmentsPerMessage: 8,
+  },
+  reconnect?: (call: Call) => Promise<Endpoint>,
+  upload?: (call: Call) => Promise<unknown>,
 ) {
   const calls: Call[] = [];
   const endpoints: Endpoint[] = ['tekes', 'pi'].map((kind) => ({
@@ -51,6 +77,9 @@ function fixture(
         'composer.compileAnnotations',
         'thread.actions',
         'thread.performAction',
+        ...(permissions
+          ? ['approvals.policy', 'approvals.mode', 'approvals.select']
+          : []),
       ],
       supportsArchiveSession: true,
     },
@@ -86,6 +115,10 @@ function fixture(
           directoryPicker: { endpoints: ['tekes', 'pi'] },
         };
       else if (call.op === 'host.pickDirectory') value = await picker(call);
+      else if (call.op === 'reconnect')
+        value = reconnect
+          ? await reconnect(call)
+          : endpoints.find((endpoint) => endpoint.id === call.endpoint)!;
       else if (call.op === 'follow') {
         const value =
           call.target === 'state'
@@ -131,7 +164,7 @@ function fixture(
             },
           }),
         );
-      } else if (['models.list', 'session.models'].includes(call.method))
+      } else if (['models.list', 'session.models'].includes(call.method ?? ''))
         value = catalog;
       else if (call.method === 'session.initialPresets')
         value = {
@@ -141,19 +174,23 @@ function fixture(
               : [{ id: 'default' }],
           defaultID: call.endpoint === 'tekes' ? 'coding' : 'default',
         };
-      else if (call.method === 'attachments.policy')
-        value = { inlineMediaTypes: [], maxAttachmentsPerMessage: 8 };
+      else if (call.method === 'attachments.policy') value = attachmentPolicy;
+      else if (call.method?.startsWith('approvals.'))
+        value = await permissions!(call);
       else if (call.method === 'session.create')
         value = { sessionId: 'created' };
       else if (call.method === 'session.uploadFile')
-        value = {
-          receiptId: 'upload-receipt',
-          file: {
-            attachmentId: 'attachment',
-            name: call.payload.name,
-            bytes: Buffer.from(call.payload.data as string, 'base64').length,
-          },
-        };
+        value = upload
+          ? await upload(call)
+          : {
+              receiptId: 'upload-receipt',
+              file: {
+                attachmentId: 'attachment',
+                name: call.payload.name,
+                bytes: Buffer.from(call.payload.data as string, 'base64')
+                  .length,
+              },
+            };
       else if (call.method === 'composer.compileAnnotations')
         value = { text: 'AgentKit compiled annotation input' };
       else if (call.method === 'thread.actions')
@@ -188,6 +225,241 @@ function fixture(
   );
   return { calls, endpoints, w: new Workspace() };
 }
+
+test('Earlier completion and errors stay bound to the mounted view', async (t) => {
+  for (const mode of [
+    'switch',
+    'return-to-same-address',
+    'current-error',
+    'current-success',
+  ]) {
+    await t.test(mode, async (t) => {
+      const { w } = fixture(t);
+      const baseFetch = globalThis.fetch;
+      let finish: ((response: Response) => void) | undefined;
+      t.mock.method(
+        globalThis,
+        'fetch',
+        async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+          const body = JSON.parse(String(init?.body || '{}'));
+          if (body.op === 'earlier')
+            return new Promise<Response>((resolve) => {
+              finish = resolve;
+            });
+          return baseFetch(url, init);
+        },
+      );
+      try {
+        await w.connect('browser');
+        await ready(w);
+        await w.select({ endpoint: 'tekes', sessionId: 'a' });
+        await ready(w, () => w.snapshot().view?.sessionId === 'a');
+        const loading = w.earlier();
+        await ready(w, () => Boolean(finish));
+        if (mode === 'switch' || mode === 'return-to-same-address') {
+          await w.select({ endpoint: 'tekes', sessionId: 'b' });
+          await ready(w, () => w.snapshot().view?.sessionId === 'b');
+          if (mode === 'return-to-same-address') {
+            await w.select({ endpoint: 'tekes', sessionId: 'a' });
+            await ready(w, () => w.snapshot().view?.sessionId === 'a');
+          }
+        }
+        finish!(
+          Response.json(
+            mode === 'current-success'
+              ? { value: { loaded: true } }
+              : { error: 'protocol: stale history page result' },
+          ),
+        );
+        assert.equal(
+          await loading,
+          mode === 'current-success',
+          'only a current successful page can restore its reading anchor',
+        );
+        assert.equal(
+          w.snapshot().error,
+          mode === 'current-error' ? 'protocol: stale history page result' : '',
+        );
+      } finally {
+        w.dispose();
+      }
+    });
+  }
+});
+
+test('explicit reconnect sends one recovery request and never replays a business operation', async (t) => {
+  let finish!: (endpoint: Endpoint) => void;
+  const { w, calls, endpoints } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    () =>
+      new Promise<Endpoint>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  try {
+    await w.connect('browser');
+    await ready(w);
+    const before = calls.filter((call) => call.op === 'call').length;
+    const first = w.reconnectEndpoint('tekes');
+    const second = w.reconnectEndpoint('tekes');
+    await ready(
+      w,
+      () => calls.filter((call) => call.op === 'reconnect').length === 1,
+    );
+    assert.equal(calls.filter((call) => call.op === 'call').length, before);
+    finish({ ...endpoints[0], connection: 'ready', canReconnect: false });
+    await Promise.all([first, second]);
+    assert.equal(calls.filter((call) => call.op === 'reconnect').length, 1);
+    assert.equal(
+      w.snapshot().endpoints.find((endpoint) => endpoint.id === 'tekes')
+        ?.connection,
+      'ready',
+    );
+    assert.equal(
+      calls.some(
+        (call) => call.method === 'session.prompt' || call.op === 'respond',
+      ),
+      false,
+    );
+  } finally {
+    w.dispose();
+  }
+});
+
+test('explicit reconnect keeps authentication and protocol errors visible', async (t) => {
+  let errorMessage = 'authentication expired';
+  const { w, calls } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    async () => {
+      throw new Error(errorMessage);
+    },
+  );
+  try {
+    await w.connect('browser');
+    await ready(w);
+    for (const message of [
+      'authentication expired',
+      'protocol version mismatch',
+    ]) {
+      errorMessage = message;
+      await w.reconnectEndpoint('tekes');
+      assert.equal(w.snapshot().error, message);
+    }
+    assert.equal(calls.filter((call) => call.op === 'reconnect').length, 2);
+    assert.equal(
+      calls.some(
+        (call) => call.method === 'session.prompt' || call.op === 'respond',
+      ),
+      false,
+    );
+  } finally {
+    w.dispose();
+  }
+});
+
+test('mixed image and file attachments follow the advertised inline policy in input order', async (t) => {
+  const { w, calls } = fixture(t, undefined, undefined, undefined, undefined, {
+    inlineMediaTypes: ['image/png'],
+    maxAttachmentsPerMessage: 8,
+  });
+  try {
+    await w.connect('browser');
+    await ready(w);
+    await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+    await ready(w);
+    w.setDraft('Mixed attachment request');
+    const pixels = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    w.addFiles([
+      new File([pixels], 'first.png', { type: 'image/png' }),
+      new File(['attached notes'], 'notes.txt', { type: 'text/plain' }),
+      new File([pixels], 'second.png', { type: 'image/png' }),
+    ]);
+    await w.submit();
+
+    const uploads = calls.filter(
+      (call) => call.method === 'session.uploadFile',
+    );
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].payload.name, 'notes.txt');
+    const prompt = calls.find((call) => call.method === 'session.prompt');
+    assert.deepEqual(prompt?.payload.content, [
+      { type: 'text', text: 'Mixed attachment request' },
+      {
+        type: 'image',
+        mediaType: 'image/png',
+        name: 'first.png',
+        data: btoa(String.fromCharCode(...pixels)),
+      },
+      { type: 'file', receiptId: 'upload-receipt' },
+      {
+        type: 'image',
+        mediaType: 'image/png',
+        name: 'second.png',
+        data: btoa(String.fromCharCode(...pixels)),
+      },
+    ]);
+  } finally {
+    w.dispose();
+  }
+});
+
+test('image media absent from the public inline policy uses the upload receipt path', async (t) => {
+  const { w, calls } = fixture(t);
+  try {
+    await w.connect('browser');
+    await ready(w);
+    await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+    await ready(w);
+    w.setDraft('Reference fallback');
+    w.addFiles([
+      new File([new Uint8Array([1, 2, 3])], 'photo.png', { type: 'image/png' }),
+    ]);
+    await w.submit();
+
+    assert.equal(
+      calls.filter((call) => call.method === 'session.uploadFile').length,
+      1,
+    );
+    assert.deepEqual(
+      calls.find((call) => call.method === 'session.prompt')?.payload.content,
+      [
+        { type: 'text', text: 'Reference fallback' },
+        { type: 'file', receiptId: 'upload-receipt' },
+      ],
+    );
+  } finally {
+    w.dispose();
+  }
+});
+
+test('family approval responses stay bound to the pane endpoint after selection moves', async (t) => {
+  const { w, calls } = fixture(t);
+  try {
+    await w.connect('browser');
+    await ready(w);
+    await w.select({ endpoint: 'tekes', sessionId: 'parent' });
+    await ready(w);
+    await w.select({ endpoint: 'pi', sessionId: 'other' });
+    await ready(w);
+    await w.respondAt('tekes', 'approval-1', 3, { outcome: 'allowed-once' });
+    const response = calls.find((call) => call.op === 'respond');
+    assert.equal(response?.endpoint, 'tekes');
+    assert.equal(response?.actionableId, 'approval-1');
+    assert.equal(response?.expectedRevision, 3);
+  } finally {
+    w.dispose();
+  }
+});
 test('pending files and preset choices remain scoped to a Harness destination', async (t) => {
   const { w, calls } = fixture(t);
   try {
@@ -260,6 +532,136 @@ test('upload precedes admission; an old acknowledgement preserves text typed whi
     w.dispose();
   }
 });
+test('submission-stage stays with its destination when another acknowledgement settles', async (t) => {
+  for (const outcome of ['accepted', 'failed']) {
+    await t.test(outcome, async (t) => {
+      let acknowledgeA!: (value: unknown) => void,
+        rejectA!: (error: Error) => void,
+        acknowledgeB!: (value: unknown) => void,
+        uploadB!: (value: unknown) => void;
+      const pendingA = new Promise((resolve, reject) => {
+        acknowledgeA = resolve;
+        rejectA = reject;
+      });
+      const pendingB = new Promise((resolve) => {
+        acknowledgeB = resolve;
+      });
+      const pendingUpload = new Promise((resolve) => {
+        uploadB = resolve;
+      });
+      const { w, calls } = fixture(
+        t,
+        async (call) => (call.payload.sessionId === 'A' ? pendingA : pendingB),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        async (call) =>
+          call.payload.sessionId === 'B'
+            ? pendingUpload
+            : {
+                receiptId: 'A-upload',
+                file: {
+                  bytes: Buffer.from(call.payload.data as string, 'base64')
+                    .length,
+                },
+              },
+      );
+      const a = { endpoint: 'tekes', sessionId: 'A' },
+        b = { endpoint: 'pi', sessionId: 'B' };
+      try {
+        await w.connect('browser');
+        await w.select(a);
+        await ready(w);
+        w.setDraft('A original');
+        w.saveAnnotation(quote);
+        const aFile = new File(['A original file'], 'A-check.txt');
+        w.addFiles([aFile]);
+        await ready(w, () => w.canSend());
+        const sendingA = w.submit();
+        await ready(w, () =>
+          calls.some(
+            (c) => c.method === 'session.prompt' && c.payload.sessionId === 'A',
+          ),
+        );
+        const sendingStage = w.snapshot().submissionStage;
+        w.setDraft('A newer');
+        w.saveAnnotation({ ...quote, comment: 'A newer annotation' });
+        await w.select(b);
+        await ready(w);
+        w.setDraft('B original');
+        w.saveAnnotation({ ...quote, id: 'B-quote' });
+        const bFile = new File(['Known B bytes'], 'B-check.txt');
+        w.addFiles([bFile]);
+        await ready(w, () => w.canSend());
+        const sendingB = w.submit();
+        await ready(w, () =>
+          calls.some(
+            (c) =>
+              c.method === 'session.uploadFile' && c.payload.sessionId === 'B',
+          ),
+        );
+        const uploadingStage = w.snapshot().submissionStage;
+        assert.ok(uploadingStage);
+        assert.notEqual(uploadingStage, sendingStage);
+        w.setDraft('B newer');
+        w.saveAnnotation({
+          ...quote,
+          id: 'B-quote',
+          comment: 'B newer annotation',
+        });
+        if (outcome === 'accepted') acknowledgeA({ accepted: true });
+        else rejectA(new Error('A admission failed'));
+        await sendingA;
+        assert.equal(w.snapshot().submissionStage, uploadingStage);
+        assert.equal(w.snapshot().busy, true);
+        assert.deepEqual(w.snapshot().selected, b);
+        assert.equal(w.snapshot().draft, 'B newer');
+        assert.deepEqual(
+          w.snapshot().attachments.map((f) => f.file),
+          [bFile],
+        );
+        assert.equal(w.snapshot().annotations[0].comment, 'B newer annotation');
+        await w.select(a);
+        await ready(w);
+        assert.equal(w.snapshot().submissionStage, '');
+        assert.equal(w.snapshot().draft, 'A newer');
+        assert.deepEqual(
+          w.snapshot().attachments.map((f) => f.file),
+          outcome === 'accepted' ? [] : [aFile],
+        );
+        assert.equal(w.snapshot().annotations[0].comment, 'A newer annotation');
+        await w.select(b);
+        await ready(w);
+        assert.equal(w.snapshot().submissionStage, uploadingStage);
+        uploadB({ receiptId: 'B-upload', file: { bytes: bFile.size } });
+        await ready(w, () =>
+          calls.some(
+            (c) => c.method === 'session.prompt' && c.payload.sessionId === 'B',
+          ),
+        );
+        assert.equal(w.snapshot().submissionStage, sendingStage);
+        acknowledgeB({ accepted: true });
+        await sendingB;
+        assert.equal(w.snapshot().submissionStage, '');
+        assert.equal(w.snapshot().busy, false);
+        assert.equal(w.snapshot().draft, 'B newer');
+        assert.deepEqual(
+          w.snapshot().attachments.map((f) => f.file),
+          [],
+        );
+        assert.equal(w.snapshot().annotations[0].comment, 'B newer annotation');
+      } finally {
+        acknowledgeA({ accepted: true });
+        acknowledgeB({ accepted: true });
+        uploadB({ receiptId: 'cleanup', file: { bytes: 13 } });
+        w.dispose();
+      }
+    });
+  }
+});
+
 test('uncertain admission retains files and reuses confirmed upload receipts on explicit retry', async (t) => {
   let attempts = 0;
   const { w, calls } = fixture(t, async () => {
@@ -434,7 +836,7 @@ test('thread actions render shared definitions and dispatch to their explicit ta
     );
     assert.equal(
       calls.filter((c) =>
-        ['session.rename', 'session.archive'].includes(c.method),
+        ['session.rename', 'session.archive'].includes(c.method ?? ''),
       ).length,
       0,
     );
@@ -587,63 +989,156 @@ test('an open native folder picker cannot replace a newer destination or open tw
   }
 });
 
-test('Earlier completion and errors stay bound to the mounted view', async (t) => {
-  for (const mode of [
-    'switch',
-    'return-to-same-address',
-    'current-error',
-    'current-success',
-  ]) {
-    await t.test(mode, async (t) => {
-      const { w } = fixture(t);
-      const baseFetch = globalThis.fetch;
-      let finish: ((response: Response) => void) | undefined;
-      t.mock.method(
-        globalThis,
-        'fetch',
-        async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
-          const body = JSON.parse(String(init?.body || '{}'));
-          if (body.op === 'earlier')
-            return new Promise<Response>((resolve) => {
-              finish = resolve;
-            });
-          return baseFetch(url, init);
-        },
-      );
-      try {
-        await w.connect('browser');
-        await ready(w);
-        await w.select({ endpoint: 'tekes', sessionId: 'a' });
-        await ready(w, () => w.snapshot().view?.sessionId === 'a');
-        const loading = w.earlier();
-        await ready(w, () => Boolean(finish));
-        if (mode === 'switch' || mode === 'return-to-same-address') {
-          await w.select({ endpoint: 'tekes', sessionId: 'b' });
-          await ready(w, () => w.snapshot().view?.sessionId === 'b');
-          if (mode === 'return-to-same-address') {
-            await w.select({ endpoint: 'tekes', sessionId: 'a' });
-            await ready(w, () => w.snapshot().view?.sessionId === 'a');
-          }
-        }
-        finish!(
-          Response.json(
-            mode === 'current-success'
-              ? { value: { loaded: true } }
-              : { error: 'protocol: stale history page result' },
-          ),
-        );
-        assert.equal(
-          await loading,
-          mode === 'current-success',
-          'only a current successful page can restore its reading anchor',
-        );
-        assert.equal(
-          w.snapshot().error,
-          mode === 'current-error' ? 'protocol: stale history page result' : '',
-        );
-      } finally {
-        w.dispose();
-      }
-    });
-  }
+const permissionPolicy = {
+  threadLevel: [
+    { value: 'read-only', title: 'Read Only' },
+    { value: 'workspace-write', title: 'Workspace Write' },
+    { value: 'danger-full-access', title: 'Full Access' },
+  ],
+  serverLevel: { options: [], currentValue: null },
+};
+function permissionFixture(
+  t: TestContext,
+  select?: (call: Call) => Promise<void>,
+  read?: (call: Call) => Promise<string>,
+) {
+  const modes = new Map<string, string>();
+  return fixture(t, undefined, undefined, undefined, async (call) => {
+    if (call.method === 'approvals.policy') return permissionPolicy;
+    const key = call.endpoint + ':' + call.payload.sessionId;
+    if (call.method === 'approvals.select') {
+      await select?.(call);
+      modes.set(key, String(call.payload.mode));
+      return { accepted: true };
+    }
+    return {
+      mode: read ? await read(call) : modes.get(key) || 'workspace-write',
+    };
+  });
+}
+test('new-chat permission is applied and read back before any prompt; draft choice is destination scoped', async (t) => {
+  const { w, calls } = permissionFixture(t);
+  await w.connect('browser');
+  await ready(w);
+  await w.choosePermission('read-only');
+  w.setDraft('request');
+  assert.equal(
+    calls.some((c) => c.method === 'approvals.select'),
+    false,
+  );
+  w.newSession('/authorized', 'pi');
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, null);
+  w.newSession('/authorized', 'tekes');
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  await w.submit();
+  await ready(w);
+  const selected = calls.findIndex((c) => c.method === 'approvals.select');
+  const prompt = calls.findIndex((c) => c.method === 'session.prompt');
+  assert.ok(selected >= 0 && prompt > selected);
+  assert.equal(calls[selected].payload.mode, 'read-only');
+  assert.ok(
+    calls
+      .slice(selected + 1, prompt)
+      .some((c) => c.method === 'approvals.mode'),
+  );
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  w.dispose();
+});
+test('failed permission update never admits a prompt and preserves the new-chat draft for explicit retry', async (t) => {
+  let fail = true;
+  const { w, calls } = permissionFixture(t, async () => {
+    if (fail) throw new Error('permission refused');
+  });
+  await w.connect('browser');
+  await ready(w);
+  await w.choosePermission('read-only');
+  w.setDraft('keep this input');
+  await w.submit();
+  assert.equal(
+    calls.some((c) => c.method === 'session.prompt'),
+    false,
+  );
+  assert.equal(w.snapshot().draft, 'keep this input');
+  const create = calls.find((c) => c.method === 'session.create')!;
+  fail = false;
+  await w.submit();
+  assert.equal(
+    calls.filter((c) => c.method === 'session.create').at(-1)!.rpcId,
+    create.rpcId,
+  );
+  assert.equal(calls.filter((c) => c.method === 'session.prompt').length, 1);
+  w.dispose();
+});
+test('existing-session permission updates show only confirmed modes and late replies cannot overwrite another destination', async (t) => {
+  let release!: () => void;
+  let delaying = false;
+  const { w } = permissionFixture(t, async () => {
+    if (delaying)
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+  });
+  await w.connect('browser');
+  await ready(w);
+  await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, 'workspace-write');
+  await w.choosePermission('read-only');
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  delaying = true;
+  const selecting = w.choosePermission('danger-full-access');
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  assert.equal(w.snapshot().permissionLoading, true);
+  while (!release) await new Promise((resolve) => setTimeout(resolve, 1));
+  w.newSession('/other', 'pi');
+  await ready(w);
+  release();
+  await selecting;
+  assert.equal(w.snapshot().permissionMode, null);
+  assert.equal(w.snapshot().permissionError, '');
+  w.dispose();
+});
+test('unknown effective permissions are never guessed or used to admit a prompt', async (t) => {
+  const { w, calls } = permissionFixture(
+    t,
+    undefined,
+    async () => 'unknown-mode',
+  );
+  await w.connect('browser');
+  await ready(w);
+  await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+  await ready(w);
+  w.setDraft('blocked');
+  assert.ok(w.snapshot().permissionError);
+  assert.equal(w.canSend(), false);
+  await w.submit();
+  assert.equal(
+    calls.some((c) => c.method === 'session.prompt'),
+    false,
+  );
+  w.dispose();
+});
+
+test('a policy changed by another client is read before admission instead of sending under a stale mode', async (t) => {
+  let current = 'workspace-write';
+  const { w, calls } = permissionFixture(t, undefined, async () => current);
+  await w.connect('browser');
+  await ready(w);
+  await w.select({ endpoint: 'tekes', sessionId: 'existing' });
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, 'workspace-write');
+  current = 'read-only';
+  w.setDraft('keep the draft');
+  await w.submit();
+  assert.equal(
+    calls.some((c) => c.method === 'session.prompt'),
+    false,
+  );
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  assert.equal(w.snapshot().draft, 'keep the draft');
+  await w.submit();
+  assert.equal(calls.filter((c) => c.method === 'session.prompt').length, 1);
+  w.dispose();
 });

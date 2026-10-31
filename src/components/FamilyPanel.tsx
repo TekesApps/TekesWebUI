@@ -125,7 +125,11 @@ export function FamilyPanel({
 
   const childSummary = useMemo(
     () =>
-      new Map((family?.summary.subagents || []).map((item) => [item.id, item])),
+      new Map(
+        (family?.summary.subagents || []).flatMap((item) =>
+          item.sessionId ? [[item.sessionId, item] as const] : [],
+        ),
+      ),
     [family],
   );
   async function openChild(childId: string) {

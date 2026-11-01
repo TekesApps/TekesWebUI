@@ -219,12 +219,19 @@ export async function verifyRuntimeIdentity(
     )
   )
     throw new Error('Candidate Kernel source receipt mismatch');
-  for (const name of BINARIES)
+  if (!Array.isArray(kernelReceipt.artifacts))
+    throw new Error('Candidate Kernel artifact vector missing');
+  const artifacts = kernelReceipt.artifacts.map(record);
+  for (const name of BINARIES) {
+    const matches = artifacts.filter((artifact) => artifact.name === name);
+    if (matches.length !== 1 || matches[0].sha256 !== m.kernel.binaries[name])
+      throw new Error('Candidate Kernel artifact vector mismatch');
     await checkFile(
       join(options.kernelBinaryDir, name),
       m.kernel.binaries[name],
       name,
     );
+  }
   const coreReceipt = await checkedJson(m.core.receipt);
   if (
     coreReceipt.sourceRevision !== m.core.revision ||

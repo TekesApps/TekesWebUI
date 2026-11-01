@@ -69,6 +69,11 @@ async function fixture() {
     sourceBefore: { head: identity.source_revision, tree: 'b'.repeat(40) },
     sourceRevision: identity.source_revision,
     describeBuild: identity,
+    artifacts: Object.entries(binaries).map(([name, sha256]) => ({
+      name,
+      path: join(kernel, name),
+      sha256,
+    })),
   });
   const coreReceipt = await ref('core-receipt.json', {
     sourceRevision: 'c'.repeat(40),
@@ -254,6 +259,13 @@ test('candidate rejects actual describe identity even when the new binary hash i
     const bytes = `#!/usr/bin/env node\nconsole.log(${JSON.stringify(JSON.stringify({ ...f.identity, source_revision: '0'.repeat(40) }))});\n`;
     await writeFile(join(f.kernel, 'tekes-supervisor'), bytes);
     f.manifest.kernel.binaries['tekes-supervisor'] = sha256(Buffer.from(bytes));
+    const receipt = JSON.parse(
+      await readFile(f.manifest.kernel.receipt.path, 'utf8'),
+    );
+    receipt.artifacts.find(
+      (a: { name: string }) => a.name === 'tekes-supervisor',
+    ).sha256 = f.manifest.kernel.binaries['tekes-supervisor'];
+    f.manifest.kernel.receipt = await f.ref('kernel-receipt.json', receipt);
     await f.freeze();
     await assert.rejects(
       verifyRuntimeIdentity(f.options, f.web),
@@ -534,6 +546,46 @@ test('manager rejects either missing half of paired identity flags without overw
         },
       );
       assert.deepEqual(await readFile(savedPath), originalBytes);
+    }
+  } finally {
+    await f.close();
+  }
+});
+
+test('candidate rejects a mixed helper even when manifest and actual bytes agree but the source receipt does not', async () => {
+  const f = await fixture();
+  try {
+    const bytes = 'HELPER_FROM_ANOTHER_BUILD';
+    await writeFile(join(f.kernel, 'tekes-helper'), bytes);
+    f.manifest.kernel.binaries['tekes-helper'] = sha256(Buffer.from(bytes));
+    await f.freeze();
+    await assert.rejects(
+      verifyRuntimeIdentity(f.options, f.web),
+      /Kernel artifact vector/,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('candidate rejects duplicate or missing required source receipt artifacts', async () => {
+  const f = await fixture();
+  try {
+    const original = await readFile(f.manifest.kernel.receipt.path, 'utf8');
+    for (const kind of ['duplicate', 'missing', 'absent']) {
+      const receipt = JSON.parse(original);
+      if (kind === 'duplicate') receipt.artifacts.push(receipt.artifacts[0]);
+      if (kind === 'missing')
+        receipt.artifacts = receipt.artifacts.filter(
+          (a: { name: string }) => a.name !== 'tekes-worker',
+        );
+      if (kind === 'absent') delete receipt.artifacts;
+      f.manifest.kernel.receipt = await f.ref('kernel-receipt.json', receipt);
+      await f.freeze();
+      await assert.rejects(
+        verifyRuntimeIdentity(f.options, f.web),
+        /Kernel artifact vector/,
+      );
     }
   } finally {
     await f.close();

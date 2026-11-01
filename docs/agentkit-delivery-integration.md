@@ -214,3 +214,9 @@ the four executable hashes and compiled describe identity, without inventing a
 second receipt format. Keep both compiled and candidate manifests outside
 `dist/` and `dist-host/`: build first, freeze the compiled manifest, then freeze the
 candidate manifest and save its reference. Precreate the isolated scope directories.
+
+The existing Kernel receipt's `artifacts` entries provide the canonical
+source-bound binary hash vector. Each required executable name must occur once,
+and its receipt SHA256 must equal the candidate manifest SHA256 before checking
+the actual file. A manifest and file changed together cannot retain an old
+source/build receipt; duplicate or missing required artifacts reject.

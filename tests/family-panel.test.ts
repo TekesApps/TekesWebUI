@@ -5,7 +5,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FamilyPanel } from '../src/components/FamilyPanel';
 import { Workspace } from '../src/workspace';
-import { getLocale, setLocale } from '../src/i18n';
+import { getLocale, setLocale, t } from '../src/i18n';
 import type { ChildPane, ChildViewFrame, FamilySnapshot } from '../src/types';
 
 async function withFamily(
@@ -18,6 +18,7 @@ async function withFamily(
     publishFamily: (family: FamilySnapshot) => void;
     family: FamilySnapshot;
     publishChild: (frame: ChildViewFrame) => void;
+    failChild: (cause: Error) => void;
     open: () => Promise<void>;
   }) => Promise<void>,
 ) {
@@ -102,6 +103,7 @@ async function withFamily(
   };
   let publishFamily!: (frame: FamilySnapshot) => void;
   let publishChild!: (frame: ChildViewFrame) => void;
+  let failChild!: (cause: Error) => void;
   const untilAborted = (signal: AbortSignal) =>
     new Promise<void>((resolve) =>
       signal.addEventListener('abort', () => resolve(), { once: true }),
@@ -116,7 +118,10 @@ async function withFamily(
     assert.deepEqual(receivedAddress, address);
     assert.equal(opened.childId, 'child-uuid');
     publishChild = receive;
-    await untilAborted(signal);
+    await new Promise<void>((resolve, reject) => {
+      failChild = reject;
+      signal.addEventListener('abort', () => resolve(), { once: true });
+    });
   };
   workspace.openChild = async (receivedAddress, childId) => {
     assert.deepEqual(receivedAddress, address);
@@ -140,6 +145,7 @@ async function withFamily(
       family,
       publishFamily: (frame) => publishFamily(frame),
       publishChild: (frame) => publishChild(frame),
+      failChild: (cause) => failChild(cause),
       open: () =>
         act(async () =>
           container.querySelector<HTMLButtonElement>('.family-child')!.click(),
@@ -285,6 +291,112 @@ test('family identity projection preserves endpoint/parent and child epoch mutat
         'matching live authority still enables the existing composer',
       );
       assert.equal(input.value, 'child draft');
+    },
+  );
+});
+
+test('family child stream error preserves drafts and controls until explicit same-child reopen', async () => {
+  await withFamily(
+    {
+      id: 'spawn-call-1',
+      sessionId: 'child-uuid',
+      title: 'Audit child',
+      status: 'running',
+    },
+    'available',
+    async ({ container, workspace, pane, publishChild, failChild, open }) => {
+      const originalOpen = workspace.openChild;
+      const originalFollow = workspace.followChild;
+      let opens = 0;
+      let follows = 0;
+      let prompts = 0;
+      let cancels = 0;
+      const reopened: ChildPane = {
+        ...pane,
+        handle: 'reopened-child-handle',
+        connectionEpoch: 8,
+        run: { ...pane.run, connectionEpoch: 8 },
+      };
+      workspace.openChild = async (address, childId) => {
+        await originalOpen(address, childId);
+        opens++;
+        return opens === 1 ? pane : reopened;
+      };
+      workspace.followChild = (...args) => {
+        follows++;
+        return originalFollow(...args);
+      };
+      workspace.promptChild = async () => {
+        prompts++;
+        return null;
+      };
+      workspace.cancelChild = async () => {
+        cancels++;
+        return null;
+      };
+      const button = (label: string) =>
+        [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+          (candidate) => candidate.textContent === label,
+        );
+      const assertPreserved = (disabled: boolean) => {
+        const input = container.querySelector<HTMLTextAreaElement>('textarea')!;
+        assert.equal(
+          container.querySelector('.family-heading strong')?.textContent,
+          'Audit child',
+        );
+        assert.equal(input.value, 'child draft');
+        assert.equal(input.disabled, disabled);
+        assert.equal(
+          container.querySelector<HTMLButtonElement>('[type="submit"]')!
+            .disabled,
+          disabled,
+        );
+        assert.equal(workspace.snapshot().draft, 'parent draft');
+        assert.equal(
+          workspace.childDraft(
+            { endpoint: 'native', sessionId: 'parent-uuid' },
+            'child-uuid',
+          ),
+          'child draft',
+        );
+        assert.equal(
+          prompts,
+          0,
+          'recovery never automatically submits the retained draft',
+        );
+        assert.equal(cancels, 0);
+      };
+      await open();
+      await act(async () => publishChild({ ...pane }));
+      assertPreserved(false);
+      assert.ok(button(t('取消子代理')));
+
+      await act(async () =>
+        failChild(new Error('Synthetic child stream disconnected')),
+      );
+      assert.equal(
+        container.querySelector('[role="alert"]')?.textContent,
+        'Synthetic child stream disconnected',
+      );
+      assertPreserved(true);
+      assert.equal(button(t('取消子代理')), undefined);
+      assert.equal(opens, 1, 'stream errors do not automatically reopen');
+      assert.equal(follows, 1, 'stream errors do not automatically reattach');
+      const retry = button(t('重新打开'));
+      assert.ok(retry);
+      assert.equal(retry.disabled, false);
+
+      await act(async () => retry.click());
+      assert.equal(opens, 2);
+      assert.equal(follows, 2);
+      assert.equal(container.querySelector('[role="alert"]'), null);
+      assertPreserved(true);
+      await act(async () => publishChild({ ...pane }));
+      assertPreserved(true);
+      await act(async () => publishChild({ ...reopened }));
+      assertPreserved(false);
+      assert.ok(button(t('取消子代理')));
+      assert.equal(button(t('重新打开')), undefined);
     },
   );
 });

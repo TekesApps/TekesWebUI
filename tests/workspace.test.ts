@@ -4,6 +4,7 @@ import { Workspace } from '../src/workspace';
 import type { AttachmentPolicy, Endpoint } from '../src/types';
 import type { ThreadActionOutcome } from '@tekesagentkit/client-contract';
 import { textFingerprint, type Annotation } from '../src/annotations';
+import parentDenial from './fixtures/j7-parent-denial.json';
 
 type Call = {
   op?: string;
@@ -456,6 +457,108 @@ test('family approval responses stay bound to the pane endpoint after selection 
     assert.equal(response?.endpoint, 'tekes');
     assert.equal(response?.actionableId, 'approval-1');
     assert.equal(response?.expectedRevision, 3);
+  } finally {
+    w.dispose();
+  }
+});
+test('parent Task denial preserves the destination draft and controls while consuming the scoped Family contract', async (t) => {
+  const { w, calls, endpoints } = fixture(t);
+  const { identity, respond, sourceWitness, expected } = parentDenial;
+  const address = {
+    endpoint: identity.endpoint,
+    sessionId: identity.parentSessionId,
+  };
+  endpoints[0].id = address.endpoint;
+  let family = parentDenial.familyBefore;
+  const fetch = globalThis.fetch;
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    const call = JSON.parse(init.body as string) as Call;
+    if (call.op === 'respond') {
+      calls.push(call);
+      assert.deepEqual(call, respond);
+      family = parentDenial.familyAfter;
+      return Response.json({ value: null });
+    }
+    if (call.method === 'agent.familySnapshot') {
+      calls.push(call);
+      assert.equal(call.endpoint, address.endpoint);
+      assert.deepEqual(call.payload, { sessionId: address.sessionId });
+      return Response.json({ value: family });
+    }
+    return fetch(url, init);
+  });
+  try {
+    await w.connect('browser');
+    await w.select(address);
+    await ready(w);
+    await ready(w, () => !!w.snapshot().view);
+    w.setDraft(expected.parentDraft);
+    const controls = () => ({
+      busy: w.snapshot().busy,
+      loading: w.snapshot().controlsLoading,
+      error: w.snapshot().controlsError,
+      canSend: w.canSend(),
+      canSubmit: w.snapshot().view?.run.canSubmit,
+      canCancel: w.snapshot().view?.run.canCancel,
+    });
+    const beforeControls = controls();
+    assert.equal(beforeControls.canSend, true);
+    const before = await w.familySnapshot(address);
+    assert.deepEqual(before, parentDenial.familyBefore);
+    assert.equal(before.summary.tasks[0].status, 'in_progress');
+    assert.equal(sourceWitness.actionable.id, identity.actionableId);
+    assert.equal(sourceWitness.actionable.revision, identity.revision);
+    const sourceCall = sourceWitness.journalEntriesBefore.find(
+      ({ event }) => event.type === 'tool/call',
+    )!;
+    assert.equal(sourceCall.event.data.callId, identity.callId);
+    assert.equal(
+      sourceWitness.deniedEntry.event.data.message.source.callId,
+      identity.callId,
+    );
+    assert.deepEqual(sourceWitness.deniedEntry.event.data.error, {
+      code: 'denied',
+      name: 'Denied',
+    });
+    await w.respondAt(
+      respond.endpoint,
+      respond.actionableId,
+      respond.expectedRevision,
+      respond.outcome,
+    );
+    const after = await w.familySnapshot(address);
+    assert.deepEqual(after, parentDenial.familyAfter);
+    assert.equal(after.connectionEpoch, before.connectionEpoch);
+    assert.equal(after.connectionEpoch, identity.connectionEpoch);
+    assert.deepEqual(after.summary.scope, before.summary.scope);
+    assert.equal(after.summary.tasks[0].id, identity.taskId);
+    assert.equal(after.summary.tasks[0].id, before.summary.tasks[0].id);
+    assert.equal(after.summary.tasks[0].status, 'error');
+    assert.ok(after.subagentCatalog);
+    assert.deepEqual(after.subagentCatalog, sourceWitness.publicCatalog);
+    assert.equal(after.subagentCatalog.parentAvailable, true);
+    assert.equal(
+      after.subagentCatalog.entries.filter(({ kind }) => kind === 'child')
+        .length,
+      expected.acceptedChildCount,
+    );
+    assert.deepEqual(w.snapshot().selected, address);
+    assert.equal(w.snapshot().draft, expected.parentDraft);
+    assert.deepEqual(controls(), beforeControls);
+    assert.equal(
+      calls.filter(({ op }) => op === 'respond').length,
+      expected.responseCount,
+    );
+    assert.equal(
+      calls.some(({ method }) =>
+        ['session.create', 'session.prompt', 'session.cancel'].includes(
+          method ?? '',
+        ),
+      ),
+      false,
+    );
+    // The supplied Family outputs are a synthetic contract, not a live Core
+    // projection. respondAt carries no epoch; caller frame guards are separate.
   } finally {
     w.dispose();
   }

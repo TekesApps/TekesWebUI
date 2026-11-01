@@ -144,3 +144,60 @@ permitted full-history restart acceptance; #56 retains seven applicable performa
 failures and twelve `not_run` cases. The candidates are not merged or released, and
 the daily entry has not been upgraded. The unique current delivery status is
 [AgentKit Epic #14](https://github.com/TekesApps/TekesAgentKit/issues/14).
+
+## #59 explicit local candidate manager identity
+
+The optional saved `runtimeIdentity` is `{kind: 'local-candidate',
+manifestPath: <absolute path>, manifestSha256: <trusted exact SHA256>}`. Without
+it, setup/start retain the unchanged strict public Kernel verification. Unknown
+kinds, malformed references and mismatches fail; there is no fallback. The same
+identity selector runs in setup and CLI start, before credential access or child
+startup. Configuration saves only these three identity fields.
+
+Manifest v1 is nonsecret and externally frozen by integration. It contains:
+
+- `version: 1`, `label: 'LOCAL_CANDIDATE_NOT_PUBLIC018'`.
+- `scope`: an absolute isolated `root`, exact `runtimeDir`, `kernelDataRoot`,
+  `workspace`, and `harnesses: ['native']`. These directories must already exist;
+  their real paths must stay within the isolated root, outside canonical
+  `~/.agents` and the default product workspace. Native/existing configuration
+  mode is explicit. No old database is copied or default root changed.
+- `kernel`: `revision`, `tree`, `build`, `receipt: {path, sha256}`,
+  `binaries` mapping all four Kernel executable names to SHA256, and
+  `describeBuild: {format, identifier, version, source_revision}`. The receipt is
+  the existing source-bound build manifest (`sourceBefore.head/tree`,
+  `sourceRevision`, `describeBuild`); it is checked as well as actual binary bytes
+  and the supervisor's actual `--describe-build` result.
+- `core`: `revision`, `tree`, `programSha256`, `receipt: {path, sha256}`. The
+  existing build receipt must bind `sourceRevision`, `sourceTree` and
+  `programSha256`. The configured executable must have those actual bytes;
+  no relay or wrapper is installed. Normal hash-named copying of this actual
+  program is permitted by the existing CLI.
+- `web`: `revision`, `tree`, `compiledManifest: {path, sha256}` and
+  `dto: {revision, lockSha256}`. The compiled manifest binds `sourceRevision`,
+  `sourceTree`, and the complete regular-file `dist/`, `dist-host/`, package and
+  lock closure. The running host directory must be that compiled tree; the DTO
+  archive revision and lock are checked. A host-source change requires a new
+  compilation and new compiled manifest, never reuse of the original 194 hashes.
+
+The trusted manifest hash is supplied by integration, never derived automatically
+from whichever input is present. Exact source revisions are full Git hashes;
+receipt/manifest hashes cover nonsecret provenance only. Existing config,
+credential ownership and private bootstrap are reused. This adds no token, URL,
+Cookie or credential to saved options or diagnostics, no protocol translation,
+and no publication/production support claim for local candidates.
+
+Manager setup/start and low-level first start accept paired `--candidate-manifest` and
+`--candidate-manifest-sha256` (on setup/start as applicable); subsequent manager setup/start/read/save
+and cold restart reuse the saved identity. The ready/status descriptor carries
+the nonsecret identity reference and the verified actual Kernel version, keeping
+the candidate separate from a published pin. Explicit candidates must choose the
+isolated paths, `--harnesses native` and `--kernel-configuration-mode existing`.
+Manager `start --no-open` remains available for zero-foreground validation.
+
+Offline acceptance: unchanged public pin positive/negative fixtures; candidate
+manifest, all four binaries, Core, Web closure and describe identity rejection;
+unknown kinds and scope escapes; serialization round trip and identity
+preservation. Actual manager service, launcher authentication and cold restart
+remain NOT_RUN until a separately granted zero-model/zero-create/zero-Send/zero-GUI
+window. Applicable full build/CI/release work remains integration-owned.

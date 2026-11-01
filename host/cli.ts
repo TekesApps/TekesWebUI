@@ -25,7 +25,7 @@ import {
   LIMIT,
   openPrivateAppend,
 } from './private.js';
-import { verifyKernel, sha256, exec, type Settings } from './config.js';
+import { sha256, exec, type Settings } from './config.js';
 import {
   active,
   serve,
@@ -35,6 +35,7 @@ import {
 } from './runtime.js';
 import { configuration, saveConfiguration } from './configuration.js';
 import { parseHarnesses } from './harnesses.js';
+import { runtimeIdentity, verifyRuntimeIdentity } from './runtime-identity.js';
 import { readCredential } from './credentials.js';
 import {
   resolveKernelLaunch,
@@ -55,6 +56,8 @@ const { values, positionals } = parseArgs({
     'agentkit-source': { type: 'string' },
     'agentkit-binary': { type: 'string' },
     'in-place': { type: 'boolean' },
+    'candidate-manifest': { type: 'string' },
+    'candidate-manifest-sha256': { type: 'string' },
     'web-root': { type: 'string', default: join(PROJECT, 'dist') },
     'kernel-binary-dir': { type: 'string' },
     'kernel-data-root': {
@@ -100,7 +103,7 @@ async function start(options: Options): Promise<void> {
     options.agentkitSource = await realpath(options.agentkitSource);
   options.agentkitBinary = await realpath(options.agentkitBinary);
   options.kernelBinaryDir = await realpath(options.kernelBinaryDir);
-  await verifyKernel(options.kernelBinaryDir);
+  const kernelVersion = await verifyRuntimeIdentity(options);
   if (!options.inPlace) {
     const digest = sha256(await readFile(options.agentkitBinary));
     const installed = join(
@@ -201,6 +204,7 @@ async function start(options: Options): Promise<void> {
     });
   }
   const frame: Frame = {
+    kernelVersion,
     instance: randomBytes(16).toString('hex'),
     sessionURLScheme: 'tekes',
     browserToken: randomBytes(32).toString('base64url'),
@@ -265,6 +269,18 @@ async function main(): Promise<void> {
     if (command !== 'start')
       throw new Error('--harnesses is only valid for start');
   }
+  const hasCandidate =
+    values['candidate-manifest'] !== undefined ||
+    values['candidate-manifest-sha256'] !== undefined;
+  if (hasCandidate && command !== 'start')
+    throw new Error('Candidate identity options are only valid for start');
+  const identity = hasCandidate
+    ? runtimeIdentity({
+        kind: 'local-candidate',
+        manifestPath: values['candidate-manifest'],
+        manifestSha256: values['candidate-manifest-sha256'],
+      })
+    : undefined;
   const root = await privateRoot(values['runtime-dir']);
   if (command === 'status') {
     console.log(
@@ -339,6 +355,7 @@ async function main(): Promise<void> {
     throw new Error('Invalid loopback port');
   await start({
     runtimeDir: root,
+    ...(identity ? { runtimeIdentity: identity } : {}),
     agentkitSource: values['agentkit-source'] ?? '',
     agentkitBinary: values['agentkit-binary'] ?? '',
     webRoot: values['web-root'],

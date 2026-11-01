@@ -5,12 +5,13 @@ import { spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { DEFAULT_ROOT, privateRoot, jsonFile } from './private.js';
 import { active } from './runtime.js';
-import { verifyKernel, type Settings } from './config.js';
+import type { Settings } from './config.js';
 import { setupKernelCredential } from './launch-configuration.js';
 import { readCredential, saveCredential } from './credentials.js';
 import { secretQuestion } from './prompts.js';
 import { configuration, saveConfiguration } from './configuration.js';
 import { parseHarnesses } from './harnesses.js';
+import { runtimeIdentity, verifyRuntimeIdentity } from './runtime-identity.js';
 
 const CLI = fileURLToPath(import.meta.url);
 const PROJECT = resolve(dirname(CLI), '..');
@@ -36,6 +37,8 @@ async function main(): Promise<void> {
       'runtime-dir': { type: 'string', default: DEFAULT_ROOT },
       'no-open': { type: 'boolean', default: false },
       harnesses: { type: 'string' },
+      'candidate-manifest': { type: 'string' },
+      'candidate-manifest-sha256': { type: 'string' },
     },
   });
   const command = positionals[0] ?? 'start';
@@ -51,13 +54,28 @@ async function main(): Promise<void> {
     values.harnesses === undefined
       ? undefined
       : parseHarnesses(values.harnesses);
+  const hasCandidate =
+    values['candidate-manifest'] !== undefined ||
+    values['candidate-manifest-sha256'] !== undefined;
+  if (hasCandidate && command !== 'start' && command !== 'setup')
+    throw new Error(
+      'Candidate identity options are only valid for setup or start',
+    );
+  const identity = hasCandidate
+    ? runtimeIdentity({
+        kind: 'local-candidate',
+        manifestPath: values['candidate-manifest'],
+        manifestSha256: values['candidate-manifest-sha256'],
+      })
+    : undefined;
   const root = await privateRoot(values['runtime-dir']);
   if (command === 'setup') {
     const options = {
       ...(await configuration(root)),
       ...(harnesses ? { harnesses } : {}),
+      ...(identity ? { runtimeIdentity: identity } : {}),
     };
-    await verifyKernel(options.kernelBinaryDir);
+    await verifyRuntimeIdentity(options);
     await access(options.agentkitBinary);
     await access(join(options.webRoot, 'index.html'));
     const settings = await jsonFile<Settings>(options.settings);
@@ -74,18 +92,25 @@ async function main(): Promise<void> {
   }
   if (command === 'start') {
     if (await active(root)) {
-      if (harnesses) {
+      if (harnesses || identity) {
         const options = await configuration(root);
         if (
-          JSON.stringify(parseHarnesses(options.harnesses)) !==
-          JSON.stringify(harnesses)
+          (harnesses &&
+            JSON.stringify(parseHarnesses(options.harnesses)) !==
+              JSON.stringify(harnesses)) ||
+          (identity &&
+            JSON.stringify(options.runtimeIdentity) !==
+              JSON.stringify(identity))
         )
-          throw new Error('Stop the service before changing --harnesses');
+          throw new Error(
+            'Stop the service before changing harnesses or runtime identity',
+          );
       }
     } else {
       const options = {
         ...(await configuration(root)),
         ...(harnesses ? { harnesses } : {}),
+        ...(identity ? { runtimeIdentity: identity } : {}),
       };
       await saveConfiguration(root, options);
       await runCLI(root, 'start');

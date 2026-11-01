@@ -17,8 +17,10 @@ import {
 } from './private.js';
 import { KERNEL_PIN } from './config.js';
 import type { Harness } from './harnesses.js';
+import type { RuntimeIdentity } from './runtime-identity.js';
 
 export interface Options {
+  runtimeIdentity?: RuntimeIdentity;
   runtimeDir: string;
   agentkitSource: string;
   agentkitBinary: string;
@@ -38,6 +40,7 @@ export interface Options {
   kernelConfigurationMode?: 'auto' | 'provided' | 'existing';
 }
 export interface Frame {
+  kernelVersion?: string;
   instance: string;
   browserToken: string;
   appToken: string;
@@ -57,6 +60,7 @@ export interface Endpoint {
   capabilities: unknown;
 }
 export interface Ready {
+  runtimeIdentity?: RuntimeIdentity;
   url: string;
   instance: string;
   pid: number;
@@ -347,7 +351,7 @@ export async function serve(
     server = createHostServer({
       assets,
       workspace: options.workspace,
-      kernelVersion: KERNEL_PIN.version,
+      kernelVersion: frame.kernelVersion ?? KERNEL_PIN.version,
       hostVersion,
       browserToken: frame.browserToken,
       appToken: frame.appToken,
@@ -398,12 +402,15 @@ export async function serve(
         ')</script>',
     );
     const descriptor: Ready = {
+      ...(options.runtimeIdentity
+        ? { runtimeIdentity: options.runtimeIdentity }
+        : {}),
       url,
       instance: frame.instance,
       pid: process.pid,
       kernelPid: kernel.pid,
       agentkitPid: runtime.process.pid,
-      kernelVersion: KERNEL_PIN.version,
+      kernelVersion: frame.kernelVersion ?? KERNEL_PIN.version,
       hostVersion,
       runtimeDirectory: root,
       workspace: options.workspace,

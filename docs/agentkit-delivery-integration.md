@@ -201,3 +201,16 @@ unknown kinds and scope escapes; serialization round trip and identity
 preservation. Actual manager service, launcher authentication and cold restart
 remain NOT_RUN until a separately granted zero-model/zero-create/zero-Send/zero-GUI
 window. Applicable full build/CI/release work remains integration-owned.
+
+Manager stopped-start validates the selected identity before saving updated
+references. A rejected manifest (including correctly formed paired flags with
+wrong hash/source/scope) must leave the previous service-options bytes intact.
+The child CLI retains verification at its separate process/state boundary.
+Missing flag halves reject before configuration changes.
+
+`kernel.build` is the integration-frozen build label; the existing Kernel receipt
+has no build field. Actual build identity is bound by that exact receipt hash,
+the four executable hashes and compiled describe identity, without inventing a
+second receipt format. Keep both compiled and candidate manifests outside
+`dist/` and `dist-host/`: build first, freeze the compiled manifest, then freeze the
+candidate manifest and save its reference. Precreate the isolated scope directories.

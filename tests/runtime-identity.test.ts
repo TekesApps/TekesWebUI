@@ -9,7 +9,9 @@ import {
   symlink,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { sha256 } from '../host/config.js';
 import {
   runtimeIdentity,
@@ -33,7 +35,7 @@ async function fixture() {
     'data',
     'workspace',
   ])
-    await mkdir(join(root, name));
+    await mkdir(join(root, name), { mode: 0o700 });
   const identity = {
     format: 1,
     identifier: 'com.tekes.kernel.supervisor',
@@ -423,6 +425,115 @@ test('unknown or malformed identity is rejected on read/save instead of sanitize
       );
       await assert.rejects(configuration(f.options.runtimeDir));
       await assert.rejects(saveConfiguration(f.options.runtimeDir, bad));
+    }
+  } finally {
+    await f.close();
+  }
+});
+
+// Execute the real manager parser/stopped-start boundary, but fail before any
+// credential lookup, describe-build process or service child can be admitted.
+test('stopped manager preserves the good saved bytes when a paired candidate override fails verification', async () => {
+  const f = await fixture();
+  const outside = await mkdtemp(join(tmpdir(), 'tekes-manager-outside-'));
+  try {
+    await saveConfiguration(f.options.runtimeDir, f.options);
+    const savedPath = join(f.options.runtimeDir, 'service-options.json');
+    const originalBytes = await readFile(savedPath);
+    const originalManifest = await readFile(
+      f.options.runtimeIdentity!.manifestPath,
+    );
+    for (const kind of ['hash', 'source', 'scope']) {
+      const bad = JSON.parse(JSON.stringify(f.manifest)) as CandidateManifest;
+      if (kind === 'source') bad.kernel.tree = '0'.repeat(40);
+      if (kind === 'scope') bad.scope.workspace = outside;
+      const bytes = JSON.stringify(bad),
+        path = join(f.root, 'bad-manifest.json');
+      await writeFile(path, bytes);
+      let failed = false,
+        stderr = '';
+      try {
+        await promisify(execFile)(
+          process.execPath,
+          [
+            '--import',
+            'tsx',
+            resolve('host/manage.ts'),
+            'start',
+            '--no-open',
+            '--runtime-dir',
+            f.options.runtimeDir,
+            '--candidate-manifest',
+            path,
+            '--candidate-manifest-sha256',
+            kind === 'hash' ? '0'.repeat(64) : sha256(Buffer.from(bytes)),
+          ],
+          { timeout: 15000 },
+        );
+      } catch (error) {
+        assert.equal((error as { code: number }).code, 1);
+        stderr = (error as { stderr: string }).stderr;
+        failed = true;
+      }
+      assert.equal(failed, true, 'invalid identity must reject, never start');
+      assert.deepEqual(
+        await readFile(savedPath),
+        originalBytes,
+        `${kind} override replaced the good configuration`,
+      );
+      assert.match(
+        stderr,
+        /Candidate (provenance hash|Kernel source receipt|directory differs)/,
+      );
+      assert.deepEqual(
+        await readFile(f.options.runtimeIdentity!.manifestPath),
+        originalManifest,
+      );
+    }
+  } finally {
+    await f.close();
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test('manager rejects either missing half of paired identity flags without overwriting saved options', async () => {
+  const f = await fixture();
+  try {
+    await saveConfiguration(f.options.runtimeDir, f.options);
+    const savedPath = join(f.options.runtimeDir, 'service-options.json');
+    const originalBytes = await readFile(savedPath);
+    for (const flags of [
+      ['--candidate-manifest', f.options.runtimeIdentity!.manifestPath],
+      [
+        '--candidate-manifest-sha256',
+        f.options.runtimeIdentity!.manifestSha256,
+      ],
+    ]) {
+      await assert.rejects(
+        promisify(execFile)(
+          process.execPath,
+          [
+            '--import',
+            'tsx',
+            resolve('host/manage.ts'),
+            'start',
+            '--no-open',
+            '--runtime-dir',
+            f.options.runtimeDir,
+            ...flags,
+          ],
+          { timeout: 15000 },
+        ),
+        (error: unknown) => {
+          assert.equal((error as { code: number }).code, 1);
+          assert.match(
+            (error as { stderr: string }).stderr,
+            /Invalid runtime identity reference/,
+          );
+          return true;
+        },
+      );
+      assert.deepEqual(await readFile(savedPath), originalBytes);
     }
   } finally {
     await f.close();

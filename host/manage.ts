@@ -112,6 +112,9 @@ async function main(): Promise<void> {
         ...(harnesses ? { harnesses } : {}),
         ...(identity ? { runtimeIdentity: identity } : {}),
       };
+      // Reject an invalid override before replacing the last saved identity.
+      // CLI start verifies again at its own process/state boundary.
+      await verifyRuntimeIdentity(options);
       await saveConfiguration(root, options);
       await runCLI(root, 'start');
     }

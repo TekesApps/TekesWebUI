@@ -33,6 +33,19 @@ binary or independent public-Git consumer result:
 
 ## Responsibilities and remaining gates
 
+The host applies HTTP backpressure to complete `follow target=view` snapshots:
+after `write` returns false it waits for `drain`, retains only the latest pending
+view, and skips heartbeats while blocked. A terminal error or completion follows
+that pending view in order. Closing the response clears timers/listeners and
+cancels that observation once. Other follow targets retain every business event
+and their existing bounded-output policy; the host never pauses shared Core
+stdout. `tests/view-follow.test.ts` covers controlled drain/close/terminal cases
+and a paused real HTTP reader with a local fake bridge (no model requests).
+Individual Core stdout frames still use Bridge's existing 16 MiB line limit;
+the non-view 1 MiB `writableLength` check is an output-queue policy, not a frame limit.
+This transport regression does not establish the cause of historical disconnects
+or replace the remaining M2 real-page Send/Stop acceptance under #55/#56/#58.
+
 | Issue                                                                            | Web responsibility and existing checks                                                                                                                                                                                                               | Remaining acceptance or integration                                                                                                                                                                                                                |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [#55: protocol/recovery](https://github.com/TekesApps/TekesAgentKit/issues/55)   | Consume public projections, retain errors, preserve drafts, never retry uncertain mutations. `api.test.ts`, `workspace.test.ts` and `queue-controls.test.ts` cover these consumer boundaries.                                                        | Native P1, isolated full-history protocol and finite Native browser subsets are accepted. Model scope, original manual-instance recovery and Core-owned performance gates remain open. Prior failures/unrun cases and the three-end Issue remain.  |

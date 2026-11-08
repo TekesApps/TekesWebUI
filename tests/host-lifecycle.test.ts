@@ -46,7 +46,7 @@ test(
       await writeFile(join(web, 'index.html'), '<p>fixture</p>');
       const kernelSource = `#!/usr/bin/env node
 if (process.argv.includes('--describe-build')) {
- console.log(JSON.stringify({version:${JSON.stringify(KERNEL_PIN.version)},source_revision:${JSON.stringify(KERNEL_PIN.revision)}}));
+ console.log(JSON.stringify({format:1,identifier:'com.tekes.kernel.supervisor',version:${JSON.stringify(KERNEL_PIN.version)},source_revision:${JSON.stringify(KERNEL_PIN.revision)}}));
 } else {
  let data=Buffer.alloc(0), sent=false;
  process.stdin.on('data', part=>{data=Buffer.concat([data,part]);
@@ -108,6 +108,8 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
         bridge,
         '--kernel-binary-dir',
         binary,
+        '--kernel-data-root',
+        join(root, 'owned-kernel-data'),
         '--web-root',
         web,
         '--workspace',
@@ -116,11 +118,22 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
         settings,
         '--credential-env',
         'TEKES_FIXTURE_KEY',
+        '--harnesses',
+        'native',
         '--pi-registry',
-        join(root, 'absent-registry'),
+        root, // Reading this directory as a registry would fail if Pi is touched.
+        '--pi-runtime',
+        join(root, 'missing-pi-runtime'),
         '--port',
         '0',
       ];
+      // Invalid disabled DSH saved state must not be read on Native-only start.
+      await mkdir(runtime, { mode: 0o700 });
+      await writeFile(
+        join(runtime, 'dsh-connection.json'),
+        'invalid disabled DSH state',
+        { mode: 0o600 },
+      );
       const result = await invoke('start', args);
       assert.equal(result.stdout.includes('fixture-private-pipe-value'), false);
       ready = JSON.parse(result.stdout) as Ready;
@@ -150,12 +163,40 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
       const reader = response.body!.getReader();
       assert.ok((await reader.read()).value?.length);
       await reader.cancel();
-      assert.equal((await request('endpoints')).status, 200);
+      const endpointsResponse = await request('endpoints');
+      assert.equal(endpointsResponse.status, 200);
+      const endpoints = (await endpointsResponse.json()) as {
+        value: Array<{ kind: string }>;
+      };
+      assert.deepEqual(
+        endpoints.value.map((entry) => entry.kind),
+        ['tekes'],
+      );
       assert.ok(alive(ready.pid));
       const descriptor = JSON.parse(
         await readFile(join(runtime, 'app-connection.json'), 'utf8'),
       );
       assert.notEqual(descriptor.bearer, token);
+      const attach = await fetch(ready.url + '/api', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + descriptor.bearer,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          op: 'host.attachDSH',
+          cookie: 'disabled-fixture-cookie',
+        }),
+      });
+      assert.equal(attach.status, 200);
+      assert.match(
+        ((await attach.json()) as { error: string }).error,
+        /DSH is not enabled/,
+      );
+      assert.equal(
+        await readFile(join(runtime, 'dsh-connection.json'), 'utf8'),
+        'invalid disabled DSH state',
+      );
       assert.equal((await fetch(ready.url + '/')).status, 200);
       assert.equal(
         (await readFile(join(runtime, 'start-options.json'), 'utf8')).includes(
@@ -169,6 +210,115 @@ readline.createInterface({input:process.stdin}).on('line',line=>{
       assert.equal(alive(ready.pid), false);
       assert.equal(alive(ready.kernelPid!), false);
       assert.equal(alive(ready.agentkitPid!), false);
+      // The daily manager starts without low-level overrides. Reuse the saved
+      // paths, including the isolated data root, after a real cold stop.
+      const manager = resolve('dist-host/manage.js');
+      await exec(
+        process.execPath,
+        [
+          manager,
+          'start',
+          '--runtime-dir',
+          runtime,
+          '--no-open',
+          '--harnesses',
+          'native',
+        ],
+        {
+          timeout: 20000,
+          env: {
+            ...process.env,
+            TEKES_FIXTURE_KEY: 'fixture-private-pipe-value',
+          },
+        },
+      );
+      assert.deepEqual(
+        JSON.parse(
+          await readFile(join(runtime, 'service-options.json'), 'utf8'),
+        ).harnesses,
+        ['native'],
+      );
+      await assert.rejects(
+        exec(
+          process.execPath,
+          [
+            manager,
+            'start',
+            '--runtime-dir',
+            runtime,
+            '--no-open',
+            '--harnesses',
+            'native,pi',
+          ],
+          { timeout: 20000 },
+        ),
+        /Stop the service before changing/,
+      );
+      assert.deepEqual(
+        JSON.parse(
+          await readFile(join(runtime, 'service-options.json'), 'utf8'),
+        ).harnesses,
+        ['native'],
+      );
+      const restarted = JSON.parse((await invoke('status')).stdout) as Ready;
+      assert.notEqual(restarted.instance, ready.instance);
+      ready = restarted;
+      assert.ok(alive(ready.kernelPid!));
+      await invoke('stop');
+      // Setup uses canonical configuration even without any legacy provider.
+      // A credential-free default exercises the real manager without Keychain I/O.
+      const dataRoot = join(root, 'owned-kernel-data');
+      await mkdir(join(dataRoot, 'config'), { recursive: true });
+      const canonical = {
+        format: 1,
+        revision: 1,
+        providers: [
+          {
+            id: 'local-glm',
+            adapter: 'responses',
+            dialect: 'openai_responses_v1',
+            endpoint: 'http://127.0.0.1:1',
+            models: [
+              {
+                id: 'glm',
+                profile: 'fixture',
+                enabled: true,
+                context_window_tokens: 128000,
+                compact_trigger_tokens: 100000,
+              },
+            ],
+          },
+        ],
+      };
+      const providerBytes = JSON.stringify(canonical);
+      const selectionBytes = JSON.stringify({
+        format: 1,
+        revision: 1,
+        default_provider: 'local-glm',
+        default_model: 'glm',
+      });
+      await writeFile(join(dataRoot, 'config/providers.json'), providerBytes);
+      await writeFile(join(dataRoot, 'config/settings.json'), selectionBytes);
+      await writeFile(settings, JSON.stringify({ providers: [] }));
+      await exec(
+        process.execPath,
+        [manager, 'setup', '--runtime-dir', runtime],
+        { timeout: 20000 },
+      );
+      assert.equal(
+        await readFile(join(dataRoot, 'config/providers.json'), 'utf8'),
+        providerBytes,
+      );
+      assert.equal(
+        await readFile(join(dataRoot, 'config/settings.json'), 'utf8'),
+        selectionBytes,
+      );
+      assert.equal(
+        JSON.parse(
+          await readFile(join(runtime, 'service-options.json'), 'utf8'),
+        ).agentkitSource,
+        '',
+      );
     } finally {
       if (ready && alive(ready.pid)) await invoke('stop').catch(() => {});
       await rm(root, { recursive: true, force: true });

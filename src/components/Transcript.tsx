@@ -13,7 +13,7 @@ import {
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Check, ChevronDown, FileText, LoaderCircle } from './ui/Icons';
+import { Check, ChevronDown, FileText, LoaderCircle, X } from './ui/Icons';
 import {
   safeLink,
   formatTimestamp,
@@ -249,6 +249,11 @@ function FootnoteActions({
 interface TranscriptProps {
   view: View | null;
   onTurnAction?: (address: Address, actionId: string) => Promise<unknown>;
+  onRemoveQueued?: (
+    address: Address,
+    itemId: string,
+    connectionEpoch: number,
+  ) => Promise<unknown>;
   annotations?: Annotation[];
   onSaveAnnotation?: (annotation: Annotation) => void;
   onRemoveAnnotation?: (id: string) => void;
@@ -267,6 +272,10 @@ function TranscriptContents({
   view,
   ...annotations
 }: TranscriptProps & { view: View }) {
+  const [removingQueueItems, setRemovingQueueItems] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const removeQueued = annotations.onRemoveQueued;
   const [calendarDay, setCalendarDay] = useState(() =>
     new Date().toDateString(),
   );
@@ -444,17 +453,74 @@ function TranscriptContents({
       {view.run.phase !== 'running' && !items.length && !tools.length && (
         <p className="loading-state">{t('会话已准备好，发送消息开始。')}</p>
       )}
-      {view.run.queue.map((queued, i) => (
-        <div className="queued" key={i}>
-          <small>{t('等待执行')}</small>
-          <p>
-            {queued.content
-              ?.filter((c) => c.type === 'text')
-              .map((c) => c.text)
-              .join('\n')}
-          </p>
-        </div>
-      ))}
+      {view.run.queue.map((queued, i) => {
+        const itemId = queued.id;
+        const queuedAddress = {
+          endpoint: view.endpoint,
+          sessionId: view.sessionId,
+        };
+        const removalKey = JSON.stringify([
+          view.endpoint,
+          view.sessionId,
+          view.run.connectionEpoch,
+          itemId,
+        ]);
+        const attachments = (queued.message?.content || []).filter(
+          (part) =>
+            !!part &&
+            typeof part === 'object' &&
+            !Array.isArray(part) &&
+            part.type !== 'text',
+        );
+        return (
+          <div className="queued" key={itemId ?? i}>
+            <div className="queued-header">
+              <small>{t('等待执行')}</small>
+              {view.run.canUpdateQueue && itemId && removeQueued && (
+                <button
+                  className="queued-remove icon-button"
+                  type="button"
+                  aria-label={t('移除排队消息')}
+                  title={t('移除排队消息')}
+                  disabled={removingQueueItems.has(removalKey)}
+                  onClick={async () => {
+                    setRemovingQueueItems((current) =>
+                      new Set(current).add(removalKey),
+                    );
+                    try {
+                      await removeQueued(
+                        queuedAddress,
+                        itemId,
+                        view.run.connectionEpoch,
+                      );
+                    } finally {
+                      setRemovingQueueItems((current) => {
+                        const next = new Set(current);
+                        next.delete(removalKey);
+                        return next;
+                      });
+                    }
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {queued.message?.content?.map((part, index) =>
+              part &&
+              typeof part === 'object' &&
+              !Array.isArray(part) &&
+              part.type === 'text' &&
+              typeof part.text === 'string' ? (
+                <p key={index}>{part.text}</p>
+              ) : null,
+            )}
+            {!!attachments.length && (
+              <AttachmentCards attachments={attachments} />
+            )}
+          </div>
+        );
+      })}
       {view.run.error && (
         <div className="inline-error" role="alert">
           {view.run.error}

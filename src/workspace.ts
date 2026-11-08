@@ -4,6 +4,11 @@ import type {
   ThreadActionRequest,
   ThreadActionOutcome,
 } from '@tekesagentkit/client-contract';
+import {
+  validatePermissions,
+  type PermissionPolicy,
+  type PermissionModeState,
+} from './permissions';
 import { AgentClient, AuthenticationError, observe } from './api';
 import {
   AnnotationDraftStore,
@@ -44,6 +49,9 @@ import type {
   AttachmentPolicy,
   PendingAttachment,
   UploadReceipt,
+  FamilySnapshot,
+  ChildPane,
+  ChildViewFrame,
 } from './types';
 
 export interface WorkspaceState {
@@ -72,6 +80,10 @@ export interface WorkspaceState {
   attachments: PendingAttachment[];
   annotations: Annotation[];
   submissionStage: string;
+  permissionPolicy: PermissionPolicy | null;
+  permissionMode: string | null;
+  permissionLoading: boolean;
+  permissionError: string;
   threadActions: Map<string, ThreadActionsPresentation>;
   threadActionErrors: Map<string, string>;
 }
@@ -104,6 +116,10 @@ export class Workspace {
     attachments: [],
     annotations: [],
     submissionStage: '',
+    permissionPolicy: null,
+    permissionMode: null,
+    permissionLoading: false,
+    permissionError: '',
     threadActions: new Map(),
     threadActionErrors: new Map(),
   };
@@ -114,15 +130,20 @@ export class Workspace {
   private epoch = 0;
   private bootEpoch = 0;
   private pending = new Set<string>();
+  private submissionStages = new Map<string, string>();
   private creationIDs = new Map<string, string>();
   private submissionIDs = new Map<string, { id: string; signature: string }>();
   private attachmentDrafts = new Map<string, PendingAttachment[]>();
+  private permissionChoices = new Map<string, string>();
+  private permissionUpdates = new Map<string, Promise<void>>();
+  private permissionRead = 0;
   private presetChoices = new Map<string, string>();
   private modelChoices = new Map<string, ModelChoice>();
   private presetRequests = new Map<string, Promise<PresetCatalog>>();
   private actionReads = new Map<string, Promise<ThreadActionsPresentation>>();
   private actionReceipts = new Map<string, string>();
   private actionRequests = new Map<string, Promise<ThreadActionOutcome>>();
+  private reconnectRequests = new Map<string, Promise<void>>();
   private uploadReceipts = new Map<string, UploadReceipt>();
   readonly titles = new TitleReceipts();
   readonly drafts = new DraftStore(browserStorage());
@@ -144,10 +165,181 @@ export class Workspace {
       ? addressKey(s.selected.endpoint, s.selected.sessionId)
       : addressKey(s.newEndpoint, '', s.cwd);
   }
+  familySnapshot = (address: Address) =>
+    this.clientOrThrow().call<FamilySnapshot>(
+      address.endpoint,
+      'agent.familySnapshot',
+      {
+        sessionId: address.sessionId,
+      },
+    );
+  followFamily = (
+    address: Address,
+    receive: (frame: FamilySnapshot) => void,
+    signal: AbortSignal,
+  ) =>
+    this.clientOrThrow().follow<FamilySnapshot>(
+      {
+        endpoint: address.endpoint,
+        target: {
+          kind: 'familyView',
+          parentSessionId: address.sessionId,
+        },
+      },
+      receive,
+      signal,
+    );
+  childDraft = (address: Address, childId: string) =>
+    this.drafts.get(
+      JSON.stringify([
+        'family-child',
+        address.endpoint,
+        address.sessionId,
+        childId,
+      ]),
+    );
+  setChildDraft = (address: Address, childId: string, draft: string) =>
+    this.drafts.set(
+      JSON.stringify([
+        'family-child',
+        address.endpoint,
+        address.sessionId,
+        childId,
+      ]),
+      draft,
+    );
+  clearChildDraftIfUnchanged = (
+    address: Address,
+    childId: string,
+    submitted: string,
+  ) =>
+    this.drafts.clearIfUnchanged(
+      JSON.stringify([
+        'family-child',
+        address.endpoint,
+        address.sessionId,
+        childId,
+      ]),
+      submitted,
+    );
+  openChild = (address: Address, childId: string) =>
+    this.clientOrThrow().call<ChildPane>(address.endpoint, 'agent.child.open', {
+      parentSessionId: address.sessionId,
+      childId,
+    });
+  followChild = (
+    address: Address,
+    pane: Pick<ChildPane, 'handle' | 'childId'>,
+    receive: (frame: ChildViewFrame) => void,
+    signal: AbortSignal,
+  ) =>
+    this.clientOrThrow().follow<ChildViewFrame>(
+      {
+        endpoint: address.endpoint,
+        target: {
+          kind: 'childView',
+          handle: pane.handle,
+          parentSessionId: address.sessionId,
+          childId: pane.childId,
+        },
+      },
+      receive,
+      signal,
+    );
+  earlierChild = (address: Address, pane: ChildPane, rpcId: string) =>
+    this.clientOrThrow().call<{
+      loaded: boolean;
+      transcript: ChildPane['transcript'];
+      run: ChildPane['run'];
+      connectionEpoch: number;
+      handle: string;
+    }>(
+      address.endpoint,
+      'agent.child.earlier',
+      {
+        parentSessionId: address.sessionId,
+        childId: pane.childId,
+        handle: pane.handle,
+      },
+      rpcId,
+    );
+  promptChild = (
+    address: Address,
+    pane: ChildPane,
+    text: string,
+    rpcId: string,
+  ) =>
+    this.clientOrThrow().call(
+      address.endpoint,
+      'agent.child.prompt',
+      {
+        parentSessionId: address.sessionId,
+        childId: pane.childId,
+        handle: pane.handle,
+        mode: 'queue',
+        content: [{ type: 'text', text }],
+      },
+      rpcId,
+    );
+  cancelChild = (address: Address, pane: ChildPane, rpcId: string) =>
+    this.clientOrThrow().call(
+      address.endpoint,
+      'agent.child.cancel',
+      {
+        parentSessionId: address.sessionId,
+        childId: pane.childId,
+        handle: pane.handle,
+      },
+      rpcId,
+    );
+  removeQueuedInput = (
+    address: Address,
+    itemId: string,
+    connectionEpoch: number,
+  ) =>
+    this.clientOrThrow().call(
+      address.endpoint,
+      'agent.queue.remove',
+      {
+        sessionId: address.sessionId,
+        itemId,
+        connectionEpoch,
+      },
+      crypto.randomUUID(),
+    );
   private clientOrThrow() {
     if (!this.client) throw new AuthenticationError(t('请先连接本机服务。'));
     return this.client;
   }
+  reconnectEndpoint = (endpointId: string): Promise<void> => {
+    const pending = this.reconnectRequests.get(endpointId);
+    if (pending) return pending;
+    const client = this.clientOrThrow();
+    const epoch = this.bootEpoch;
+    const request = Promise.resolve().then(async () => {
+      try {
+        const description = await client.unary<Endpoint>({
+          op: 'reconnect',
+          endpoint: endpointId,
+        });
+        if (epoch === this.bootEpoch && this.client === client)
+          this.update({
+            endpoints: this.state.endpoints.map((endpoint) =>
+              endpoint.id === endpointId ? description : endpoint,
+            ),
+            error: '',
+          });
+      } catch (error) {
+        if (epoch === this.bootEpoch && this.client === client)
+          this.fail(error);
+      } finally {
+        if (this.reconnectRequests.get(endpointId) === request)
+          this.reconnectRequests.delete(endpointId);
+      }
+    });
+    this.reconnectRequests.set(endpointId, request);
+    return request;
+  };
   private fail = (error: unknown) => {
     if (error instanceof DOMException && error.name === 'AbortError') return;
     if (error instanceof AuthenticationError) {
@@ -195,9 +387,14 @@ export class Workspace {
     this.update({
       draft: this.drafts.get(this.key()),
       busy: this.pending.has(this.key()),
+      submissionStage: this.submissionStages.get(this.key()) || '',
       attachments: this.attachmentDrafts.get(this.key()) || [],
       annotations: this.annotationDrafts.get(this.key()),
     });
+  }
+  private setSubmissionStage(key: string, stage: string) {
+    this.submissionStages.set(key, stage);
+    if (this.key() === key) this.update({ submissionStage: stage });
   }
   dispose() {
     ++this.bootEpoch;
@@ -234,6 +431,10 @@ export class Workspace {
         connecting: false,
         endpoints,
         inventories: new Map(),
+        permissionPolicy: null,
+        permissionMode: null,
+        permissionLoading: false,
+        permissionError: '',
         threadActions: new Map(),
         threadActionErrors: new Map(),
         hostWorkspace: info.workspace,
@@ -379,6 +580,10 @@ export class Workspace {
       preset: null,
       controlsError: '',
       attachmentPolicy: null,
+      permissionPolicy: null,
+      permissionMode: null,
+      permissionLoading: false,
+      permissionError: '',
     });
     savePreference('tekes.web.selection', 'null');
     this.restoreDraft();
@@ -402,6 +607,10 @@ export class Workspace {
       preset: null,
       controlsError: '',
       attachmentPolicy: null,
+      permissionPolicy: null,
+      permissionMode: null,
+      permissionLoading: false,
+      permissionError: '',
     });
     savePreference('tekes.web.selection', JSON.stringify(address));
     this.restoreDraft();
@@ -509,6 +718,9 @@ export class Workspace {
       !s.modelLoading &&
       !s.controlsLoading &&
       !s.controlsError &&
+      !s.permissionLoading &&
+      !s.permissionError &&
+      !this.permissionUpdates.has(this.key()) &&
       !!s.model &&
       (!!s.draft.trim() || !!s.attachments.length || !!s.annotations.length) &&
       (s.selected ? !!s.view?.run.canSubmit : s.cwd.startsWith('/'))
@@ -519,6 +731,13 @@ export class Workspace {
     const key = this.key(),
       text = this.state.draft,
       desiredModel = this.state.model;
+    const desiredPermission = this.permissionChoices.get(key);
+    const permissionPolicy = this.state.permissionPolicy;
+    const attachmentPolicy = this.state.attachmentPolicy;
+    const existingPermission = this.state.selected
+      ? this.state.permissionMode
+      : desiredPermission;
+    const wasExisting = !!this.state.selected;
     const files = [...this.state.attachments],
       desiredPreset = this.state.preset;
     const annotations = [...this.state.annotations];
@@ -532,11 +751,13 @@ export class Workspace {
       epoch = this.epoch,
       client = this.clientOrThrow();
     let targetKey = key;
+    const initialStage = target.sessionId ? t('正在发送') : t('正在创建会话');
     this.pending.add(key);
+    this.submissionStages.set(key, initialStage);
     this.update({
       busy: true,
       error: '',
-      submissionStage: target.sessionId ? t('正在发送') : t('正在创建会话'),
+      submissionStage: initialStage,
     });
     try {
       if (
@@ -558,12 +779,29 @@ export class Workspace {
           this.creationIDs.get(key),
         );
         target.sessionId = created.sessionId;
+        if (desiredPermission) {
+          await client.call(target.endpoint, 'approvals.select', {
+            sessionId: target.sessionId,
+            mode: desiredPermission,
+          });
+          const effective = await client.call<PermissionModeState>(
+            target.endpoint,
+            'approvals.mode',
+            { sessionId: target.sessionId },
+          );
+          if (effective.mode !== desiredPermission)
+            throw new Error(t('权限尚未生效，消息未发送'));
+        }
         this.creationIDs.delete(key);
         targetKey = addressKey(target.endpoint, target.sessionId);
         if (desiredPreset) this.presetChoices.set(targetKey, desiredPreset);
         this.drafts.set(targetKey, text);
         this.drafts.clearIfUnchanged(key, text);
         this.pending.add(targetKey);
+        this.submissionStages.set(
+          targetKey,
+          this.submissionStages.get(key) || '',
+        );
         this.attachmentDrafts.set(targetKey, files);
         this.annotationDrafts.set(targetKey, annotations);
         this.annotationDrafts.acknowledge(key, annotations);
@@ -598,10 +836,25 @@ export class Workspace {
       for (let i = 0; i < files.length; i++) {
         const attachment = files[i],
           uploadKey = `${targetKey}:${attachment.id}`;
-        if (this.key() === targetKey)
-          this.update({
-            submissionStage: t('上传附件 {0}/{1}', i + 1, files.length),
+        const mediaType = attachment.file.type || 'application/octet-stream';
+        if (
+          mediaType.toLowerCase().startsWith('image/') &&
+          attachmentPolicy?.inlineMediaTypes.some(
+            (accepted) => accepted.toLowerCase() === mediaType.toLowerCase(),
+          )
+        ) {
+          content.push({
+            type: 'image',
+            mediaType,
+            data: await fileBase64(attachment.file),
+            name: attachment.file.name,
           });
+          continue;
+        }
+        this.setSubmissionStage(
+          targetKey,
+          t('上传附件 {0}/{1}', i + 1, files.length),
+        );
         let uploaded = this.uploadReceipts.get(uploadKey);
         if (!uploaded) {
           uploaded = await client.call<UploadReceipt>(
@@ -610,7 +863,7 @@ export class Workspace {
             {
               sessionId: target.sessionId,
               name: attachment.file.name,
-              mediaType: attachment.file.type || 'application/octet-stream',
+              mediaType,
               data: await fileBase64(attachment.file),
             },
             attachment.id,
@@ -624,8 +877,27 @@ export class Workspace {
         }
         content.push({ type: 'file', receiptId: uploaded.receiptId });
       }
-      if (this.key() === targetKey)
-        this.update({ submissionStage: t('正在发送') });
+      if (permissionPolicy?.threadLevel.length) {
+        const effective = await client.call<PermissionModeState>(
+          target.endpoint,
+          'approvals.mode',
+          { sessionId: target.sessionId },
+        );
+        validatePermissions(permissionPolicy, effective.mode);
+        if (this.key() === targetKey) {
+          ++this.permissionRead;
+          this.update({
+            permissionMode: effective.mode,
+            permissionLoading: false,
+          });
+        }
+        if (
+          (wasExisting || desiredPermission !== undefined) &&
+          effective.mode !== existingPermission
+        )
+          throw new Error(t('权限已发生变化，请确认后重新发送'));
+      }
+      this.setSubmissionStage(targetKey, t('正在发送'));
       const signature = JSON.stringify([compiledText, files.map((f) => f.id)]);
       let receipt = this.submissionIDs.get(targetKey);
       if (!receipt || receipt.signature !== signature) {
@@ -660,8 +932,9 @@ export class Workspace {
     } finally {
       this.pending.delete(key);
       this.pending.delete(targetKey);
+      this.submissionStages.delete(key);
+      this.submissionStages.delete(targetKey);
       this.restoreDraft();
-      this.update({ submissionStage: '' });
     }
   }
   private async presetCatalog(endpoint: Endpoint): Promise<PresetCatalog> {
@@ -697,6 +970,7 @@ export class Workspace {
     this.update({ controlsLoading: true });
     try {
       const [catalog, policy] = await Promise.all([
+        // Permission authority is read through the same Session Endpoint as other inputs.
         this.presetCatalog(endpoint),
         endpoint.capabilities?.methods?.includes('attachments.policy')
           ? this.clientOrThrow().call<AttachmentPolicy>(
@@ -705,6 +979,7 @@ export class Workspace {
               sessionId ? { sessionId } : {},
             )
           : Promise.resolve(null),
+        this.loadPermissions(endpoint, sessionId, epoch),
       ]);
       if (epoch !== this.epoch) return;
       const remembered = this.presetChoices.get(this.key());
@@ -740,6 +1015,118 @@ export class Workspace {
       if (epoch === this.epoch) this.update({ controlsLoading: false });
     }
   }
+  private async loadPermissions(
+    endpoint: Endpoint,
+    sessionId: string | undefined,
+    epoch: number,
+  ) {
+    const read = ++this.permissionRead;
+    const supported = [
+      'approvals.policy',
+      'approvals.mode',
+      'approvals.select',
+    ].every((m) => endpoint.capabilities?.methods?.includes(m));
+    if (!supported) {
+      if (epoch === this.epoch)
+        this.update({
+          permissionPolicy: null,
+          permissionMode: null,
+          permissionLoading: false,
+          permissionError: '',
+        });
+      return;
+    }
+    const key = this.key();
+    this.update({ permissionLoading: true });
+    try {
+      await this.permissionUpdates.get(key)?.catch(() => {});
+      const client = this.clientOrThrow();
+      const [policy, current] = await Promise.all([
+        client.call<PermissionPolicy>(
+          endpoint.id,
+          'approvals.policy',
+          sessionId ? { sessionId } : {},
+        ),
+        sessionId
+          ? client.call<PermissionModeState>(endpoint.id, 'approvals.mode', {
+              sessionId,
+            })
+          : Promise.resolve({ mode: null }),
+      ]);
+      const selected = sessionId
+        ? current.mode
+        : (this.permissionChoices.get(key) ?? null);
+      validatePermissions(policy, selected);
+      if (epoch === this.epoch && read === this.permissionRead)
+        this.update({
+          permissionPolicy: policy,
+          permissionMode: selected,
+          permissionError: '',
+        });
+    } catch (error) {
+      if (epoch === this.epoch && read === this.permissionRead)
+        this.update({
+          permissionError: displayError(error),
+          permissionMode: null,
+        });
+    } finally {
+      if (epoch === this.epoch && read === this.permissionRead)
+        this.update({ permissionLoading: false });
+    }
+  }
+  choosePermission = async (mode: string) => {
+    const s = this.state;
+    if (
+      s.busy ||
+      s.permissionLoading ||
+      !s.permissionPolicy?.threadLevel.some((o) => o.value === mode)
+    )
+      return;
+    const key = this.key();
+    if (!s.selected) {
+      this.permissionChoices.set(key, mode);
+      this.update({ permissionMode: mode, permissionError: '' });
+      return;
+    }
+    const target = { ...s.selected },
+      epoch = this.epoch,
+      read = ++this.permissionRead;
+    this.update({ permissionLoading: true, permissionError: '' });
+    const operation = (async () => {
+      try {
+        const client = this.clientOrThrow();
+        await client.call(target.endpoint, 'approvals.select', {
+          sessionId: target.sessionId,
+          mode,
+        });
+        const current = await client.call<PermissionModeState>(
+          target.endpoint,
+          'approvals.mode',
+          { sessionId: target.sessionId },
+        );
+        validatePermissions(s.permissionPolicy!, current.mode);
+        if (current.mode !== mode)
+          throw new Error(t('权限尚未生效，消息未发送'));
+        if (epoch === this.epoch && read === this.permissionRead)
+          this.update({ permissionMode: current.mode, permissionError: '' });
+      } catch (error) {
+        if (epoch === this.epoch && read === this.permissionRead)
+          this.update({
+            permissionMode: null,
+            permissionError: displayError(error),
+          });
+      } finally {
+        if (epoch === this.epoch && read === this.permissionRead)
+          this.update({ permissionLoading: false });
+      }
+    })();
+    this.permissionUpdates.set(key, operation);
+    try {
+      await operation;
+    } finally {
+      this.permissionUpdates.delete(key);
+    }
+  };
   choosePreset = (preset: string) => {
     if (this.state.selected || this.state.busy) return;
     const catalog = this.state.presets.get(this.state.newEndpoint);
@@ -909,15 +1296,19 @@ export class Workspace {
   async earlier() {
     const s = this.state.selected;
     if (!s) return false;
-    const epoch = this.epoch;
+    const epoch = this.epoch,
+      connectionEpoch = this.state.view?.run.connectionEpoch;
+    const stillCurrent = () =>
+      epoch === this.epoch &&
+      connectionEpoch === this.state.view?.run.connectionEpoch;
     try {
       const result = await this.clientOrThrow().unary<{ loaded: boolean }>({
         op: 'earlier',
         ...s,
       });
-      return epoch === this.epoch && result.loaded;
+      return stillCurrent() && result.loaded;
     } catch (error) {
-      if (epoch === this.epoch) this.fail(error);
+      if (stillCurrent()) this.fail(error);
       return false;
     }
   }
@@ -928,9 +1319,17 @@ export class Workspace {
   ) {
     const s = this.state.selected;
     if (!s) return;
+    await this.respondAt(s.endpoint, actionableId, expectedRevision, outcome);
+  }
+  async respondAt(
+    endpoint: string,
+    actionableId: string,
+    expectedRevision: number,
+    outcome: unknown,
+  ) {
     await this.clientOrThrow().unary({
       op: 'respond',
-      endpoint: s.endpoint,
+      endpoint,
       actionableId,
       expectedRevision,
       outcome,

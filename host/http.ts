@@ -5,6 +5,7 @@ import { resolve, sep, extname } from 'node:path';
 import type { RuntimeBridge, Wire } from './bridge.js';
 import { DirectoryAuthority } from './directory.js';
 import { LIMIT } from './private.js';
+import { followView } from './view-follow.js';
 
 export interface HttpOptions {
   assets: string;
@@ -152,6 +153,7 @@ export function createHostServer(options: HttpOptions): Server {
       if (
         ![
           'endpoints',
+          'reconnect',
           'describe',
           'snapshot',
           'call',
@@ -181,7 +183,15 @@ export function createHostServer(options: HttpOptions): Server {
             writable_roots: [options.workspace],
             toolchain_roots: ['/bin', '/usr/bin'],
             network: false,
-            allowed_tools: ['read', 'write', 'edit', 'shell'],
+            allowed_tools: [
+              'read',
+              'write',
+              'edit',
+              'shell',
+              'ask_user_questions',
+              'context',
+              'task',
+            ],
           },
         );
         delete payload.cwd;
@@ -194,6 +204,10 @@ export function createHostServer(options: HttpOptions): Server {
       }
       headers(res, 200, 'application/x-ndjson');
       res.flushHeaders();
+      if (request.target === 'view') {
+        followView(res, (deliver) => bridge.observe(request, deliver));
+        return;
+      }
       let cancel: (() => void) | undefined;
       const heartbeat = setInterval(() => res.write('\n'), 5000);
       const close = () => {

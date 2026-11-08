@@ -38,6 +38,7 @@ import { Dialog } from './components/Dialog';
 import { Composer } from './components/Composer';
 import { Sidebar } from './components/Sidebar';
 import { SidebarDivider } from './components/SidebarDivider';
+import { FamilyPanel } from './components/FamilyPanel';
 import {
   Menu as PopupMenu,
   MenuItem,
@@ -68,8 +69,12 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const language = useLocale();
   const s = useSyncExternalStore(w.subscribe, w.snapshot, w.snapshot);
   const [settings, setSettings] = useState(false),
+    [familyOpen, setFamilyOpen] = useState(false),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
+  const [reconnecting, setReconnecting] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [renameTarget, setRenameTarget] = useState<
     (Address & { actionId: string }) | null
   >(null);
@@ -119,6 +124,18 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     setRenameError('');
     setMobile(false);
     setRenaming(true);
+  }
+
+  function reconnectEndpoint(endpoint: string) {
+    if (reconnecting.has(endpoint)) return;
+    setReconnecting((current) => new Set(current).add(endpoint));
+    void w.reconnectEndpoint(endpoint).finally(() => {
+      setReconnecting((current) => {
+        const next = new Set(current);
+        next.delete(endpoint);
+        return next;
+      });
+    });
   }
 
   useEffect(() => {
@@ -269,6 +286,14 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                   {t(phaseLabels[s.view?.run.phase || 'loading'] || '')}
                 </span>
                 <span className="harness-badge">{selectedEndpoint?.name}</span>
+                <button
+                  className="icon-button family-toggle"
+                  type="button"
+                  aria-expanded={familyOpen}
+                  onClick={() => setFamilyOpen((value) => !value)}
+                >
+                  {familyOpen ? t('关闭任务') : t('任务')}
+                </button>
                 <SessionActions
                   workspace={w}
                   state={s}
@@ -402,6 +427,13 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               }}
             >
               <div className="conversation">
+                {familyOpen && s.selected && (
+                  <FamilyPanel
+                    key={`${s.selected.endpoint}:${s.selected.sessionId}`}
+                    workspace={w}
+                    address={s.selected}
+                  />
+                )}
                 {s.view?.transcript?.hasMoreBefore && (
                   <button
                     className="history-button"
@@ -418,6 +450,21 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 >
                   <Transcript
                     view={s.view}
+                    onRemoveQueued={async (
+                      address,
+                      itemId,
+                      connectionEpoch,
+                    ) => {
+                      try {
+                        await w.removeQueuedInput(
+                          address,
+                          itemId,
+                          connectionEpoch,
+                        );
+                      } catch (error) {
+                        w.actionFailed(error);
+                      }
+                    }}
                     onTurnAction={async (address, actionId) => {
                       try {
                         await w.performThreadAction(address, actionId);
@@ -556,10 +603,21 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 <span>
                   {e.connection === 'ready'
                     ? e.host?.product.version || t('已连接')
-                    : t('重新连接中')}
+                    : typeof e.connection === 'object'
+                      ? t('连接失败')
+                      : t('重新连接中')}
                 </span>
                 {typeof e.connection === 'object' && (
                   <small>{e.connection.failed}</small>
+                )}
+                {e.canReconnect && (
+                  <button
+                    type="button"
+                    disabled={reconnecting.has(e.id)}
+                    onClick={() => reconnectEndpoint(e.id)}
+                  >
+                    {reconnecting.has(e.id) ? t('重新连接中') : t('重新连接')}
+                  </button>
                 )}
               </div>
             ))}

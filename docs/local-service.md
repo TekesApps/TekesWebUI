@@ -64,7 +64,7 @@ Host/Origin checks and App-only authentication for DSH pairing.
 The local service verifies the pinned Kernel 0.9.21 bundle, source revision and all
 four binary hashes. Use `TekesKernel-0.9.21-macos-arm64.tar.gz` from the official
 Kernel release and verify its SHA-256 sidecar. The source revision is
-`c98cdb1e52555aac09c8da2ce0f5a44672e017f3`. This release preserves durable user Stop
+`4e1bdfdc2b3fd6b4d61af47c3ac89f8133e65590`. This release preserves durable user Stop
 through recovery, so the public terminal reason remains `aborted`, and retains
 remote-task cancellation delivery while reading the cancellation reply.
 

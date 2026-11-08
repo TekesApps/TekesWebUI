@@ -5,7 +5,7 @@ Candidate source base: TekesWebUI main `03b1966` (v0.1.23). Delivery candidate v
 ## Final Native delivery binding (2026-11-08)
 
 The final release binding is Core 0.4.0, WebUI 0.2.0 and Kernel 0.9.21 source
-`c98cdb1e52555aac09c8da2ce0f5a44672e017f3`. The default Kernel pin now selects this
+`4e1bdfdc2b3fd6b4d61af47c3ac89f8133e65590`. The default Kernel pin now selects this
 cohort. Core PR85 incorporates PR75 and main CI maintenance with the exact accepted
 f649a98 source tree. The declaration package pin and dependency lock stay unchanged
 because their consumed contract contents are identical.

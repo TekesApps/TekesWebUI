@@ -61,7 +61,14 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service verifies the pinned Kernel 0.9.18 bundle and its published source revision and binary hashes. Use the `TekesKernel-0.9.18-macos-arm64.tar.gz` release asset (SHA256 `d9608f4fcdc28f5adf5c191a7c882500c36770e708bea21f5aaa753d31549603`), published from source `1a7e5367781c4a7ada51a57330e4772dd54fc182`. Kernel 0.9.18 avoids scanning unused actionable requests during journal page and open reads, while preserving verification, frozen cuts and historical submission hydration (#118). AgentKit 0.4.0 remains a delivery candidate until its applicable gates and immutable release pin are complete. AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
+The local service verifies the pinned Kernel 0.9.21 bundle, source revision and all
+four binary hashes. Use `TekesKernel-0.9.21-macos-arm64.tar.gz` from the official
+Kernel release and verify its SHA-256 sidecar. The source revision is
+`c98cdb1e52555aac09c8da2ce0f5a44672e017f3`. This release preserves durable user Stop
+through recovery, so the public terminal reason remains `aborted`, and retains
+remote-task cancellation delivery while reading the cancellation reply.
+
+AgentKit's Pi adapter starts per-session stdio RPC processes on demand,
 using the installed Pi runtime. DSH connects to an existing external service; it is
 not launched by this CLI. Native UI is not required.
 
@@ -71,15 +78,15 @@ tool/network policy remains intact. AgentKit has no directory-browsing API.
 
 ## Final Native consumer and release conditions
 
-The complete 0.2.0 candidate requires the shared service operations listed in
+WebUI 0.2.0 uses the shared service operations listed in
 [delivery integration](agentkit-delivery-integration.md#independent-maintenance-and-runtime-dependencies).
-The declaration archive alone cannot supply them. AgentKit 0.3.9 and WebUI 0.1.24
-are published maintenance releases; they do not deliver the PR75/PR14 stage APIs.
-For local development use the explicitly accepted source-bound Core executable.
-For a final release, use the matching immutable Core release binary only after its
-applicable integration/performance gates and main CI pass; its final artifact hash
-must be recorded before updating saved host references. That stage release is not
-yet established here. The exact public Kernel 0.9.18 bundle remains required.
+Use the immutable AgentKit 0.4.0 Core executable and the pinned public Kernel
+0.9.21 cohort. The declaration archive alone cannot supply the runtime operations.
+The existing declaration pin remains valid: its `package.json` and `web-contract`
+contents are identical to the accepted Core f649a98 source. It is not the identity
+of the running executable. Keep the release source revision and binary hashes
+with the installed cohort; do not substitute a private candidate manifest for the
+published-runtime checks.
 
 Build this UI/CLI, then use the Native-only command below with the accepted binary
 and an owned host-state directory. The referenced canonical Kernel data root must

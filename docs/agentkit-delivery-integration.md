@@ -2,6 +2,24 @@
 
 Candidate source base: TekesWebUI main `03b1966` (v0.1.23). Delivery candidate version: 0.2.0. Its published sidebar divider and transcript recovery semantics remain from 0.1.23.
 
+## Final Native delivery binding (2026-11-08)
+
+The final release binding is Core 0.4.0, WebUI 0.2.0 and Kernel 0.9.21 source
+`c98cdb1e52555aac09c8da2ce0f5a44672e017f3`. The default Kernel pin now selects this
+cohort. Core PR85 incorporates PR75 and main CI maintenance with the exact accepted
+f649a98 source tree. The declaration package pin and dependency lock stay unchanged
+because their consumed contract contents are identical.
+
+Real M2 recovery passed on public Kernel0.9.20. Real DeepSeek Flash Stop passed
+with the private Stop-fixed worker6eb538c: accepted cancellation, fresh `aborted`
+terminal, partial reply and draft preserved, one input/terminal and owned resource
+cleanup. These runtime identities remain distinct; the final public artifact
+identity and normal-manager checks are recorded with the release, not inferred
+from that private run. Earlier snapshots below retain their historical identities.
+The user accepted the 0.770208ms cold-pagination regression as non-blocking; its
+original FAIL and unexecuted cases are retained. No broad native/Pi/DSH acceptance
+is implied.
+
 ## Adopted from the existing local worktree
 
 - Permission DTO consumer (`src/permissions.ts`), Composer catalog and selection, per-endpoint/session state fencing in `src/workspace.ts`, message admission guards, translated copy and targeted tests. The immutable public declaration pin is `58950714b1c48f21c1465b929d3fb795f6f03ce2`, recorded in both package files. This declaration pin does not identify the running Core executable.

@@ -57,23 +57,10 @@
   white-space: nowrap;
   max-width: 190px;
 }
-.harness-symbol {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  font-size: 11px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  color: var(--accent);
-  font-weight: 650;
-}
-.harness-symbol.pi {
-  font-family: Georgia, serif;
-  font-size: 17px;
-}
-.harness-symbol.dsh {
-  color: var(--secondary);
+.harness-menu-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .composer-model-controls {
   display: flex;

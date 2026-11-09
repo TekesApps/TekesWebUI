@@ -1,4 +1,5 @@
 import { SideChatPanel } from './components/SideChatPanel';
+import { HarnessLogo } from './components/HarnessLogo';
 import { PresetEditor } from './components/PresetEditor';
 import { RecoveryPanel } from './components/RecoveryPanel';
 import { WorkspacePanel } from './components/WorkspacePanel';
@@ -333,7 +334,10 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 >
                   {t(phaseLabels[s.view?.run.phase || 'loading'] || '')}
                 </span>
-                <span className="harness-badge">{selectedEndpoint?.name}</span>
+                <span className="harness-badge">
+                  <HarnessLogo kind={selectedEndpoint?.kind} size={14} />
+                  {selectedEndpoint?.name}
+                </span>
                 <button
                   className="icon-button family-toggle"
                   type="button"
@@ -686,6 +690,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
           <>
             <div
               className="conversation-scroll"
+              data-harness={selectedEndpoint?.kind}
               ref={scroll}
               tabIndex={0}
               aria-label={t('会话内容')}

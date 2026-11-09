@@ -491,11 +491,34 @@ kbd {
   color: var(--tertiary);
 }
 .harness-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px solid var(--border);
   border-radius: 5px;
   font-size: 10px;
   padding: 3px 6px;
   color: var(--secondary);
+}
+.harness-logo {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.harness-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.harness-logo-dark {
+  display: none;
+}
+:root[data-theme='dark']
+  .harness-logo:has(.harness-logo-dark)
+  .harness-logo-light {
+  display: none;
+}
+:root[data-theme='dark'] .harness-logo-dark {
+  display: block;
 }
 .run-status {
   font-size: 10px;
@@ -761,6 +784,36 @@ kbd {
   line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+/* Default Harness input surfaces resolved by the original AgentColorResolver.inputTint.
+   TekesMetalTextKit 7ee9703 / Design/AgentColor.swift:94-103,113-178.
+   Native/Pi #144D8B; DSH #4D6BFE. These are opaque sRGB, not alpha overlays.
+   Native/Pi's transferred chroma is already below the normal cap, so high
+   contrast resolves to the same value. DSH light is gamut-clipped in both modes. */
+.conversation-scroll[data-harness='tekes'],
+.conversation-scroll[data-harness='pi'] {
+  --harness-input: rgb(236.944113 244.603431 254.253186);
+}
+.conversation-scroll[data-harness='dsh'] {
+  --harness-input: rgb(239.331766 243.586119 254.999999);
+}
+:root[data-theme='dark'] .conversation-scroll[data-harness='tekes'],
+:root[data-theme='dark'] .conversation-scroll[data-harness='pi'] {
+  --harness-input: rgb(34.098514 42.849006 53.738987);
+}
+:root[data-theme='dark'] .conversation-scroll[data-harness='dsh'] {
+  --harness-input: rgb(36.073072 41.527777 57.236941);
+}
+@media (prefers-contrast: more) {
+  .conversation-scroll[data-harness='dsh'] {
+    --harness-input: rgb(239.331768 243.586119 254.999995);
+  }
+  :root[data-theme='dark'] .conversation-scroll[data-harness='dsh'] {
+    --harness-input: rgb(33.341669 40.934928 64.076108);
+  }
+}
+.conversation-scroll .user-bubble {
+  background: var(--harness-input, var(--user));
 }
 .message-author {
   display: flex;

@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { HarnessLogo } from './HarnessLogo';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   ArrowUp,
@@ -219,13 +220,7 @@ export function Composer({
                 disabled={s.busy}
                 onClick={() => void showDetails()}
               >
-                <span className={`harness-symbol ${endpoint?.kind || ''}`}>
-                  {endpoint?.kind === 'pi'
-                    ? 'π'
-                    : endpoint?.kind === 'dsh'
-                      ? 'D'
-                      : 'T'}
-                </span>
+                <HarnessLogo kind={endpoint?.kind} />
                 <span>
                   {harnessName}
                   {s.preset
@@ -247,13 +242,7 @@ export function Composer({
                     aria-label={t('选择 Harness 与预设')}
                     disabled={s.busy}
                   >
-                    <span className={`harness-symbol ${endpoint?.kind || ''}`}>
-                      {endpoint?.kind === 'pi'
-                        ? 'π'
-                        : endpoint?.kind === 'dsh'
-                          ? 'D'
-                          : 'T'}
-                    </span>
+                    <HarnessLogo kind={endpoint?.kind} />
                     <span>
                       {harnessName}
                       {s.controlsLoading
@@ -270,7 +259,10 @@ export function Composer({
                   <div key={agent.id}>
                     {index > 0 && <MenuSeparator />}
                     <MenuLabel>
-                      <span>{agent.name}</span>
+                      <span className="harness-menu-name">
+                        <HarnessLogo kind={agent.kind} />
+                        {agent.name}
+                      </span>
                       <small>
                         {agent.host?.product.version || t('未连接')}
                       </small>

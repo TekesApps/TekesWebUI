@@ -219,6 +219,56 @@ export function Sidebar({
           }
         >
           <MenuLabel>{t('会话列表')}</MenuLabel>
+          <MenuSub label={t('查找方式')}>
+            <MenuItem
+              selected={searchMode === 'filter'}
+              onSelect={() => {
+                setSearchMode('filter');
+                setSearching(false);
+              }}
+            >
+              {t('列表筛选')}
+            </MenuItem>
+            <MenuItem
+              selected={searchMode === 'names'}
+              disabled={
+                !loadThreadSearch ||
+                !s.endpoints.some((endpoint) =>
+                  endpoint.capabilities?.methods?.includes(
+                    'agent.threadSearch',
+                  ),
+                )
+              }
+              onSelect={() => {
+                setSearchMode('names');
+                setSearching(false);
+              }}
+            >
+              {t('名称检索')}
+            </MenuItem>
+          </MenuSub>
+          {searchMode === 'filter' && (
+            <MenuSub label={t('会话视图')}>
+              <MenuItem
+                selected={!archived}
+                onSelect={() => {
+                  setArchived(false);
+                  setRunning(false);
+                }}
+              >
+                {t('活动会话')}
+              </MenuItem>
+              <MenuItem
+                selected={archived}
+                onSelect={() => {
+                  setArchived(true);
+                  setRunning(false);
+                }}
+              >
+                {t('已归档会话')}
+              </MenuItem>
+            </MenuSub>
+          )}
           <MenuSub label={t('排序')}>
             {sorts.map(([value, label]) => (
               <MenuItem
@@ -276,34 +326,6 @@ export function Sidebar({
         <span>{t('新建会话')}</span>
         <kbd>⌘ ↵</kbd>
       </button>
-      {loadThreadSearch && (
-        <div className="filters">
-          <label htmlFor="sidebar-search-mode">{t('查找方式')}</label>
-          <select
-            id="sidebar-search-mode"
-            aria-label={t('查找方式')}
-            value={searchMode}
-            onChange={(event) => {
-              setSearchMode(event.target.value as 'filter' | 'names');
-              setSearching(false);
-            }}
-          >
-            <option value="filter">{t('列表筛选')}</option>
-            <option
-              value="names"
-              disabled={
-                !s.endpoints.some((endpoint) =>
-                  endpoint.capabilities?.methods?.includes(
-                    'agent.threadSearch',
-                  ),
-                )
-              }
-            >
-              {t('名称检索')}
-            </option>
-          </select>
-        </div>
-      )}
       {searchMode === 'names' && loadThreadSearch ? (
         <ThreadSearch
           endpoints={s.endpoints}
@@ -318,21 +340,6 @@ export function Sidebar({
         />
       ) : (
         <>
-          <div className="filters">
-            <label htmlFor="sidebar-session-view">{t('会话视图')}</label>
-            <select
-              id="sidebar-session-view"
-              aria-label={t('会话视图')}
-              value={archived ? 'archived' : 'active'}
-              onChange={(event) => {
-                setArchived(event.target.value === 'archived');
-                setRunning(false);
-              }}
-            >
-              <option value="active">{t('活动会话')}</option>
-              <option value="archived">{t('已归档会话')}</option>
-            </select>
-          </div>
           {(query || filter || running) && (
             <div className="list-filter-summary">
               <span>

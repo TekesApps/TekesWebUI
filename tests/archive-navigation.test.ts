@@ -82,6 +82,15 @@ test('archive navigation only observes the chosen identity and authoritative res
     'window',
     'document',
     'localStorage',
+    'sessionStorage',
+    'HTMLElement',
+    'Element',
+    'Node',
+    'CustomEvent',
+    'MutationObserver',
+    'getComputedStyle',
+    'requestAnimationFrame',
+    'cancelAnimationFrame',
     'IS_REACT_ACT_ENVIRONMENT',
   ];
   const originals = keys.map(
@@ -92,7 +101,24 @@ test('archive navigation only observes the chosen identity and authoritative res
     window: dom.window,
     document: dom.window.document,
     localStorage: dom.window.localStorage,
+    sessionStorage: dom.window.sessionStorage,
+    HTMLElement: dom.window.HTMLElement,
+    Element: dom.window.Element,
+    Node: dom.window.Node,
+    CustomEvent: dom.window.CustomEvent,
+    MutationObserver: dom.window.MutationObserver,
+    getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
+    requestAnimationFrame: (callback: (time: number) => void) =>
+      setTimeout(() => callback(0), 0),
+    cancelAnimationFrame: clearTimeout,
     IS_REACT_ACT_ENVIRONMENT: true,
+  });
+  Object.defineProperty(dom.window, 'matchMedia', {
+    value: () => ({
+      matches: true,
+      addEventListener() {},
+      removeEventListener() {},
+    }),
   });
   setLocale('zh-CN');
   const { createRoot } = await import('react-dom/client');
@@ -141,18 +167,107 @@ test('archive navigation only observes the chosen identity and authoritative res
       ),
     );
   const switchView = async (value: string) => {
-    await act(() => {
-      const select = container.querySelector<HTMLSelectElement>(
-        'select[aria-label="会话视图"]',
-      )!;
-      select.value = value;
-      select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="会话列表选项"]')!
+        .dispatchEvent(
+          new dom.window.MouseEvent('pointerdown', {
+            button: 0,
+            ctrlKey: false,
+            bubbles: true,
+          }),
+        );
+      await Promise.resolve();
+      const view = [
+        ...dom.window.document.querySelectorAll<HTMLElement>(
+          '[aria-haspopup="menu"]',
+        ),
+      ].find((item) => item.textContent?.includes('会话视图'))!;
+      assert.ok(view, dom.window.document.body.innerHTML);
+      view.dispatchEvent(
+        new dom.window.KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          bubbles: true,
+        }),
+      );
+      await Promise.resolve();
+      const option = [
+        ...dom.window.document.querySelectorAll<HTMLElement>(
+          '[role^="menuitem"]',
+        ),
+      ].find((item) =>
+        item.textContent?.includes(
+          value === 'archived' ? '已归档会话' : '活动会话',
+        ),
+      );
+      assert.ok(
+        option,
+        'session view choices are available in the options menu',
+      );
+      option.click();
     });
   };
   const titles = () =>
     [...container.querySelectorAll('.thread-label')].map((e) => e.textContent);
   try {
     await render();
+    assert.equal(
+      container.querySelector('select[aria-label="查找方式"]'),
+      null,
+      'find mode is not permanently shown in the sidebar',
+    );
+    assert.equal(
+      container.querySelector('select[aria-label="会话视图"]'),
+      null,
+      'session view is not permanently shown in the sidebar',
+    );
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="搜索会话"]')!
+        .click(),
+    );
+    assert.ok(container.querySelector('input[aria-label="搜索会话"]'));
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="会话列表选项"]')!
+        .dispatchEvent(
+          new dom.window.MouseEvent('pointerdown', {
+            button: 0,
+            ctrlKey: false,
+            bubbles: true,
+          }),
+        );
+      await Promise.resolve();
+      const findBy = [
+        ...dom.window.document.querySelectorAll<HTMLElement>(
+          '[aria-haspopup="menu"]',
+        ),
+      ].find((item) => item.textContent?.includes('查找方式'))!;
+      findBy.dispatchEvent(
+        new dom.window.KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          bubbles: true,
+        }),
+      );
+      await Promise.resolve();
+      const nameSearch = [
+        ...dom.window.document.querySelectorAll<HTMLElement>(
+          '[role="menuitemcheckbox"]',
+        ),
+      ].find((item) => item.textContent?.includes('名称检索'))!;
+      assert.equal(nameSearch.getAttribute('aria-disabled'), 'true');
+      const listFilter = [
+        ...dom.window.document.querySelectorAll<HTMLElement>(
+          '[role="menuitemcheckbox"]',
+        ),
+      ].find((item) => item.textContent?.includes('列表筛选'))!;
+      listFilter.click();
+    });
+    assert.equal(
+      container.querySelector('input[aria-label="搜索会话"]'),
+      null,
+      'choosing list filter closes the current search input',
+    );
     assert.deepEqual(titles(), ['Active conversation']);
     await switchView('archived');
     assert.deepEqual(titles(), ['Kernel archive', 'Pi archive']);
@@ -446,11 +561,42 @@ test('application archive Restore executes through the real DOM menu, preserves 
     );
   const switchView = (view: string) =>
     act(async () => {
-      const select = container.querySelector<HTMLSelectElement>(
-        'select[aria-label="会话视图"]',
-      )!;
-      select.value = view;
-      select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="会话列表选项"]')!
+        .dispatchEvent(
+          new dom.window.MouseEvent('pointerdown', {
+            button: 0,
+            ctrlKey: false,
+            bubbles: true,
+          }),
+        );
+      await Promise.resolve();
+      const submenu = [
+        ...dom.window.document.querySelectorAll<HTMLElement>(
+          '[aria-haspopup="menu"]',
+        ),
+      ].find((item) => item.textContent?.includes('会话视图'))!;
+      submenu.dispatchEvent(
+        new dom.window.KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          bubbles: true,
+        }),
+      );
+      await Promise.resolve();
+      const option = [
+        ...dom.window.document.querySelectorAll<HTMLElement>(
+          '[role^="menuitem"]',
+        ),
+      ].find((item) =>
+        item.textContent?.includes(
+          view === 'archived' ? '已归档会话' : '活动会话',
+        ),
+      );
+      assert.ok(
+        option,
+        'session view choices are available in the options menu',
+      );
+      option.click();
     });
   const openMenu = async () => {
     const trigger = container.querySelector<HTMLButtonElement>(

@@ -385,29 +385,6 @@ kbd {
   font-size: 12px;
   line-height: 1.7;
 }
-.filters {
-  padding: 4px 9px 12px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-}
-.filters select {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  max-width: 140px;
-  padding: 5px;
-}
-.filters label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.filters input {
-  margin: 0;
-}
 .sidebar-bottom {
   border-top: 1px solid var(--border);
   padding: 12px 5px 8px;

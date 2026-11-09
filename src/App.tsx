@@ -1,5 +1,6 @@
 import { SideChatPanel } from './components/SideChatPanel';
 import { HarnessLogo } from './components/HarnessLogo';
+import { TekesIcon } from './components/ui/TekesIcon';
 import { PresetEditor } from './components/PresetEditor';
 import { RecoveryPanel } from './components/RecoveryPanel';
 import { WorkspacePanel } from './components/WorkspacePanel';
@@ -334,24 +335,40 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 >
                   {t(phaseLabels[s.view?.run.phase || 'loading'] || '')}
                 </span>
-                <span className="harness-badge">
+                <span className="harness-badge" title={selectedEndpoint?.name}>
                   <HarnessLogo kind={selectedEndpoint?.kind} size={14} />
-                  {selectedEndpoint?.name}
+                  <span className="harness-badge-name">
+                    {selectedEndpoint?.name}
+                  </span>
                 </span>
                 <button
-                  className="icon-button family-toggle"
+                  className={`icon-button topbar-action family-toggle${familyOpen ? ' active' : ''}`}
                   type="button"
+                  aria-label={familyOpen ? t('关闭任务') : t('任务')}
+                  title={familyOpen ? t('关闭任务') : t('任务')}
                   aria-expanded={familyOpen}
                   onClick={() => setFamilyOpen((value) => !value)}
                 >
-                  {familyOpen ? t('关闭任务') : t('任务')}
+                  <TekesIcon name="tekes-task" size={16} />
+                  <span className="topbar-action-label">{t('任务')}</span>
                 </button>
                 <PopupMenu
                   label={t('会话工具')}
                   trigger={
-                    <button type="button" className="icon-button">
-                      {t('会话工具')}
-                      <ChevronDown size={14} />
+                    <button
+                      type="button"
+                      className={`icon-button topbar-action${toolsPanel ? ' active' : ''}`}
+                      aria-label={t('会话工具')}
+                      title={t('会话工具')}
+                    >
+                      <TekesIcon name="tekes-tools" size={16} />
+                      <span className="topbar-action-label">
+                        {t('会话工具')}
+                      </span>
+                      <ChevronDown
+                        size={12}
+                        className="topbar-action-chevron"
+                      />
                     </button>
                   }
                 >
@@ -392,12 +409,15 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
             )}
             {workspaceAvailable && (
               <button
-                className="icon-button"
+                className={`icon-button topbar-action${workspacePanelOpen ? ' active' : ''}`}
                 type="button"
+                aria-label={t('文件与 Git')}
+                title={t('文件与 Git')}
                 aria-expanded={workspacePanelOpen}
                 onClick={() => setWorkspacePanelOpen((open) => !open)}
               >
-                {t('文件与 Git')}
+                <TekesIcon name="tekes-files" size={16} />
+                <span className="topbar-action-label">{t('文件')}</span>
               </button>
             )}
             {!s.selected && <span className="web-label">WEB WORKSPACE</span>}

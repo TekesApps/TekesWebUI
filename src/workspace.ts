@@ -800,23 +800,42 @@ export class Workspace {
       'agent.catalog',
       { sessionId: address.sessionId, connectionEpoch },
     );
-  runCommand = (
+  runCommand = async (
     address: Address,
     connectionEpoch: number,
     command: CatalogCommand,
     argumentsText: string,
-  ) =>
-    this.clientOrThrow().call<CommandReceipt>(
-      address.endpoint,
-      'agent.command.run',
-      {
-        sessionId: address.sessionId,
-        connectionEpoch,
-        name: command.name,
-        arguments: argumentsText,
-        attachments: [],
-      },
-    );
+  ) => {
+    const epoch = this.epoch;
+    const current = () =>
+      epoch === this.epoch &&
+      this.key() === addressKey(address.endpoint, address.sessionId) &&
+      this.state.view?.run.connectionEpoch === connectionEpoch;
+    // Commands can change session permissions or models. Keep admission closed
+    // until the same destination's public controls have been read back.
+    if (current()) this.update({ controlsLoading: true });
+    try {
+      const receipt = await this.clientOrThrow().call<CommandReceipt>(
+        address.endpoint,
+        'agent.command.run',
+        {
+          sessionId: address.sessionId,
+          connectionEpoch,
+          name: command.name,
+          arguments: argumentsText,
+          attachments: [],
+        },
+      );
+      if (current())
+        await Promise.all([
+          this.loadControls(address.endpoint, address.sessionId, epoch),
+          this.loadModels(address.endpoint, address.sessionId, epoch),
+        ]);
+      return receipt;
+    } finally {
+      if (current()) this.update({ controlsLoading: false });
+    }
+  };
   selectSkill = (address: Address, skill: CatalogSkill) => {
     const key = addressKey(address.endpoint, address.sessionId);
     if (!skill.selectable || this.key() !== key) return;

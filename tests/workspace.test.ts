@@ -1363,6 +1363,137 @@ test('a policy changed by another client is read before admission instead of sen
   w.dispose();
 });
 
+const permissionCommand = {
+  name: 'browser-command-proof',
+  title: 'Browser command proof',
+  description: '',
+  argumentHint: null,
+  supportsAttachments: false,
+};
+
+test('completed commands refresh confirmed permission and model before a skill draft is sent once', async (t) => {
+  let mode = 'workspace-write';
+  let changed = false;
+  let commands = 0;
+  const { w, calls } = permissionFixture(t, undefined, async () => mode);
+  const originalFetch = globalThis.fetch;
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const call = JSON.parse(String(init?.body || '{}')) as Call;
+      if (call.method === 'agent.command.run') {
+        commands++;
+        changed = true;
+        mode = 'read-only';
+        return Response.json({
+          value: {
+            commandId: 'completed-command',
+            accepted: true,
+            text: 'permission read-only',
+          },
+        });
+      }
+      if (changed && call.method === 'session.models') {
+        calls.push(call);
+        return Response.json({
+          value: {
+            groups: [{ id: 'configured', models: [{ id: 'command-model' }] }],
+            current: { provider: 'configured', model: 'command-model' },
+          },
+        });
+      }
+      return originalFetch(url, init);
+    },
+  );
+  await w.connect('browser');
+  const address = { endpoint: 'tekes', sessionId: 'existing' };
+  await w.select(address);
+  await ready(w);
+  assert.equal(w.snapshot().permissionMode, 'workspace-write');
+  w.setDraft('keep this skill draft');
+  w.selectSkill(address, {
+    id: 'review',
+    name: 'review',
+    title: 'Review',
+    description: '',
+    selectable: true,
+  });
+  const receipt = await w.runCommand(address, 7, permissionCommand, '');
+  assert.equal(receipt.commandId, 'completed-command');
+  assert.equal(w.snapshot().permissionMode, 'read-only');
+  assert.equal(w.snapshot().model?.model, 'command-model');
+  assert.equal(w.snapshot().draft, 'keep this skill draft');
+  assert.equal(w.snapshot().skills[0]?.id, 'review');
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    0,
+  );
+  await w.submit();
+  assert.equal(
+    calls.filter((call) => call.method === 'agent.skills.compile').length,
+    1,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    1,
+  );
+  assert.equal(commands, 1);
+  assert.equal(w.snapshot().error, '');
+  w.dispose();
+});
+
+test('a late command completion cannot refresh another destination or clear either draft', async (t) => {
+  const { w, calls } = permissionFixture(t);
+  const originalFetch = globalThis.fetch;
+  let finish!: (value: Response) => void;
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const call = JSON.parse(String(init?.body || '{}')) as Call;
+      if (call.method === 'agent.command.run')
+        return new Promise<Response>((resolve) => {
+          finish = resolve;
+        });
+      return originalFetch(url, init);
+    },
+  );
+  await w.connect('browser');
+  const address = { endpoint: 'tekes', sessionId: 'existing' };
+  await w.select(address);
+  await ready(w);
+  w.setDraft('origin draft');
+  const pending = w.runCommand(address, 7, permissionCommand, '');
+  await ready(w, () => !!finish);
+  assert.equal(w.canSend(), false);
+  await w.select({ endpoint: 'pi', sessionId: 'other' });
+  await ready(w);
+  w.setDraft('destination draft');
+  const readCount = calls.filter(
+    (call) =>
+      call.method === 'approvals.mode' || call.method === 'session.models',
+  ).length;
+  finish(
+    Response.json({
+      value: { commandId: 'late-command', accepted: true, text: null },
+    }),
+  );
+  await pending;
+  assert.equal(
+    calls.filter(
+      (call) =>
+        call.method === 'approvals.mode' || call.method === 'session.models',
+    ).length,
+    readCount,
+  );
+  assert.equal(w.snapshot().draft, 'destination draft');
+  await w.select(address);
+  await ready(w);
+  assert.equal(w.snapshot().draft, 'origin draft');
+  w.dispose();
+});
+
 test('selected skills compile through AgentKit, preserve attachments and stay in the originating draft', async (t) => {
   const { w, calls } = fixture(t);
   await w.connect('token');

@@ -1085,6 +1085,12 @@ summary::-webkit-details-marker {
 .composer-caption > span > span {
   margin: 0 4px;
 }
+.composer-session-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .jump-bottom {
   position: absolute;
   top: -35px;
@@ -1510,8 +1516,9 @@ summary::-webkit-details-marker {
   }
   .composer-caption {
     font-size: 8px;
+    justify-content: flex-end;
   }
-  .composer-caption > span:last-child {
+  .composer-caption > span:first-child {
     display: none;
   }
   .user-bubble {

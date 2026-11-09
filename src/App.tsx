@@ -142,6 +142,8 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     selectedEndpoint = s.endpoints.find(
       (e) => e.id === (s.selected?.endpoint || s.newEndpoint),
     );
+  const runPhase = s.view?.run.phase || 'loading';
+  const runLabel = t(phaseLabels[runPhase] || '');
   const row = s.selected && w.sessionEntry(s.selected)?.summary;
   const sideChat = w.sideChatOrigin();
   const sideChatParent = sideChat
@@ -331,9 +333,9 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
             {s.selected && (
               <>
                 <span
-                  className={`run-status ${s.view?.run.phase === 'running' ? 'active' : ''}`}
+                  className={`run-status ${runPhase === 'running' ? 'active' : ''}`}
                 >
-                  {t(phaseLabels[s.view?.run.phase || 'loading'] || '')}
+                  {runLabel}
                 </span>
                 <span className="harness-badge" title={selectedEndpoint?.name}>
                   <HarnessLogo kind={selectedEndpoint?.kind} size={14} />
@@ -966,9 +968,17 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                     <span>·</span>
                     {t(' Shift Enter 换行')}
                   </span>
-                  <span title={selectedModel?.id}>
-                    {selectedEndpoint?.name} <span>·</span>
-                    {t(' 后台持续运行')}
+                  <span
+                    className="composer-session-status"
+                    role="status"
+                    title={[
+                      selectedModel?.id,
+                      t('关闭浏览器后，任务仍在后台继续。'),
+                    ]
+                      .filter(Boolean)
+                      .join('\n')}
+                  >
+                    {selectedEndpoint?.name} <span>·</span> {runLabel}
                   </span>
                 </div>
               </div>

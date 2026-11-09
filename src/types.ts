@@ -12,6 +12,7 @@ import type {
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface Endpoint {
+  connectionEpoch?: number;
   id: string;
   kind: string;
   name: string;
@@ -30,7 +31,7 @@ export interface Summary {
   agentPreset?: string;
   initialPresetID?: string;
   identityProfile?: string;
-  preset?: { base?: string; layers?: { id: string }[] };
+  preset?: { base?: string; layers?: { id: string }[]; digest?: string };
   createdAt?: string | number;
   updatedAt?: string | number;
   projections?: {
@@ -38,9 +39,16 @@ export interface Summary {
     values?: { title?: string | { title: string } };
   };
 }
+export interface SessionOrganization {
+  archived: boolean;
+  applicationArchived: boolean;
+  harnessArchived: boolean;
+  archiveOwner: 'agentkit' | 'harness' | null;
+}
 export interface Session {
   sessionId: string;
   summary?: Summary;
+  organization?: SessionOrganization;
   pin?: ThreadPinPresentation;
   activity?: ThreadActivity;
 }
@@ -51,6 +59,7 @@ export interface Address {
 export interface Inventory {
   description: Endpoint;
   sessions: Session[];
+  archivedSessions?: Session[];
 }
 export interface ModelChoice {
   provider: string;

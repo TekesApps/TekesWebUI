@@ -1,3 +1,6 @@
+import { FeedbackControls } from './FeedbackControls';
+import type { FeedbackSnapshot, FeedbackAction } from '../feedback';
+import { QueueControls } from './QueueControls';
 import type { ThreadActionDefinition } from '@tekesagentkit/client-contract';
 import { TekesIcon } from './ui/TekesIcon';
 import { threadActionIcons } from '../icons/thread-action-assets';
@@ -73,6 +76,11 @@ function motionSnapshot() {
   return window.matchMedia(reducedQuery).matches;
 }
 
+interface FeedbackCallbacks {
+  read: (address: Address, itemId: string) => Promise<FeedbackSnapshot>;
+  act: (address: Address, action: FeedbackAction) => Promise<unknown>;
+}
+
 const Message = memo(function Message({
   item,
   fresh,
@@ -87,8 +95,10 @@ const Message = memo(function Message({
   onRemoveAnnotation,
   footnoteActions,
   onTurnAction,
+  feedback,
 }: {
   footnoteActions?: ThreadActionDefinition[];
+  feedback?: FeedbackCallbacks;
   onTurnAction?: (address: Address, actionId: string) => Promise<unknown>;
   item: Item;
   fresh: boolean;
@@ -191,6 +201,14 @@ const Message = memo(function Message({
           {timestamp}
         </div>
       )}
+      {item.kind === 'assistant' && item.isFinal && feedback && (
+        <FeedbackControls
+          address={address}
+          itemId={item.id}
+          load={() => feedback.read(address, item.id)}
+          act={(action) => feedback.act(address, action)}
+        />
+      )}
       {onSaveAnnotation && onRemoveAnnotation && (
         <ComposerAnnotations
           annotations={(annotations || []).filter(
@@ -247,7 +265,15 @@ function FootnoteActions({
   );
 }
 interface TranscriptProps {
+  feedback?: FeedbackCallbacks;
   view: View | null;
+  harnessKind?: string;
+  onEditQueued?: (
+    address: Address,
+    itemId: string,
+    connectionEpoch: number,
+    text: string,
+  ) => Promise<void>;
   onTurnAction?: (address: Address, actionId: string) => Promise<unknown>;
   onRemoveQueued?: (
     address: Address,
@@ -272,10 +298,6 @@ function TranscriptContents({
   view,
   ...annotations
 }: TranscriptProps & { view: View }) {
-  const [removingQueueItems, setRemovingQueueItems] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const removeQueued = annotations.onRemoveQueued;
   const [calendarDay, setCalendarDay] = useState(() =>
     new Date().toDateString(),
   );
@@ -349,6 +371,7 @@ function TranscriptContents({
       return <Information key={item.id} item={item} />;
     return (
       <Message
+        feedback={annotations.feedback}
         {...annotations}
         key={item.id}
         address={view}
@@ -453,74 +476,21 @@ function TranscriptContents({
       {view.run.phase !== 'running' && !items.length && !tools.length && (
         <p className="loading-state">{t('会话已准备好，发送消息开始。')}</p>
       )}
-      {view.run.queue.map((queued, i) => {
-        const itemId = queued.id;
-        const queuedAddress = {
-          endpoint: view.endpoint,
-          sessionId: view.sessionId,
-        };
-        const removalKey = JSON.stringify([
-          view.endpoint,
-          view.sessionId,
-          view.run.connectionEpoch,
-          itemId,
-        ]);
-        const attachments = (queued.message?.content || []).filter(
-          (part) =>
-            !!part &&
-            typeof part === 'object' &&
-            !Array.isArray(part) &&
-            part.type !== 'text',
-        );
-        return (
-          <div className="queued" key={itemId ?? i}>
-            <div className="queued-header">
-              <small>{t('等待执行')}</small>
-              {view.run.canUpdateQueue && itemId && removeQueued && (
-                <button
-                  className="queued-remove icon-button"
-                  type="button"
-                  aria-label={t('移除排队消息')}
-                  title={t('移除排队消息')}
-                  disabled={removingQueueItems.has(removalKey)}
-                  onClick={async () => {
-                    setRemovingQueueItems((current) =>
-                      new Set(current).add(removalKey),
-                    );
-                    try {
-                      await removeQueued(
-                        queuedAddress,
-                        itemId,
-                        view.run.connectionEpoch,
-                      );
-                    } finally {
-                      setRemovingQueueItems((current) => {
-                        const next = new Set(current);
-                        next.delete(removalKey);
-                        return next;
-                      });
-                    }
-                  }}
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            {queued.message?.content?.map((part, index) =>
-              part &&
-              typeof part === 'object' &&
-              !Array.isArray(part) &&
-              part.type === 'text' &&
-              typeof part.text === 'string' ? (
-                <p key={index}>{part.text}</p>
-              ) : null,
-            )}
-            {!!attachments.length && (
-              <AttachmentCards attachments={attachments} />
-            )}
-          </div>
-        );
-      })}
+      <QueueControls
+        address={{ endpoint: view.endpoint, sessionId: view.sessionId }}
+        connectionEpoch={view.run.connectionEpoch}
+        harnessKind={annotations.harnessKind || ''}
+        queue={view.run.queue}
+        canUpdateQueue={view.run.canUpdateQueue}
+        onEdit={annotations.onEditQueued}
+        onRemove={
+          annotations.onRemoveQueued
+            ? async (address, itemId, epoch) => {
+                await annotations.onRemoveQueued!(address, itemId, epoch);
+              }
+            : undefined
+        }
+      />
       {view.run.error && (
         <div className="inline-error" role="alert">
           {view.run.error}

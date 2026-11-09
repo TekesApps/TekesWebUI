@@ -17,6 +17,7 @@ export function SessionActions({
   title,
   onRename,
   compact = false,
+  onPerformed,
 }: {
   workspace: Workspace;
   state: WorkspaceState;
@@ -24,6 +25,7 @@ export function SessionActions({
   title: string;
   onRename: (address: Address, title: string, actionId: string) => void;
   compact?: boolean;
+  onPerformed?: () => void | Promise<void>;
 }) {
   const key = addressKey(address.endpoint, address.sessionId);
   const definition = s.threadActions.get(key),
@@ -53,7 +55,10 @@ export function SessionActions({
         .then(() => setCopied(true))
         .catch(w.actionFailed);
     } else if (action.interaction === 'execute')
-      void w.performThreadAction(address, action.id).catch(w.actionFailed);
+      void w
+        .performThreadAction(address, action.id)
+        .then(() => onPerformed?.())
+        .catch(w.actionFailed);
   }
   return (
     <Menu

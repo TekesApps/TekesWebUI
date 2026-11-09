@@ -1,5 +1,16 @@
 # Existing WebUI delivery integration
 
+## Three-Harness expansion (2026-11-09)
+
+Current candidate versions are Core 0.5.0 and WebUI 0.3.0, with public Kernel
+0.9.22, Pi 1.5.0 and DSH 0.2.2-rc.1. Scope and acceptance are tracked in
+[the delivery design](three-harness-delivery.md) and [capability coverage](kernel-web-coverage.md).
+Files/Git use independent host-owned authority and a public shared contract.
+Historical results below retain their original versions and do not certify the
+expanded candidate or replace its final browser/CI/release evidence.
+
+## Historical Native intake
+
 Candidate source base: TekesWebUI main `03b1966` (v0.1.23). Delivery candidate version: 0.2.0. Its published sidebar divider and transcript recovery semantics remain from 0.1.23.
 
 ## Final Native delivery binding (2026-11-08)

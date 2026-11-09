@@ -1,4 +1,5 @@
 import { t } from '../i18n';
+import { HarnessLogo } from './HarnessLogo';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   ArrowUp,
@@ -56,11 +57,7 @@ export function Composer({
   const efforts = model?.reasoning?.efforts || [];
   const canAttach =
     !!endpoint?.capabilities?.methods?.includes('session.uploadFile');
-  const current =
-    s.selected &&
-    s.inventories
-      .get(s.selected.endpoint)
-      ?.find((row) => row.sessionId === s.selected?.sessionId)?.summary;
+  const current = s.selected && w.sessionEntry(s.selected)?.summary;
   const cwd = current?.cwd || s.cwd;
   const harnessName =
     endpoint?.kind === 'tekes'
@@ -223,13 +220,7 @@ export function Composer({
                 disabled={s.busy}
                 onClick={() => void showDetails()}
               >
-                <span className={`harness-symbol ${endpoint?.kind || ''}`}>
-                  {endpoint?.kind === 'pi'
-                    ? 'π'
-                    : endpoint?.kind === 'dsh'
-                      ? 'D'
-                      : 'T'}
-                </span>
+                <HarnessLogo kind={endpoint?.kind} />
                 <span>
                   {harnessName}
                   {s.preset
@@ -251,13 +242,7 @@ export function Composer({
                     aria-label={t('选择 Harness 与预设')}
                     disabled={s.busy}
                   >
-                    <span className={`harness-symbol ${endpoint?.kind || ''}`}>
-                      {endpoint?.kind === 'pi'
-                        ? 'π'
-                        : endpoint?.kind === 'dsh'
-                          ? 'D'
-                          : 'T'}
-                    </span>
+                    <HarnessLogo kind={endpoint?.kind} />
                     <span>
                       {harnessName}
                       {s.controlsLoading
@@ -274,7 +259,10 @@ export function Composer({
                   <div key={agent.id}>
                     {index > 0 && <MenuSeparator />}
                     <MenuLabel>
-                      <span>{agent.name}</span>
+                      <span className="harness-menu-name">
+                        <HarnessLogo kind={agent.kind} />
+                        {agent.name}
+                      </span>
                       <small>
                         {agent.host?.product.version || t('未连接')}
                       </small>

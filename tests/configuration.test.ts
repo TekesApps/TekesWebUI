@@ -82,3 +82,128 @@ test('an explicit Native selection survives saved configuration without changing
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('private workspace grants survive save/load without adding mutation authority', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tekes-workspace-options-'));
+  try {
+    const source: Options = {
+      ...options(root),
+      workspaceService: {
+        workspaces: [
+          {
+            id: 'registered-read',
+            title: 'Project',
+            root,
+            allowRead: true,
+            allowFileWrites: false,
+          },
+          {
+            id: 'registered-edit',
+            root: join(root, 'editable'),
+            allowRead: true,
+            allowFileWrites: true,
+            git: {
+              operations: ['commit', 'branch.create'],
+              repositories: ['.', 'nested/repository'],
+            },
+          },
+        ],
+      },
+    };
+    await saveConfiguration(root, source);
+    assert.deepEqual(await configuration(root), source);
+    const disk = JSON.parse(
+      await readFile(join(root, 'service-options.json'), 'utf8'),
+    );
+    assert.deepEqual(disk.workspaceService, source.workspaceService);
+    assert.equal('helper' in disk.workspaceService, false);
+    assert.equal('stateRoot' in disk.workspaceService, false);
+    await saveConfiguration(root, options(root));
+    assert.equal(
+      (await configuration(root)).workspaceService,
+      undefined,
+      'old configuration does not acquire persisted mutation grants',
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('invalid private workspace registrations fail before replacing a valid saved configuration', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tekes-workspace-invalid-'));
+  try {
+    await saveConfiguration(root, options(root));
+    const file = join(root, 'service-options.json');
+    const before = await readFile(file, 'utf8');
+    const invalid: unknown[] = [
+      { workspaces: [{ id: 'read', root, allowFileWrites: 'true' }] },
+      { workspaces: [{ id: 'read', root, allowRead: 1 }] },
+      { workspaces: [{ id: 'read', root: 'relative' }] },
+      {
+        workspaces: [
+          { id: 'same', root },
+          { id: 'same', root },
+        ],
+      },
+      { workspaces: [{ id: 'read', root, grants: true }] },
+      {
+        workspaces: [
+          {
+            id: 'read',
+            root,
+            git: { operations: ['push', 'push'], repositories: ['.'] },
+          },
+        ],
+      },
+      {
+        workspaces: [
+          {
+            id: 'read',
+            root,
+            git: { operations: ['delete'], repositories: ['.'] },
+          },
+        ],
+      },
+      {
+        workspaces: [
+          {
+            id: 'read',
+            root,
+            git: { operations: ['push'], repositories: ['../outside'] },
+          },
+        ],
+      },
+      {
+        workspaces: [
+          {
+            id: 'read',
+            root,
+            git: { operations: ['push'], repositories: [root] },
+          },
+        ],
+      },
+      { workspaces: [], helper: '/browser-chosen-helper' },
+    ];
+    for (const workspaceService of invalid) {
+      await assert.rejects(
+        saveConfiguration(root, {
+          ...options(root),
+          workspaceService,
+        } as Options),
+        /Invalid saved workspace/,
+      );
+      assert.equal(await readFile(file, 'utf8'), before);
+    }
+    await writePrivate(
+      file,
+      JSON.stringify({ ...options(root), workspaceService: invalid[0] }),
+    );
+    await assert.rejects(
+      configuration(root),
+      /Invalid saved workspace/,
+      'invalid chosen configuration must not fall back to start-options.json',
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { open, mkdir, rm, realpath, readFile } from 'node:fs/promises';
-import { join, dirname, isAbsolute } from 'node:path';
+import { join, dirname, basename, isAbsolute } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { Bridge, type Wire } from './bridge.js';
@@ -15,12 +15,18 @@ import {
   LIMIT,
   openPrivateAppend,
 } from './private.js';
-import { KERNEL_PIN } from './config.js';
+import { KERNEL_PIN, sha256 } from './config.js';
+import {
+  WorkspaceService,
+  type WorkspaceRegistration,
+} from './workspace-service.js';
+import type { CandidateManifest } from './runtime-identity.js';
 import type { Harness } from './harnesses.js';
 import type { RuntimeIdentity } from './runtime-identity.js';
 
 export interface Options {
   runtimeIdentity?: RuntimeIdentity;
+  workspaceService?: { workspaces: WorkspaceRegistration[] };
   runtimeDir: string;
   agentkitSource: string;
   agentkitBinary: string;
@@ -225,6 +231,7 @@ export async function serve(
   let kernel: ChildProcess | undefined, bridge: Bridge | undefined;
   let server: ReturnType<typeof createHostServer> | undefined;
   let directories: DirectoryAuthority | undefined;
+  let workspaceService: WorkspaceService | undefined;
   let stopping = false;
   let terminationReason = 'startup-failure';
   const stop = () => {
@@ -347,6 +354,39 @@ export async function serve(
       process.platform === 'darwin' ? local : [],
       options.workspace,
     );
+    const helperPath = join(options.kernelBinaryDir, 'tekes-workspace-service');
+    let helperSha256: unknown;
+    if (options.runtimeIdentity) {
+      const bytes = await readFile(options.runtimeIdentity.manifestPath);
+      if (sha256(bytes) !== options.runtimeIdentity.manifestSha256)
+        throw new Error('Workspace helper candidate manifest changed');
+      const manifest = JSON.parse(bytes.toString()) as CandidateManifest;
+      helperSha256 = manifest.kernel.binaries['tekes-workspace-service'];
+    } else {
+      const provenance = await jsonFile<{
+        binaries: Record<string, { sha256: string }>;
+      }>(join(options.kernelBinaryDir, 'BuildProvenance.json'));
+      helperSha256 = provenance.binaries['tekes-workspace-service']?.sha256;
+    }
+    if (
+      typeof helperSha256 !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(helperSha256)
+    )
+      throw new Error('Workspace helper hash is missing from verified bundle');
+    workspaceService = await WorkspaceService.create({
+      helper: { path: helperPath, sha256: helperSha256 },
+      stateRoot: join(root, 'workspace-service'),
+      connectionId: 'local-workspace',
+      workspaces: options.workspaceService?.workspaces ?? [
+        {
+          id:
+            'workspace-' + sha256(Buffer.from(options.workspace)).slice(0, 24),
+          title: basename(options.workspace),
+          root: options.workspace,
+          allowRead: true,
+        },
+      ],
+    });
     const assets = await realpath(options.webRoot);
     server = createHostServer({
       assets,
@@ -358,6 +398,7 @@ export async function serve(
       dshURL: options.dshURL,
       directories,
       bridge: runtime,
+      workspaceService,
       attachDSH: async (cookie) => {
         if (options.harnesses && !options.harnesses.includes('dsh'))
           throw new Error('DSH is not enabled for this service');
@@ -465,18 +506,22 @@ export async function serve(
     directories?.close();
     server?.close();
     server?.closeAllConnections();
-    for (const name of [
-      'ready.json',
-      'open-browser.html',
-      'app-connection.json',
-    ])
-      await rm(join(root, name), { force: true });
-    bridge?.close();
-    await stopChild(bridge?.process);
-    await stopChild(kernel);
-    await log.close();
-    await release();
-    process.off('SIGTERM', stop);
-    process.off('SIGINT', stop);
+    try {
+      await workspaceService?.close();
+    } finally {
+      for (const name of [
+        'ready.json',
+        'open-browser.html',
+        'app-connection.json',
+      ])
+        await rm(join(root, name), { force: true });
+      bridge?.close();
+      await stopChild(bridge?.process);
+      await stopChild(kernel);
+      await log.close();
+      await release();
+      process.off('SIGTERM', stop);
+      process.off('SIGINT', stop);
+    }
   }
 }

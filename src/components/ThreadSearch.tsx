@@ -1,3 +1,5 @@
+import { SessionActions } from './SessionActions';
+import type { Workspace, WorkspaceState } from '../workspace';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from '../i18n';
 import type { Address, Endpoint } from '../types';
@@ -11,10 +13,16 @@ export function ThreadSearch({
   endpoints,
   load,
   onSelect,
+  workspace,
+  state: workspaceState,
+  onRename,
 }: {
   endpoints: Endpoint[];
   load: ThreadSearchLoader;
   onSelect: (address: Address) => void;
+  workspace?: Workspace;
+  state?: WorkspaceState;
+  onRename?: (address: Address, title: string, actionId: string) => void;
 }) {
   const available = endpoints.filter((endpoint) =>
     endpoint.capabilities?.methods?.includes('agent.threadSearch'),
@@ -52,6 +60,15 @@ export function ThreadSearch({
     visibility,
     ready,
   ]);
+  const queryScope = JSON.stringify([
+    endpointId,
+    endpoint?.connectionEpoch,
+    query,
+    visibility,
+    ready,
+  ]);
+  const latestQueryScope = useRef(queryScope);
+  latestQueryScope.current = queryScope;
   const search = () => {
     if (ready && query.trim())
       void controller.search({ endpointId, query, visibility });
@@ -128,26 +145,66 @@ export function ThreadSearch({
         </div>
       )}
       <ol aria-label={t('名称检索结果')}>
-        {state.items.map((item) => (
-          <li key={item.sessionId}>
-            <button
-              className="thread"
-              disabled={!ready}
-              onClick={() =>
-                onSelect({ endpoint: endpointId, sessionId: item.sessionId })
-              }
-            >
-              <span className="thread-label">{item.title}</span>
-              {item.archived && <small>{t('已归档')}</small>}
-            </button>
-          </li>
-        ))}
+        {state.items.map((item) => {
+          const harnessArchived =
+            item.organization?.harnessArchived ?? item.archived;
+          const archivedInApp = item.organization?.applicationArchived === true;
+          return (
+            <li className="thread-row" key={item.sessionId}>
+              <button
+                className="thread"
+                disabled={!ready || harnessArchived}
+                title={
+                  harnessArchived
+                    ? t('此会话已在原 Harness 归档，请在原 Harness 中管理。')
+                    : undefined
+                }
+                onClick={() =>
+                  onSelect({ endpoint: endpointId, sessionId: item.sessionId })
+                }
+              >
+                <span className="thread-label">{item.title}</span>
+                {archivedInApp && !harnessArchived && (
+                  <small>{t('应用内归档')}</small>
+                )}
+              </button>
+              {harnessArchived ? (
+                <small className="list-empty">
+                  {t('原 Harness 归档，请在原 Harness 中管理。')}
+                </small>
+              ) : (
+                workspace &&
+                workspaceState &&
+                onRename && (
+                  <SessionActions
+                    compact
+                    workspace={workspace}
+                    state={workspaceState}
+                    address={{
+                      endpoint: endpointId,
+                      sessionId: item.sessionId,
+                    }}
+                    title={item.title}
+                    onRename={onRename}
+                    onPerformed={() => {
+                      if (latestQueryScope.current === queryScope) search();
+                    }}
+                  />
+                )
+              )}
+            </li>
+          );
+        })}
       </ol>
       {state.searched &&
         !state.loading &&
         !state.error &&
         !state.items.length && (
-          <p className="list-empty">{t('没有找到匹配的会话名称。')}</p>
+          <p className="list-empty">
+            {state.page?.reachedEnd
+              ? t('没有找到匹配的会话名称。')
+              : t('当前页无可见会话，可继续加载。')}
+          </p>
         )}
       {state.page?.nextCursor && !state.error && (
         <button

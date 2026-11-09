@@ -111,6 +111,7 @@ interface Entry {
   row: Summary;
   agent: string;
   activity?: Session['activity'];
+  organization?: Session['organization'];
 }
 interface Group {
   key: string;
@@ -147,6 +148,14 @@ export function sessionActivity(entry: Session): keyof typeof statusGroups {
   if (entry.activity?.isStale) return 'stale';
   return entry.activity?.status || 'unknown';
 }
+/** Harness archive state is independent of application organization. */
+export function isHarnessArchivedSession(
+  entry: Pick<Session, 'summary' | 'organization'>,
+): boolean {
+  return (
+    entry.organization?.harnessArchived ?? entry.summary?.status === 'archived'
+  );
+}
 export interface ListOptions {
   sort?: SessionSort;
   grouping?: SessionGrouping;
@@ -172,7 +181,8 @@ export function groupSessions(
       if (
         !row ||
         row.ephemeral ||
-        (!options.archived && row.status === 'archived') ||
+        (!options.archived &&
+          (entry.organization?.archived ?? row.status === 'archived')) ||
         (runningOnly && sessionActivity(entry) !== 'running')
       )
         continue;
@@ -223,6 +233,7 @@ export function groupSessions(
         row,
         agent: endpoint.name,
         activity: entry.activity,
+        organization: entry.organization,
       });
     }
   }

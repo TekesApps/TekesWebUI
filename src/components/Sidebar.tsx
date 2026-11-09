@@ -33,6 +33,7 @@ import {
   type SessionGrouping,
   sessionGroupingPreference,
   sessionActivity,
+  isHarnessArchivedSession,
 } from '../state';
 import { Tooltip } from './Tooltip';
 import {
@@ -138,7 +139,8 @@ export function Sidebar({
       (e) =>
         e.summary &&
         !e.summary.ephemeral &&
-        (archived || e.summary.status !== 'archived'),
+        (archived ||
+          !(e.organization?.archived ?? e.summary.status === 'archived')),
     ).length;
   const sorts: [SessionSort, string][] = [
     ['recentActivity', t('最近活动')],
@@ -306,6 +308,9 @@ export function Sidebar({
         <ThreadSearch
           endpoints={s.endpoints}
           load={loadThreadSearch}
+          workspace={w}
+          state={s}
+          onRename={onRename}
           onSelect={(address) => {
             void w.select(address);
             onSelect();
@@ -435,6 +440,10 @@ export function Sidebar({
                           : pages[group.key] || (grouping === 'none' ? 30 : 5),
                       )
                       .map((entry) => {
+                        const harnessArchived = isHarnessArchivedSession({
+                          summary: entry.row,
+                          organization: entry.organization,
+                        });
                         const selected =
                           s.selected?.endpoint === entry.endpoint &&
                           s.selected.sessionId === entry.sessionId;
@@ -477,6 +486,14 @@ export function Sidebar({
                               <button
                                 className={`thread ${selected ? 'selected' : ''}`}
                                 aria-current={selected ? 'page' : undefined}
+                                disabled={harnessArchived}
+                                title={
+                                  harnessArchived
+                                    ? t(
+                                        '此会话已在原 Harness 归档，请在原 Harness 中管理。',
+                                      )
+                                    : undefined
+                                }
                                 onClick={() => {
                                   void w.select({
                                     endpoint: entry.endpoint,
@@ -511,17 +528,23 @@ export function Sidebar({
                                 )}
                               </button>
                             </Tooltip>
-                            <SessionActions
-                              compact
-                              workspace={w}
-                              state={s}
-                              address={{
-                                endpoint: entry.endpoint,
-                                sessionId: entry.sessionId,
-                              }}
-                              title={entry.title}
-                              onRename={onRename}
-                            />
+                            {harnessArchived ? (
+                              <small className="list-empty">
+                                {t('原 Harness 归档，请在原 Harness 中管理。')}
+                              </small>
+                            ) : (
+                              <SessionActions
+                                compact
+                                workspace={w}
+                                state={s}
+                                address={{
+                                  endpoint: entry.endpoint,
+                                  sessionId: entry.sessionId,
+                                }}
+                                title={entry.title}
+                                onRename={onRename}
+                              />
+                            )}
                           </div>
                         );
                       })}

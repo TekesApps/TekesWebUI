@@ -650,5 +650,9 @@
   "Harness 文件读取失败。": "Harness file read failed.",
   "Harness 文件响应缺少结果。": "The Harness file response has no result.",
   "重新读取文件": "Reload file",
-  "创建并切换分支": "Create and switch branch"
+  "创建并切换分支": "Create and switch branch",
+  "此会话已在原 Harness 归档，请在原 Harness 中管理。": "This chat is archived in its original Harness. Manage it there.",
+  "原 Harness 归档，请在原 Harness 中管理。": "Archived by the original Harness. Manage it there.",
+  "应用内归档": "Archived in this app",
+  "当前页无可见会话，可继续加载。": "No visible chats on this page. Continue loading."
 }

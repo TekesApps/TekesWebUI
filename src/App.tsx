@@ -140,11 +140,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     selectedEndpoint = s.endpoints.find(
       (e) => e.id === (s.selected?.endpoint || s.newEndpoint),
     );
-  const row =
-    s.selected &&
-    s.inventories
-      .get(s.selected.endpoint)
-      ?.find((e) => e.sessionId === s.selected?.sessionId)?.summary;
+  const row = s.selected && w.sessionEntry(s.selected)?.summary;
   const sideChat = w.sideChatOrigin();
   const sideChatParent = sideChat
     ? {

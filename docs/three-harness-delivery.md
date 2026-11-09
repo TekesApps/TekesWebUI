@@ -48,9 +48,13 @@ panel therefore remains an explicitly selected host service. DSH per-turn
 change summaries/diffs are distinct upstream capabilities, not current Git
 working-tree operations, and are not implemented in this release.
 
-- Archived sessions come from a public inventory snapshot and retain endpoint and
-  session identity. Restore uses the existing advertised thread action. Active
-  and archived navigation are explicit views; restored rows return to active.
+- Archive is AgentKit-owned persistent session organization for all three
+  Harnesses. It records endpoint/session identity in the existing host-supplied
+  thread-preference store, filters active/archived views, and clears that marker
+  on explicit restore. It does not call a Harness archive operation, move its
+  durable data, cancel running work or prevent normal public history reads.
+  Existing Harness-native archive facts remain distinct legacy facts; they are
+  not silently migrated or restored. Kernel source remains unchanged.
 - Commands and skills load on demand for the selected session. Commands execute
   through advertised public commands methods, separately from ordinary input.
   Skills use their actual public insertion/invocation semantics; listing does not

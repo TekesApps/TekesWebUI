@@ -56,11 +56,7 @@ export function Composer({
   const efforts = model?.reasoning?.efforts || [];
   const canAttach =
     !!endpoint?.capabilities?.methods?.includes('session.uploadFile');
-  const current =
-    s.selected &&
-    s.inventories
-      .get(s.selected.endpoint)
-      ?.find((row) => row.sessionId === s.selected?.sessionId)?.summary;
+  const current = s.selected && w.sessionEntry(s.selected)?.summary;
   const cwd = current?.cwd || s.cwd;
   const harnessName =
     endpoint?.kind === 'tekes'

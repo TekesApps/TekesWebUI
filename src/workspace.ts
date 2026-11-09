@@ -69,6 +69,7 @@ import {
   browserStorage,
   catalogModels,
   displayError,
+  isHarnessArchivedSession,
   DraftStore,
   preference,
   savePreference,
@@ -1182,10 +1183,13 @@ export class Workspace {
             if (
               !restored &&
               remembered?.endpoint === endpoint.id &&
-              inventory.sessions.some(
+              [
+                ...inventory.sessions,
+                ...(inventory.archivedSessions || []),
+              ].some(
                 (e) =>
                   e.sessionId === remembered?.sessionId &&
-                  e.summary?.status !== 'archived',
+                  !isHarnessArchivedSession(e),
               )
             ) {
               restored = true;
@@ -1297,7 +1301,21 @@ export class Workspace {
       void this.loadControls(endpoint, undefined, this.epoch);
     }
   };
+  sessionEntry = (address: Address): Session | undefined =>
+    this.state.inventories
+      .get(address.endpoint)
+      ?.find((entry) => entry.sessionId === address.sessionId) ||
+    this.state.archivedInventories
+      .get(address.endpoint)
+      ?.find((entry) => entry.sessionId === address.sessionId);
   async select(address: Address) {
+    const entry = this.sessionEntry(address);
+    if (entry && isHarnessArchivedSession(entry)) {
+      this.fail(
+        new Error(t('此会话已在原 Harness 归档，请在原 Harness 中管理。')),
+      );
+      return;
+    }
     ++this.epoch;
     const epoch = this.epoch;
     this.viewAbort?.abort();
@@ -1812,9 +1830,7 @@ export class Workspace {
       if (epoch !== this.epoch) return;
       const remembered = this.presetChoices.get(this.key());
       const current = sessionId
-        ? this.state.inventories
-            .get(endpointID)
-            ?.find((e) => e.sessionId === sessionId)?.summary
+        ? this.sessionEntry({ endpoint: endpointID, sessionId })?.summary
         : null;
       const selected = sessionId
         ? current?.agentPreset ||

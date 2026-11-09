@@ -39,9 +39,16 @@ export interface Summary {
     values?: { title?: string | { title: string } };
   };
 }
+export interface SessionOrganization {
+  archived: boolean;
+  applicationArchived: boolean;
+  harnessArchived: boolean;
+  archiveOwner: 'agentkit' | 'harness' | null;
+}
 export interface Session {
   sessionId: string;
   summary?: Summary;
+  organization?: SessionOrganization;
   pin?: ThreadPinPresentation;
   activity?: ThreadActivity;
 }

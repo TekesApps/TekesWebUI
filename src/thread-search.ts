@@ -1,3 +1,4 @@
+import type { SessionOrganization } from './types';
 import { displayError } from './state';
 
 export type ThreadSearchVisibility = 'active' | 'archived' | 'all';
@@ -6,6 +7,7 @@ export interface ThreadSearchItem {
   title: string;
   updatedAt: string;
   archived: boolean;
+  organization?: SessionOrganization;
   asOfSeq: number;
   score: number;
   matchClass: 'exact' | 'prefix' | 'tokens';
@@ -20,6 +22,7 @@ export interface ThreadSearchPage {
   nextCursor?: string;
   reachedEnd: boolean;
   catalogDigest: string;
+  archiveRevision?: number;
 }
 export interface ThreadSearchQuery {
   query: string;
@@ -58,13 +61,14 @@ export function readThreadSearchPage(value: unknown): ThreadSearchPage {
       (typeof page.sessionId !== 'string' || !page.sessionId)) ||
     typeof page.catalogDigest !== 'string' ||
     !/^sha256-[0-9a-f]{64}$/.test(page.catalogDigest) ||
+    (page.archiveRevision !== undefined &&
+      (!Number.isSafeInteger(page.archiveRevision) ||
+        Number(page.archiveRevision) < 0)) ||
     typeof page.reachedEnd !== 'boolean' ||
     !Array.isArray(page.items) ||
     (page.reachedEnd
       ? page.nextCursor !== undefined
-      : typeof page.nextCursor !== 'string' ||
-        !page.nextCursor ||
-        !page.items.length)
+      : typeof page.nextCursor !== 'string' || !page.nextCursor)
   )
     throw new Error('Invalid title search page');
   const seen = new Set<string>();
@@ -91,6 +95,21 @@ export function readThreadSearchPage(value: unknown): ThreadSearchPage {
       (page.sessionId !== undefined && item.sessionId !== page.sessionId)
     )
       throw new Error('Invalid title search item');
+    if (item.organization !== undefined) {
+      const organization = object(item.organization);
+      if (
+        typeof organization.archived !== 'boolean' ||
+        typeof organization.applicationArchived !== 'boolean' ||
+        typeof organization.harnessArchived !== 'boolean' ||
+        !['agentkit', 'harness', null].includes(
+          organization.archiveOwner as 'agentkit' | 'harness' | null,
+        ) ||
+        organization.archived !== item.archived ||
+        organization.archived !==
+          (organization.applicationArchived || organization.harnessArchived)
+      )
+        throw new Error('Invalid title search organization');
+    }
     seen.add(item.sessionId);
   }
   return value as ThreadSearchPage;
@@ -168,6 +187,7 @@ export class ThreadSearchController {
         (previous &&
           (page.connectionEpoch !== previous.connectionEpoch ||
             page.catalogDigest !== previous.catalogDigest ||
+            page.archiveRevision !== previous.archiveRevision ||
             page.nextCursor === previous.nextCursor))
       )
         throw new Error('Title search source changed; search again');

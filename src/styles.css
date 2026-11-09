@@ -418,6 +418,7 @@ kbd {
   height: 26px;
 }
 .main {
+  container: workspace / inline-size;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -433,6 +434,7 @@ kbd {
   flex-shrink: 0;
 }
 .breadcrumb {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -441,6 +443,7 @@ kbd {
   font-size: 12px;
 }
 .breadcrumb > span {
+  min-width: 0;
   white-space: nowrap;
   max-width: 180px;
   overflow: hidden;
@@ -458,9 +461,22 @@ kbd {
 .topbar-right {
   margin-left: auto;
   display: flex;
-  gap: 12px;
+  gap: 6px;
   align-items: center;
   flex-shrink: 0;
+}
+.topbar-action {
+  width: auto;
+  min-width: 30px;
+  padding: 0 8px;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.topbar-action[data-state='open'] {
+  background: var(--hover);
+  color: var(--text);
 }
 .web-label {
   font-size: 9px;
@@ -476,6 +492,13 @@ kbd {
   font-size: 10px;
   padding: 3px 6px;
   color: var(--secondary);
+  max-width: 150px;
+  white-space: nowrap;
+}
+.harness-badge-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .harness-logo {
   display: inline-flex;
@@ -500,9 +523,31 @@ kbd {
 .run-status {
   font-size: 10px;
   color: var(--tertiary);
+  white-space: nowrap;
 }
 .run-status.active {
   color: var(--accent);
+}
+@container workspace (max-width: 720px) {
+  .topbar-action-label,
+  .topbar-action-chevron,
+  .harness-badge-name,
+  .topbar .run-status {
+    display: none;
+  }
+  .topbar-action {
+    width: 30px;
+    padding: 0;
+    gap: 0;
+  }
+  .topbar-right {
+    gap: 4px;
+  }
+}
+@container workspace (max-width: 360px) {
+  .topbar .breadcrumb > :not(h1) {
+    display: none;
+  }
 }
 .show-sidebar {
   display: none;
@@ -1402,9 +1447,6 @@ summary::-webkit-details-marker {
   }
   .topbar-right {
     gap: 5px;
-  }
-  .harness-badge {
-    display: none;
   }
   .welcome {
     width: calc(100% - 36px);

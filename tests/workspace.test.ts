@@ -2722,9 +2722,9 @@ test('the actual Web workspace picker defaults to current DSH files, retains fai
   const root = createRoot(container);
   try {
     await act(async () => root.render(createElement(App, { workspace: w })));
-    const open = [
-      ...container.querySelectorAll<HTMLButtonElement>('button'),
-    ].find((button) => button.textContent === '文件与 Git')!;
+    const open = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="文件与 Git"]',
+    )!;
     assert.ok(open);
     await act(async () => open.click());
     const sourceSelect = () =>

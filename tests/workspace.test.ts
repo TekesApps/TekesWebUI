@@ -1,7 +1,17 @@
+import { JSDOM } from 'jsdom';
+import { act, createElement } from 'react';
+import App from '../src/App';
+import { getLocale, setLocale } from '../src/i18n';
+import type { SideChat, SideChatState } from '../src/sidechat';
+import { addressKey } from '../src/state';
 import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { Workspace } from '../src/workspace';
-import type { AttachmentPolicy, Endpoint } from '../src/types';
+import type { AttachmentPolicy, Endpoint, Session } from '../src/types';
+import type {
+  SessionPreset,
+  SessionPresetResolution,
+} from '../src/session-presets';
 import type { ThreadActionOutcome } from '@tekesagentkit/client-contract';
 import { textFingerprint, type Annotation } from '../src/annotations';
 import parentDenial from './fixtures/j7-parent-denial.json';
@@ -15,6 +25,9 @@ type Call = {
   rpcId: string;
   sessionId?: string;
   target?: string;
+  connectionId?: string;
+  workspaceId?: string;
+  request?: Record<string, unknown>;
   payload: Record<string, unknown>;
 };
 async function ready(
@@ -44,6 +57,11 @@ test('family child drafts stay scoped to parent and child destinations', () => {
   w.dispose();
 });
 
+interface AdvancedPresetFixture {
+  preview?: (call: Call) => Promise<unknown>;
+  create?: (call: Call) => Promise<unknown>;
+  models?: (call: Call) => Promise<unknown>;
+}
 function fixture(
   t: TestContext,
   prompt: (call: Call) => Promise<unknown> = async () => ({ accepted: true }),
@@ -63,19 +81,50 @@ function fixture(
   },
   reconnect?: (call: Call) => Promise<Endpoint>,
   upload?: (call: Call) => Promise<unknown>,
+  compileSkills?: (call: Call) => Promise<unknown>,
+  workspaceService?: {
+    advertised?: boolean;
+    list?: () => Promise<unknown>;
+    call?: (call: Call) => Promise<unknown>;
+  },
+  advancedPreset?: AdvancedPresetFixture,
+  sideChat?: {
+    runningSessions?: string[];
+    call?: (call: Call) => Promise<unknown>;
+  },
+  harnessWorkspace?: (call: Call) => Promise<unknown>,
 ) {
   const calls: Call[] = [];
+  const inventoryControllers = new Map<
+    string,
+    ReadableStreamDefaultController<Uint8Array>
+  >();
   const endpoints: Endpoint[] = ['tekes', 'pi'].map((kind) => ({
     id: kind,
     kind,
     name: kind,
     connection: 'ready',
+    ...(advancedPreset || sideChat ? { connectionEpoch: 7 } : {}),
     capabilities: {
       methods: [
         'session.initialPresets',
         'session.uploadFile',
         'attachments.policy',
         'composer.compileAnnotations',
+        'agent.skills.compile',
+        ...(sideChat
+          ? [
+              'agent.sideChat.state',
+              'agent.sideChat.create',
+              'agent.sideChat.close',
+              'agent.sideChat.reconcile',
+              'agent.sideChat.prompt',
+              'agent.sideChat.cancel',
+            ]
+          : []),
+        ...(advancedPreset && kind === 'tekes'
+          ? ['agent.preset.describe', 'agent.preset.preview']
+          : []),
         'thread.actions',
         'thread.performAction',
         ...(permissions
@@ -113,8 +162,17 @@ function fixture(
       else if (call.op === 'host.info')
         value = {
           workspace: '/authorized',
+          workspaceService: workspaceService?.advertised,
           directoryPicker: { endpoints: ['tekes', 'pi'] },
         };
+      else if (call.op === 'workspace.list')
+        value = workspaceService?.list
+          ? await workspaceService.list()
+          : { workspaces: [] };
+      else if (call.op === 'workspace.call')
+        value = workspaceService?.call
+          ? await workspaceService.call(call)
+          : { result: {} };
       else if (call.op === 'host.pickDirectory') value = await picker(call);
       else if (call.op === 'reconnect')
         value = reconnect
@@ -131,9 +189,17 @@ function fixture(
                 endpoint: call.endpoint,
                 sessionId: call.sessionId,
                 run: {
-                  phase: 'idle',
+                  connectionEpoch: 7,
+                  phase: sideChat?.runningSessions?.includes(
+                    call.sessionId || '',
+                  )
+                    ? 'running'
+                    : 'idle',
                   canSubmit: true,
-                  canCancel: false,
+                  canCancel:
+                    sideChat?.runningSessions?.includes(
+                      call.sessionId || '',
+                    ) === true,
                   connection: { phase: 'connected' },
                   actionables: [],
                   queue: [],
@@ -148,6 +214,8 @@ function fixture(
         return new Response(
           new ReadableStream({
             start(controller) {
+              if (call.target === 'state')
+                inventoryControllers.set(call.endpoint, controller);
               controller.enqueue(
                 new TextEncoder().encode(JSON.stringify({ value }) + '\n'),
               );
@@ -166,7 +234,9 @@ function fixture(
           }),
         );
       } else if (['models.list', 'session.models'].includes(call.method ?? ''))
-        value = catalog;
+        value = advancedPreset?.models
+          ? await advancedPreset.models(call)
+          : catalog;
       else if (call.method === 'session.initialPresets')
         value = {
           presets:
@@ -178,8 +248,20 @@ function fixture(
       else if (call.method === 'attachments.policy') value = attachmentPolicy;
       else if (call.method?.startsWith('approvals.'))
         value = await permissions!(call);
+      else if (call.method === 'agent.preset.preview')
+        value = advancedPreset?.preview
+          ? await advancedPreset.preview(call)
+          : {};
+      else if (call.method === 'agent.preset.describe')
+        value = {
+          endpointId: call.endpoint,
+          connectionEpoch: 7,
+          description: {},
+        };
       else if (call.method === 'session.create')
-        value = { sessionId: 'created' };
+        value = advancedPreset?.create
+          ? await advancedPreset.create(call)
+          : { sessionId: 'created' };
       else if (call.method === 'session.uploadFile')
         value = upload
           ? await upload(call)
@@ -191,6 +273,17 @@ function fixture(
                 bytes: Buffer.from(call.payload.data as string, 'base64')
                   .length,
               },
+            };
+      else if (call.method === 'agent.skills.compile')
+        value = compileSkills
+          ? await compileSkills(call)
+          : {
+              kind: 'prompt',
+              content: [
+                { type: 'text', text: 'compiled skill' },
+                ...(call.payload.attachments as unknown[]),
+              ],
+              displayText: 'compiled skill',
             };
       else if (call.method === 'composer.compileAnnotations')
         value = { text: 'AgentKit compiled annotation input' };
@@ -220,11 +313,35 @@ function fixture(
         value = await action(call);
       else if (call.method === 'session.rename')
         value = { title: call.payload.title, seq: 5 };
-      else if (call.method === 'session.prompt') value = await prompt(call);
+      else if (
+        call.method === 'session.prompt' ||
+        call.method === 'agent.sideChat.prompt'
+      )
+        value = await prompt(call);
+      else if (call.method === 'agent.workspace.read')
+        value = harnessWorkspace ? await harnessWorkspace(call) : {};
+      else if (call.method?.startsWith('agent.sideChat.'))
+        value = sideChat?.call ? await sideChat.call(call) : {};
       return Response.json({ value });
     },
   );
-  return { calls, endpoints, w: new Workspace() };
+  return {
+    calls,
+    endpoints,
+    w: new Workspace(),
+    emitInventory: (endpoint: string, sessions: Session[]) => {
+      inventoryControllers.get(endpoint)?.enqueue(
+        new TextEncoder().encode(
+          JSON.stringify({
+            value: {
+              description: endpoints.find((entry) => entry.id === endpoint),
+              sessions,
+            },
+          }) + '\n',
+        ),
+      );
+    },
+  };
 }
 
 test('Earlier completion and errors stay bound to the mounted view', async (t) => {
@@ -1243,5 +1360,1353 @@ test('a policy changed by another client is read before admission instead of sen
   assert.equal(w.snapshot().draft, 'keep the draft');
   await w.submit();
   assert.equal(calls.filter((c) => c.method === 'session.prompt').length, 1);
+  w.dispose();
+});
+
+test('selected skills compile through AgentKit, preserve attachments and stay in the originating draft', async (t) => {
+  const { w, calls } = fixture(t);
+  await w.connect('token');
+  const address = { endpoint: 'tekes', sessionId: 'existing' };
+  await w.select(address);
+  await ready(w);
+  w.selectSkill(address, {
+    id: 'review',
+    name: 'review',
+    title: 'Review',
+    description: '',
+    selectable: true,
+  });
+  w.setDraft('review this');
+  w.addFiles([new File(['proof'], 'proof.txt', { type: 'text/plain' })]);
+  await w.select({ endpoint: 'pi', sessionId: 'other' });
+  await ready(w);
+  assert.deepEqual(w.snapshot().skills, []);
+  await w.select(address);
+  await ready(w);
+  assert.equal(w.snapshot().skills[0].id, 'review');
+  await w.submit();
+  const compile = calls.find((c) => c.method === 'agent.skills.compile')!;
+  const send = calls.find((c) => c.method === 'session.prompt')!;
+  assert.equal(compile.payload.connectionEpoch, 7);
+  assert.deepEqual(compile.payload.skillIds, ['review']);
+  assert.deepEqual(compile.payload.attachments, [
+    { type: 'file', receiptId: 'upload-receipt' },
+  ]);
+  assert.deepEqual(send.payload.content, [
+    { type: 'text', text: 'compiled skill' },
+    { type: 'file', receiptId: 'upload-receipt' },
+  ]);
+  assert.equal(w.snapshot().skills.length, 0);
+  w.dispose();
+});
+
+test('failed skill compilation sends nothing and preserves the selected skill and text', async (t) => {
+  const { w, calls } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    async () => {
+      throw new Error('skill removed from catalog');
+    },
+  );
+  await w.connect('token');
+  const address = { endpoint: 'tekes', sessionId: 'existing' };
+  await w.select(address);
+  await ready(w);
+  w.setDraft('keep this');
+  w.selectSkill(address, {
+    id: 'review',
+    name: 'review',
+    title: 'Review',
+    description: '',
+    selectable: true,
+  });
+  await w.submit();
+  assert.equal(calls.filter((c) => c.method === 'session.prompt').length, 0);
+  assert.equal(w.snapshot().draft, 'keep this');
+  assert.equal(w.snapshot().skills[0].id, 'review');
+  assert.match(w.snapshot().error, /skill removed/);
+  w.dispose();
+});
+
+test('an older host never invents a workspace connection or probes an unsupported workspace API', async (t) => {
+  const { w, calls } = fixture(t);
+  await w.connect('token');
+  assert.equal(w.snapshot().workspaceServiceAvailable, false);
+  assert.deepEqual(w.snapshot().workspaceServices, []);
+  assert.equal(
+    calls.some((call) => call.op === 'workspace.list'),
+    false,
+  );
+  await assert.rejects(
+    w.workspaceServiceCall(
+      'invented',
+      'cwd-as-id',
+      'filesList',
+      { path: '' },
+      'rpc',
+    ),
+    /宿主授权/,
+  );
+  assert.equal(
+    calls.some((call) => call.op === 'workspace.call'),
+    false,
+  );
+  assert.equal(w.snapshot().authenticated, true);
+  w.dispose();
+});
+
+test('workspace requests use the host registry, preserve the mutation rpc identity and propagate unknown outcomes once', async (t) => {
+  const { w, calls } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      advertised: true,
+      list: async () => ({
+        workspaces: [
+          {
+            connectionId: 'host-connection',
+            workspaceId: 'opaque-project',
+            title: 'Registered project',
+          },
+        ],
+      }),
+      call: async () => ({
+        error: {
+          code: 'outcome-unknown',
+          message: 'Check current state',
+          details: { operation: 'rpc-write' },
+        },
+      }),
+    },
+  );
+  await w.connect('token');
+  await ready(w, () => !w.snapshot().workspaceServicesLoading);
+  assert.equal(w.snapshot().workspaceServices[0].workspaceId, 'opaque-project');
+  w.setDraft('keep the conversation draft');
+  await assert.rejects(
+    w.workspaceServiceCall(
+      'host-connection',
+      'opaque-project',
+      'filesWrite',
+      {
+        workspaceId: 'opaque-project',
+        path: 'proof.txt',
+        content: 'YQ==',
+        expectedRevision: 'old',
+      },
+      'rpc-write',
+    ),
+    (cause: unknown) =>
+      cause instanceof Error &&
+      'code' in cause &&
+      cause.code === 'outcome-unknown',
+  );
+  const wire = calls.find((call) => call.op === 'workspace.call')!;
+  assert.equal(wire.rpcId, 'rpc-write');
+  assert.equal(wire.connectionId, 'host-connection');
+  assert.equal(wire.workspaceId, 'opaque-project');
+  assert.deepEqual(wire.request, {
+    path: 'proof.txt',
+    content: 'YQ==',
+    expectedRevision: 'old',
+  });
+  assert.equal(calls.filter((call) => call.op === 'workspace.call').length, 1);
+  assert.equal(w.snapshot().draft, 'keep the conversation draft');
+  await assert.rejects(
+    w.workspaceServiceCall(
+      'host-connection',
+      'opaque-project',
+      'filesList',
+      { workspaceId: 'other', path: '' },
+      'wrong-scope',
+    ),
+    /来源已变化/,
+  );
+  assert.equal(calls.filter((call) => call.op === 'workspace.call').length, 1);
+  w.dispose();
+});
+
+test('late workspace inventories cannot replace a new host', async (t) => {
+  let resolve!: (value: unknown) => void;
+  const first = new Promise((done) => {
+    resolve = done;
+  });
+  let count = 0;
+  const { w } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      advertised: true,
+      list: async () =>
+        ++count === 1
+          ? first
+          : {
+              workspaces: [
+                {
+                  connectionId: 'second-host',
+                  workspaceId: 'second',
+                  title: 'Second project',
+                },
+              ],
+            },
+    },
+  );
+  await w.connect('first-token');
+  await w.connect('second-token');
+  await ready(w, () => !w.snapshot().workspaceServicesLoading);
+  resolve({
+    workspaces: [
+      {
+        connectionId: 'first-host',
+        workspaceId: 'first',
+        title: 'First project',
+      },
+    ],
+  });
+  await new Promise((done) => setTimeout(done, 0));
+  assert.equal(w.snapshot().workspaceServices[0].workspaceId, 'second');
+  assert.equal(w.snapshot().authenticated, true);
+  w.dispose();
+});
+
+test('workspace directory failures stay visible without disconnecting session APIs', async (t) => {
+  const { w } = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      advertised: true,
+      list: async () => {
+        throw new Error('registry unavailable');
+      },
+    },
+  );
+  await w.connect('token');
+  await ready(w, () => !w.snapshot().workspaceServicesLoading);
+  assert.equal(w.snapshot().authenticated, true);
+  assert.equal(w.snapshot().workspaceServicesError, 'registry unavailable');
+  assert.deepEqual(w.snapshot().workspaceServices, []);
+  assert.equal(w.snapshot().error, '');
+  w.dispose();
+});
+
+function advancedFixture(t: TestContext, options: AdvancedPresetFixture = {}) {
+  return fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    options,
+  );
+}
+function presetResolution(
+  preset: SessionPreset,
+  digest = 'sha256-preview',
+): SessionPresetResolution {
+  return {
+    base: 'general',
+    layers: (preset.layers || []).map((layer) => ({
+      kind: layer.kind,
+      id: layer.id,
+      version: layer.kind === 'inline' ? layer.version : '1',
+    })),
+    presetText: 'Previewed preset',
+    digest,
+    ...(preset.defaults ? { defaults: preset.defaults } : {}),
+  };
+}
+async function applyPreset(w: Workspace, preset: SessionPreset) {
+  const result = await w.previewAdvancedPreset(
+    'tekes',
+    '/authorized',
+    7,
+    preset,
+  );
+  w.applyAdvancedPreset('tekes', '/authorized', 7, preset, result.resolution);
+  return result;
+}
+function presetModels(call: Call) {
+  return Promise.resolve({
+    groups: [
+      { id: 'configured', models: [{ id: 'model' }, { id: 'preset-model' }] },
+    ],
+    current: {
+      provider: 'configured',
+      model: call.payload.sessionId ? 'preset-model' : 'model',
+    },
+  });
+}
+
+test('advanced preset submission captures the applied selection, waits for inventory identity and never overwrites resolved defaults', async (t) => {
+  let emit!: (endpoint: string, sessions: Session[]) => void;
+  let beforeInventoryPrompts = -1;
+  let calls: Call[] = [];
+  const fixtureState = advancedFixture(t, {
+    preview: async (call) => ({
+      endpointId: call.endpoint,
+      connectionEpoch: call.payload.connectionEpoch,
+      preset: call.payload.preset,
+      resolution: presetResolution(call.payload.preset as SessionPreset),
+    }),
+    models: presetModels,
+    create: async () => {
+      setTimeout(() => {
+        beforeInventoryPrompts = calls.filter(
+          (call) => call.method === 'session.prompt',
+        ).length;
+        emit('tekes', [
+          {
+            sessionId: 'created',
+            summary: {
+              cwd: '/authorized',
+              preset: { base: 'general', digest: 'sha256-preview' },
+            },
+          },
+        ]);
+      }, 20);
+      return { sessionId: 'created' };
+    },
+  });
+  const { w } = fixtureState;
+  calls = fixtureState.calls;
+  emit = fixtureState.emitInventory;
+  await w.connect('token');
+  await ready(w);
+  const preset: SessionPreset = {
+    layers: [
+      {
+        kind: 'inline',
+        id: 'reviewer',
+        version: '1',
+        duty: 'Review carefully',
+      },
+    ],
+    defaults: { provider: 'configured', model: 'preset-model' },
+  };
+  const expected = structuredClone(preset);
+  const preview = await applyPreset(w, preset);
+  preset.layers = [];
+  preview.resolution.defaults!.model = 'changed-after-apply';
+  w.setDraft('start the applied preset');
+  await w.submit();
+  const create = calls.find((call) => call.method === 'session.create')!;
+  assert.deepEqual(create.payload, { cwd: '/authorized', preset: expected });
+  assert.equal('identityProfile' in create.payload, false);
+  assert.equal('agentPreset' in create.payload, false);
+  assert.equal(
+    calls.some((call) => call.method === 'session.selectModel'),
+    false,
+  );
+  assert.equal(beforeInventoryPrompts, 0);
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    1,
+  );
+  assert.equal(w.snapshot().model?.model, 'preset-model');
+  w.dispose();
+});
+
+test('a changed preview scope or edited preset cannot be applied or create a session', async (t) => {
+  let release!: (value: unknown) => void;
+  const delayed = new Promise((done) => {
+    release = done;
+  });
+  const { w, calls } = advancedFixture(t, { preview: async () => delayed });
+  await w.connect('token');
+  await ready(w);
+  const preset: SessionPreset = { tools: ['read'] };
+  const preview = w.previewAdvancedPreset('tekes', '/authorized', 7, preset);
+  w.newSession('/other', 'tekes');
+  release({
+    endpointId: 'tekes',
+    connectionEpoch: 7,
+    preset,
+    resolution: presetResolution(preset),
+  });
+  await assert.rejects(preview, /预览与当前草稿不一致/);
+  assert.throws(
+    () =>
+      w.applyAdvancedPreset(
+        'tekes',
+        '/authorized',
+        7,
+        preset,
+        presetResolution(preset),
+      ),
+    /预览已失效/,
+  );
+  assert.equal(
+    calls.some((call) =>
+      ['session.create', 'session.prompt'].includes(call.method || ''),
+    ),
+    false,
+  );
+  w.dispose();
+});
+
+test('applied presets keep their draft but become unsendable after the endpoint epoch changes until previewed again or cleared', async (t) => {
+  const { w, calls, endpoints, emitInventory } = advancedFixture(t, {
+    preview: async (call) => ({
+      endpointId: call.endpoint,
+      connectionEpoch: call.payload.connectionEpoch,
+      preset: call.payload.preset,
+      resolution: presetResolution(call.payload.preset as SessionPreset),
+    }),
+  });
+  await w.connect('token');
+  await ready(w);
+  await applyPreset(w, { tools: ['read'] });
+  w.setDraft('keep this');
+  endpoints[0].connectionEpoch = 8;
+  emitInventory('tekes', []);
+  await new Promise((done) => setTimeout(done, 0));
+  assert.equal(w.snapshot().advancedPreset?.connectionEpoch, 7);
+  assert.equal(w.canSend(), false);
+  await w.submit();
+  assert.equal(
+    calls.some((call) => call.method === 'session.create'),
+    false,
+  );
+  w.clearAdvancedPreset();
+  assert.equal(w.snapshot().advancedPreset, null);
+  assert.equal(w.canSend(), true);
+  w.dispose();
+});
+
+test('a failed preset preview and unpreviewed edits do not apply or send anything', async (t) => {
+  const { w, calls } = advancedFixture(t, {
+    preview: async () => {
+      throw new Error('resolver rejected preset');
+    },
+  });
+  await w.connect('token');
+  await ready(w);
+  await assert.rejects(
+    w.previewAdvancedPreset('tekes', '/authorized', 7, { tools: ['read'] }),
+    /resolver rejected/,
+  );
+  assert.throws(
+    () =>
+      w.applyAdvancedPreset(
+        'tekes',
+        '/authorized',
+        7,
+        { tools: ['write'] },
+        presetResolution({ tools: ['write'] }),
+      ),
+    /预览已失效/,
+  );
+  assert.equal(w.snapshot().advancedPreset, null);
+  assert.equal(
+    calls.some((call) =>
+      ['session.create', 'session.prompt'].includes(call.method || ''),
+    ),
+    false,
+  );
+  w.dispose();
+});
+
+test('a mismatched created preset stops before prompt and keeps the created session and draft without another create', async (t) => {
+  let emit!: (endpoint: string, sessions: Session[]) => void;
+  const state = advancedFixture(t, {
+    preview: async (call) => ({
+      endpointId: call.endpoint,
+      connectionEpoch: 7,
+      preset: call.payload.preset,
+      resolution: presetResolution(call.payload.preset as SessionPreset),
+    }),
+    create: async () => {
+      setTimeout(
+        () =>
+          emit('tekes', [
+            {
+              sessionId: 'created',
+              summary: { preset: { digest: 'sha256-other' } },
+            },
+          ]),
+        0,
+      );
+      return { sessionId: 'created' };
+    },
+  });
+  const { w, calls } = state;
+  emit = state.emitInventory;
+  await w.connect('token');
+  await ready(w);
+  await applyPreset(w, { tools: ['read'] });
+  w.setDraft('retain after mismatch');
+  await w.submit();
+  assert.equal(w.snapshot().selected?.sessionId, 'created');
+  assert.equal(w.snapshot().draft, 'retain after mismatch');
+  assert.match(w.snapshot().error, /预设与预览不一致/);
+  assert.equal(
+    calls.filter((call) => call.method === 'session.create').length,
+    1,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    0,
+  );
+  await w.submit();
+  assert.equal(
+    calls.filter((call) => call.method === 'session.create').length,
+    1,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    0,
+  );
+  w.dispose();
+});
+
+test('advanced presets without defaults preserve ordinary model choice and basic preset selection clears the override', async (t) => {
+  let emit!: (endpoint: string, sessions: Session[]) => void;
+  const state = advancedFixture(t, {
+    preview: async (call) => ({
+      endpointId: call.endpoint,
+      connectionEpoch: 7,
+      preset: call.payload.preset,
+      resolution: presetResolution(call.payload.preset as SessionPreset),
+    }),
+    create: async () => {
+      setTimeout(
+        () =>
+          emit('tekes', [
+            {
+              sessionId: 'created',
+              summary: { preset: { digest: 'sha256-preview' } },
+            },
+          ]),
+        0,
+      );
+      return { sessionId: 'created' };
+    },
+  });
+  const { w, calls } = state;
+  emit = state.emitInventory;
+  await w.connect('token');
+  await ready(w);
+  await applyPreset(w, { tools: ['read'] });
+  w.choosePreset('general');
+  assert.equal(w.snapshot().advancedPreset, null);
+  await applyPreset(w, { tools: ['read'] });
+  w.setDraft('ordinary model');
+  await w.submit();
+  assert.equal(
+    calls.filter((call) => call.method === 'session.selectModel').length,
+    1,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    1,
+  );
+  w.dispose();
+});
+
+test('a created preset with an unexpected default model remains unadmitted on later explicit sends', async (t) => {
+  let emit!: (endpoint: string, sessions: Session[]) => void;
+  const state = advancedFixture(t, {
+    preview: async (call) => ({
+      endpointId: call.endpoint,
+      connectionEpoch: 7,
+      preset: call.payload.preset,
+      resolution: presetResolution(call.payload.preset as SessionPreset),
+    }),
+    create: async () => {
+      setTimeout(
+        () =>
+          emit('tekes', [
+            {
+              sessionId: 'created',
+              summary: { preset: { digest: 'sha256-preview' } },
+            },
+          ]),
+        0,
+      );
+      return { sessionId: 'created' };
+    },
+    models: async () => ({
+      groups: [
+        { id: 'configured', models: [{ id: 'model' }, { id: 'preset-model' }] },
+      ],
+      current: { provider: 'configured', model: 'model' },
+    }),
+  });
+  const { w, calls } = state;
+  emit = state.emitInventory;
+  await w.connect('token');
+  await ready(w);
+  await applyPreset(w, {
+    defaults: { provider: 'configured', model: 'preset-model' },
+  });
+  w.setDraft('retain model mismatch');
+  await w.submit();
+  await new Promise((done) => setTimeout(done, 0));
+  assert.equal(w.snapshot().selected?.sessionId, 'created');
+  assert.match(w.snapshot().error, /启动模型尚未与预设一致/);
+  assert.equal(w.snapshot().draft, 'retain model mismatch');
+  await w.submit();
+  assert.equal(
+    calls.filter((call) => call.method === 'session.create').length,
+    1,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    0,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'session.selectModel').length,
+    0,
+  );
+  w.dispose();
+});
+
+test('a create acknowledgement without a session identity never sends a prompt or performs an automatic second create', async (t) => {
+  const { w, calls } = advancedFixture(t, {
+    preview: async (call) => ({
+      endpointId: call.endpoint,
+      connectionEpoch: 7,
+      preset: call.payload.preset,
+      resolution: presetResolution(call.payload.preset as SessionPreset),
+    }),
+    create: async () => ({}),
+  });
+  await w.connect('token');
+  await ready(w);
+  await applyPreset(w, { tools: ['read'] });
+  w.setDraft('retain unknown identity');
+  await w.submit();
+  assert.match(w.snapshot().error, /未包含会话身份/);
+  assert.equal(w.snapshot().draft, 'retain unknown identity');
+  assert.equal(w.snapshot().selected, null);
+  await new Promise((done) => setTimeout(done, 0));
+  assert.equal(
+    calls.filter((call) => call.method === 'session.create').length,
+    1,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'session.prompt').length,
+    0,
+  );
+  w.dispose();
+});
+
+function sideChatFixture(
+  t: TestContext,
+  prompt?: (call: Call) => Promise<unknown>,
+  options?: {
+    runningSessions?: string[];
+    call?: (call: Call) => Promise<unknown>;
+  },
+) {
+  return fixture(
+    t,
+    prompt,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    options || {},
+  );
+}
+function temporaryChat(
+  sessionId = 'scratch-child',
+  handle = 'side-handle',
+): SideChat {
+  return {
+    handle,
+    parent: { endpointId: 'tekes', threadId: 'parent', sessionId: 'parent' },
+    scope: { endpointId: 'tekes', threadId: sessionId, sessionId },
+    connectionEpoch: 7,
+    title: 'Temporary branch',
+    phase: 'ready',
+    error: null,
+  };
+}
+function temporaryState(chat: SideChat, removed = false): SideChatState {
+  return {
+    endpointId: 'tekes',
+    parentSessionId: chat.parent.sessionId,
+    connectionEpoch: 7,
+    supported: true,
+    creating: false,
+    unknownCreation: null,
+    chats: removed ? [] : [chat],
+    ...(removed ? { removedHandles: [chat.handle] } : {}),
+  };
+}
+
+test('SideChat reuses full attachment and annotation compilation while parent drafts remain isolated', async (t) => {
+  const { w, calls } = sideChatFixture(t);
+  const parent = { endpoint: 'tekes', sessionId: 'parent' },
+    chat = temporaryChat();
+  await w.connect('token');
+  await w.select(parent);
+  await ready(w);
+  w.setDraft('parent draft');
+  w.addFiles([new File(['parent'], 'parent.txt', { type: 'text/plain' })]);
+  const parentQuote = { ...quote, id: 'parent-quote' };
+  w.saveAnnotation(parentQuote);
+  await w.openSideChat(chat);
+  await ready(w);
+  assert.equal(w.snapshot().draft, '');
+  assert.deepEqual(w.snapshot().attachments, []);
+  assert.deepEqual(w.snapshot().annotations, []);
+  w.setDraft('child draft');
+  w.addFiles([new File(['child'], 'child.txt', { type: 'text/plain' })]);
+  const childQuote = { ...quote, id: 'child-quote' };
+  w.saveAnnotation(childQuote);
+  await w.submit();
+  const compile = calls.find(
+    (call) => call.method === 'composer.compileAnnotations',
+  )!;
+  assert.deepEqual(compile.payload, {
+    text: 'child draft',
+    annotations: [childQuote],
+  });
+  const upload = calls.find((call) => call.method === 'session.uploadFile')!;
+  assert.equal(upload.payload.sessionId, chat.scope.sessionId);
+  assert.equal(upload.payload.name, 'child.txt');
+  const prompt = calls.find((call) => call.method === 'agent.sideChat.prompt')!;
+  assert.equal(prompt.payload.parentSessionId, 'parent');
+  assert.equal(prompt.payload.handle, 'side-handle');
+  assert.equal(prompt.payload.connectionEpoch, 7);
+  assert.equal('sessionId' in prompt.payload, false);
+  assert.deepEqual(prompt.payload.content, [
+    { type: 'text', text: 'AgentKit compiled annotation input' },
+    { type: 'file', receiptId: 'upload-receipt' },
+  ]);
+  assert.equal(
+    calls.filter((call) => call.method === 'agent.sideChat.prompt').length,
+    1,
+  );
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.method === 'session.prompt' || call.method === 'session.create',
+    ),
+    false,
+  );
+  await w.select(parent);
+  await ready(w);
+  assert.equal(w.snapshot().draft, 'parent draft');
+  assert.equal(w.snapshot().attachments[0].file.name, 'parent.txt');
+  assert.deepEqual(w.snapshot().annotations, [parentQuote]);
+  w.dispose();
+});
+
+test('a late SideChat send acknowledgement cannot clear another selected session draft or artifacts', async (t) => {
+  let acknowledge!: (value: unknown) => void;
+  const pending = new Promise((done) => {
+    acknowledge = done;
+  });
+  const { w, calls } = sideChatFixture(t, async () => pending);
+  const parent = { endpoint: 'tekes', sessionId: 'parent' },
+    chat = temporaryChat();
+  await w.connect('token');
+  await w.select(parent);
+  await ready(w);
+  w.setDraft('parent stays');
+  await w.openSideChat(chat);
+  await ready(w);
+  w.setDraft('submitted child');
+  w.addFiles([new File(['child'], 'child.txt')]);
+  const sending = w.submit();
+  await ready(w, () =>
+    calls.some((call) => call.method === 'agent.sideChat.prompt'),
+  );
+  await w.select(parent);
+  await ready(w);
+  w.setDraft('new parent typing');
+  w.addFiles([new File(['parent'], 'parent-later.txt')]);
+  const parentQuote = { ...quote, id: 'late-parent-quote' };
+  w.saveAnnotation(parentQuote);
+  acknowledge({ accepted: true });
+  await sending;
+  assert.deepEqual(w.snapshot().selected, parent);
+  assert.equal(w.snapshot().draft, 'new parent typing');
+  assert.equal(w.snapshot().attachments[0].file.name, 'parent-later.txt');
+  assert.deepEqual(w.snapshot().annotations, [parentQuote]);
+  assert.equal(w.drafts.get(addressKey('tekes', chat.scope.sessionId)), '');
+  assert.equal(
+    calls.filter((call) => call.method === 'agent.sideChat.prompt').length,
+    1,
+  );
+  w.dispose();
+});
+
+test('SideChat Stop captures its parent handle and epoch before navigation changes', async (t) => {
+  let acknowledge!: (value: unknown) => void;
+  const pending = new Promise((done) => {
+    acknowledge = done;
+  });
+  const chat = temporaryChat();
+  const { w, calls } = sideChatFixture(t, undefined, {
+    runningSessions: [chat.scope.sessionId],
+    call: async (call) =>
+      call.method === 'agent.sideChat.cancel' ? pending : {},
+  });
+  await w.connect('token');
+  await w.openSideChat(chat);
+  await ready(
+    w,
+    () =>
+      !w.snapshot().modelLoading &&
+      !w.snapshot().controlsLoading &&
+      w.snapshot().view?.run.canCancel === true,
+  );
+  const stopping = w.cancel();
+  await ready(w, () =>
+    calls.some((call) => call.method === 'agent.sideChat.cancel'),
+  );
+  await w.select({ endpoint: 'tekes', sessionId: 'different' });
+  await ready(w);
+  w.setDraft('different draft');
+  acknowledge({ accepted: true });
+  await stopping;
+  const cancel = calls.find((call) => call.method === 'agent.sideChat.cancel')!;
+  assert.deepEqual(cancel.payload, {
+    parentSessionId: 'parent',
+    handle: 'side-handle',
+    connectionEpoch: 7,
+  });
+  assert.equal(
+    calls.some((call) => call.method === 'session.cancel'),
+    false,
+  );
+  assert.equal(w.snapshot().draft, 'different draft');
+  w.dispose();
+});
+
+test('failed SideChat close preserves the pointer and full child draft until the service confirms removal', async (t) => {
+  const chat = temporaryChat();
+  const { w, calls } = sideChatFixture(t, undefined, {
+    call: async (call) => {
+      if (call.method === 'agent.sideChat.close')
+        throw new Error('outcome-unknown');
+      return temporaryState(chat);
+    },
+  });
+  await w.connect('token');
+  await w.openSideChat(chat);
+  await ready(w);
+  w.setDraft('keep child');
+  w.addFiles([new File(['child'], 'child.txt')]);
+  w.saveAnnotation({ ...quote, id: 'child' });
+  const operations = w.sideChatOperations({
+    endpoint: 'tekes',
+    sessionId: 'parent',
+  });
+  await assert.rejects(operations.close(chat, 'close-once'), /outcome-unknown/);
+  assert.equal(w.sideChatOrigin()?.handle, chat.handle);
+  assert.equal(w.snapshot().draft, 'keep child');
+  assert.equal(w.snapshot().attachments[0].file.name, 'child.txt');
+  assert.equal(w.snapshot().annotations[0].id, 'child');
+  assert.equal(
+    calls.filter((call) => call.method === 'agent.sideChat.close').length,
+    1,
+  );
+  const close = calls.find((call) => call.method === 'agent.sideChat.close')!;
+  assert.deepEqual(close.payload, {
+    parentSessionId: 'parent',
+    handle: chat.handle,
+    connectionEpoch: 7,
+  });
+  assert.equal(close.rpcId, 'close-once');
+  w.dispose();
+});
+
+test('confirmed SideChat cleanup clears only its original pointer and returns to the intact parent', async (t) => {
+  const chat = temporaryChat();
+  const { w } = sideChatFixture(t, undefined, {
+    call: async () => temporaryState(chat, true),
+  });
+  const parent = { endpoint: 'tekes', sessionId: 'parent' };
+  await w.connect('token');
+  await w.select(parent);
+  await ready(w);
+  w.setDraft('parent retained');
+  w.addFiles([new File(['parent'], 'parent.txt')]);
+  w.saveAnnotation({ ...quote, id: 'parent' });
+  await w.openSideChat(chat);
+  await ready(w);
+  w.setDraft('child cleared');
+  w.addFiles([new File(['child'], 'child.txt')]);
+  w.saveAnnotation({ ...quote, id: 'child' });
+  await w.closedSideChat({ ...chat, handle: 'stale-other-pointer' });
+  assert.equal(w.snapshot().draft, 'child cleared');
+  assert.equal(w.sideChatOrigin()?.handle, chat.handle);
+  const result = await w.sideChatOperations(parent).close(chat, 'close-once');
+  assert.ok(result.removedHandles?.includes(chat.handle));
+  await w.closedSideChat(chat);
+  await ready(w);
+  assert.deepEqual(w.snapshot().selected, parent);
+  assert.equal(w.snapshot().draft, 'parent retained');
+  assert.equal(w.snapshot().attachments[0].file.name, 'parent.txt');
+  assert.equal(w.snapshot().annotations[0].id, 'parent');
+  assert.equal(w.drafts.get(addressKey('tekes', chat.scope.sessionId)), '');
+  assert.deepEqual(
+    w.annotationDrafts.get(addressKey('tekes', chat.scope.sessionId)),
+    [],
+  );
+  assert.equal(
+    w.sideChatOrigin({ endpoint: 'tekes', sessionId: chat.scope.sessionId }),
+    undefined,
+  );
+  w.dispose();
+});
+
+test('a confirmed close finishing after navigation does not return the user to an older parent', async (t) => {
+  const chat = temporaryChat();
+  const { w } = sideChatFixture(t);
+  await w.connect('token');
+  await w.openSideChat(chat);
+  await ready(w);
+  w.setDraft('child discarded');
+  await w.select({ endpoint: 'pi', sessionId: 'other' });
+  await ready(w);
+  w.setDraft('other preserved');
+  await w.closedSideChat(chat);
+  assert.deepEqual(w.snapshot().selected, {
+    endpoint: 'pi',
+    sessionId: 'other',
+  });
+  assert.equal(w.snapshot().draft, 'other preserved');
+  assert.equal(w.drafts.get(addressKey('tekes', chat.scope.sessionId)), '');
+  w.dispose();
+});
+
+function harnessFilesFixture(
+  t: TestContext,
+  read: (call: Call) => Promise<unknown>,
+  host?: {
+    advertised?: boolean;
+    list?: () => Promise<unknown>;
+    call?: (call: Call) => Promise<unknown>;
+  },
+) {
+  const state = fixture(
+    t,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    host,
+    undefined,
+    undefined,
+    read,
+  );
+  Object.assign(state.endpoints[1], {
+    id: 'remote-dsh',
+    kind: 'dsh',
+    name: 'Remote DSH',
+    connectionEpoch: 7,
+  });
+  state.endpoints[1].capabilities!.methods!.push('agent.workspace.read');
+  return state;
+}
+function harnessFilesReply(call: Call, result: unknown) {
+  return {
+    provider: 'harness',
+    endpointId: call.endpoint,
+    sessionId: call.payload.sessionId,
+    workspaceId: call.payload.sessionId,
+    connectionEpoch: call.payload.connectionEpoch,
+    method: call.payload.method,
+    result,
+  };
+}
+const harnessReadCaps = {
+  version: 1,
+  methods: ['filesList', 'filesRead'],
+  mutations: false,
+  turnChanges: false,
+};
+
+test('DSH session files use their Harness reader identity and never a cwd-based local workspace', async (t) => {
+  const { w, calls } = harnessFilesFixture(t, async (call) =>
+    harnessFilesReply(
+      call,
+      call.payload.method === 'capabilities'
+        ? harnessReadCaps
+        : {
+            workspaceId: call.payload.sessionId,
+            path: '',
+            entries: [],
+            truncated: false,
+          },
+    ),
+  );
+  await w.connect('token');
+  await w.select({ endpoint: 'remote-dsh', sessionId: 'remote-session' });
+  await ready(w);
+  const source = w.harnessWorkspaceSource()!;
+  assert.ok(source);
+  assert.equal(source.workspaceId, 'remote-session');
+  assert.equal(source.provider, 'harness');
+  assert.equal(
+    source.connectionId,
+    JSON.stringify(['harness', 'remote-dsh', 'remote-session', 7]),
+  );
+  const result = await w.harnessWorkspaceCall(
+    source,
+    'filesList',
+    { workspaceId: source.workspaceId, path: '' },
+    'remote-read',
+  );
+  assert.deepEqual(result, {
+    workspaceId: 'remote-session',
+    path: '',
+    entries: [],
+    truncated: false,
+  });
+  const request = calls.find((call) => call.method === 'agent.workspace.read')!;
+  assert.equal(request.endpoint, 'remote-dsh');
+  assert.equal(request.rpcId, 'remote-read');
+  assert.deepEqual(request.payload, {
+    sessionId: 'remote-session',
+    connectionEpoch: 7,
+    method: 'filesList',
+    request: { path: '' },
+  });
+  await assert.rejects(
+    w.harnessWorkspaceCall(
+      source,
+      'filesWrite',
+      { path: 'remote.txt', content: 'YQ==', expectedRevision: 'r' },
+      'no-write',
+    ),
+    /只支持读取/,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === 'agent.workspace.read').length,
+    1,
+  );
+  assert.equal(
+    calls.some((call) => call.op === 'workspace.call'),
+    false,
+  );
+  w.dispose();
+});
+
+test('a Harness file failure stays at that source while local access remains an explicit independent operation', async (t) => {
+  const { w, calls } = harnessFilesFixture(
+    t,
+    async (call) => ({
+      ...harnessFilesReply(call, null),
+      result: undefined,
+      error: { code: 'remote-path-missing', message: 'Remote path missing' },
+    }),
+    {
+      advertised: true,
+      list: async () => ({
+        workspaces: [
+          {
+            connectionId: 'local-host',
+            workspaceId: 'local-project',
+            title: 'Local project',
+          },
+        ],
+      }),
+      call: async () => ({ result: { local: true } }),
+    },
+  );
+  await w.connect('token');
+  await w.select({ endpoint: 'remote-dsh', sessionId: 'remote-session' });
+  await ready(
+    w,
+    () =>
+      !w.snapshot().workspaceServicesLoading &&
+      !w.snapshot().controlsLoading &&
+      !w.snapshot().modelLoading,
+  );
+  const source = w.harnessWorkspaceSource()!;
+  await assert.rejects(
+    w.harnessWorkspaceCall(source, 'filesList', { path: '' }, 'failed-remote'),
+    (cause: unknown) =>
+      cause instanceof Error &&
+      'code' in cause &&
+      cause.code === 'remote-path-missing',
+  );
+  assert.equal(w.harnessWorkspaceSource()?.connectionId, source.connectionId);
+  assert.equal(
+    calls.some((call) => call.op === 'workspace.call'),
+    false,
+  );
+  assert.deepEqual(
+    await w.workspaceServiceCall(
+      'local-host',
+      'local-project',
+      'filesList',
+      { path: '' },
+      'explicit-local',
+    ),
+    { local: true },
+  );
+  assert.equal(calls.filter((call) => call.op === 'workspace.call').length, 1);
+  w.dispose();
+});
+
+test('late Harness file reads and mismatched source envelopes cannot populate a different selected session', async (t) => {
+  let finish!: (value: unknown) => void;
+  const pending = new Promise((done) => {
+    finish = done;
+  });
+  let captured!: Call;
+  const { w, calls } = harnessFilesFixture(t, async (call) => {
+    captured = call;
+    return pending;
+  });
+  await w.connect('token');
+  await w.select({ endpoint: 'remote-dsh', sessionId: 'first' });
+  await ready(w);
+  const source = w.harnessWorkspaceSource()!;
+  const reading = w.harnessWorkspaceCall(
+    source,
+    'filesRead',
+    { path: 'remote.txt', maxBytes: 0 },
+    'read-first',
+  );
+  await w.select({ endpoint: 'remote-dsh', sessionId: 'second' });
+  await ready(w);
+  finish(
+    harnessFilesReply(captured, { workspaceId: 'first', path: 'remote.txt' }),
+  );
+  await assert.rejects(reading, /文件来源已变化/);
+  assert.equal(w.harnessWorkspaceSource()?.workspaceId, 'second');
+  assert.equal(
+    calls.some((call) => call.op === 'workspace.call'),
+    false,
+  );
+  w.dispose();
+});
+
+test('the actual Web workspace picker defaults to current DSH files, retains failed Harness selection and resets preference for another session', async (t) => {
+  const { w, calls } = harnessFilesFixture(
+    t,
+    async (call) =>
+      call.payload.method === 'capabilities'
+        ? harnessFilesReply(call, harnessReadCaps)
+        : {
+            ...harnessFilesReply(call, null),
+            result: undefined,
+            error: { code: 'remote-missing', message: 'Remote read failed' },
+          },
+    {
+      advertised: true,
+      list: async () => ({
+        workspaces: [
+          {
+            connectionId: 'local-host',
+            workspaceId: 'local-project',
+            title: 'Local project',
+          },
+        ],
+      }),
+      call: async () => ({ result: harnessReadCaps }),
+    },
+  );
+  await w.connect('token');
+  await w.select({ endpoint: 'remote-dsh', sessionId: 'first' });
+  await ready(
+    w,
+    () =>
+      !w.snapshot().workspaceServicesLoading &&
+      !w.snapshot().controlsLoading &&
+      !w.snapshot().modelLoading,
+  );
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', {
+    url: 'http://localhost',
+  });
+  const media = () => ({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  });
+  const originals = [
+    'window',
+    'document',
+    'matchMedia',
+    'requestAnimationFrame',
+    'IS_REACT_ACT_ENVIRONMENT',
+  ].map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  );
+  const locale = getLocale();
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    matchMedia: media,
+    requestAnimationFrame: (callback: (time: number) => void) => {
+      callback(0);
+      return 0;
+    },
+    IS_REACT_ACT_ENVIRONMENT: true,
+  });
+  Object.defineProperty(dom.window, 'matchMedia', { value: media });
+  setLocale('zh-CN');
+  const { createRoot } = await import('react-dom/client');
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(createElement(App, { workspace: w })));
+    const open = [
+      ...container.querySelectorAll<HTMLButtonElement>('button'),
+    ].find((button) => button.textContent === '文件与 Git')!;
+    assert.ok(open);
+    await act(async () => open.click());
+    const sourceSelect = () =>
+      [...container.querySelectorAll<HTMLSelectElement>('select')].find(
+        (select) =>
+          [...select.options].some(
+            (option) => option.textContent === 'DSH 会话文件（只读）',
+          ),
+      )!;
+    assert.equal(
+      sourceSelect().selectedOptions[0].textContent,
+      'DSH 会话文件（只读）',
+    );
+    assert.match(container.textContent!, /Remote read failed/);
+    assert.equal(
+      calls.some((call) => call.op === 'workspace.call'),
+      false,
+    );
+    assert.equal(
+      [...container.querySelectorAll('button')].some(
+        (button) => button.textContent === 'Git',
+      ),
+      false,
+    );
+    await act(async () => {
+      const select = sourceSelect();
+      select.value = JSON.stringify(['local-host', 'local-project']);
+      select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    });
+    assert.match(sourceSelect().selectedOptions[0].textContent!, /本地宿主/);
+    assert.equal(
+      calls.some((call) => call.op === 'workspace.call'),
+      true,
+    );
+    await act(async () =>
+      w.select({ endpoint: 'remote-dsh', sessionId: 'second' }),
+    );
+    await ready(w);
+    assert.equal(
+      sourceSelect().selectedOptions[0].textContent,
+      'DSH 会话文件（只读）',
+    );
+    assert.equal(w.snapshot().selected?.sessionId, 'second');
+  } finally {
+    await act(async () => root.unmount());
+    setLocale(locale);
+    for (const [key, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+    dom.window.close();
+    w.dispose();
+  }
+});
+
+test('a Harness reply for a different session is rejected without changing the chosen source', async (t) => {
+  const { w, calls } = harnessFilesFixture(t, async (call) => ({
+    ...harnessFilesReply(call, {
+      workspaceId: 'wrong',
+      path: '',
+      entries: [],
+      truncated: false,
+    }),
+    sessionId: 'different-session',
+    workspaceId: 'different-session',
+  }));
+  await w.connect('token');
+  await w.select({ endpoint: 'remote-dsh', sessionId: 'expected' });
+  await ready(w);
+  const source = w.harnessWorkspaceSource()!;
+  await assert.rejects(
+    w.harnessWorkspaceCall(source, 'filesList', { path: '' }, 'wrong-reply'),
+    /文件来源已变化/,
+  );
+  assert.equal(w.harnessWorkspaceSource()?.connectionId, source.connectionId);
+  assert.equal(
+    calls.some((call) => call.op === 'workspace.call'),
+    false,
+  );
+  w.dispose();
+});
+
+test('nonstandard remote Harness errors remain inspectable without a local fallback', async (t) => {
+  const remoteError = {
+    kind: 'remote-denied',
+    reason: { operation: 'filesRead', message: 'remote policy' },
+  };
+  const { w, calls } = harnessFilesFixture(t, async (call) => ({
+    ...harnessFilesReply(call, null),
+    result: undefined,
+    error: remoteError,
+  }));
+  await w.connect('token');
+  await w.select({ endpoint: 'remote-dsh', sessionId: 'expected' });
+  await ready(w);
+  const source = w.harnessWorkspaceSource()!;
+  await assert.rejects(
+    w.harnessWorkspaceCall(
+      source,
+      'filesRead',
+      { path: '/remote/only.txt' },
+      'remote-denied',
+    ),
+    (cause: unknown) => {
+      assert.ok(cause instanceof Error);
+      assert.ok('details' in cause);
+      assert.deepEqual(cause.details, remoteError);
+      return true;
+    },
+  );
+  assert.equal(
+    calls.some((call) => call.op === 'workspace.call'),
+    false,
+  );
   w.dispose();
 });

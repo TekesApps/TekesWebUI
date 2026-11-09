@@ -4,8 +4,11 @@ import { realpath, readFile, stat } from 'node:fs/promises';
 import { resolve, sep, extname } from 'node:path';
 import type { RuntimeBridge, Wire } from './bridge.js';
 import { DirectoryAuthority } from './directory.js';
+import { prepareNativePresetExecution } from './preset-execution.js';
 import { LIMIT } from './private.js';
 import { followView } from './view-follow.js';
+import type { WorkspaceService } from './workspace-service.js';
+import type { WorkspaceCallRequest } from '@tekesagentkit/client-contract/workspace';
 
 export interface HttpOptions {
   assets: string;
@@ -17,6 +20,7 @@ export interface HttpOptions {
   dshURL: string;
   directories: DirectoryAuthority;
   bridge: RuntimeBridge;
+  workspaceService?: Pick<WorkspaceService, 'list' | 'call'>;
   attachDSH: (cookie: string) => Promise<unknown>;
 }
 function equal(a: string, b: string): boolean {
@@ -125,8 +129,23 @@ export function createHostServer(options: HttpOptions): Server {
               workspace: options.workspace,
               kernelVersion: options.kernelVersion,
               hostVersion: options.hostVersion,
+              ...(options.workspaceService ? { workspaceService: true } : {}),
               directoryPicker: { endpoints: [...directories.endpoints].sort() },
             },
+          });
+          return;
+        case 'workspace.list':
+          if (!options.workspaceService)
+            throw new Error('Workspace service is unavailable');
+          reply(res, 200, { value: options.workspaceService.list() });
+          return;
+        case 'workspace.call':
+          if (!options.workspaceService)
+            throw new Error('Workspace service is unavailable');
+          reply(res, 200, {
+            value: await options.workspaceService.call(
+              request as unknown as WorkspaceCallRequest,
+            ),
           });
           return;
         case 'host.pickDirectory':
@@ -168,35 +187,26 @@ export function createHostServer(options: HttpOptions): Server {
       }
       if (
         request.op === 'call' &&
-        request.method === 'session.create' &&
+        request.method === 'agent.preset.preview' &&
+        request.endpoint !== 'tekes-loopback-default'
+      )
+        throw new Error(
+          'Structured preset preview requires a configured host execution authority',
+        );
+      if (
+        request.op === 'call' &&
+        [
+          'session.create',
+          'session.presets.resolve',
+          'agent.preset.preview',
+        ].includes(String(request.method)) &&
         request.endpoint === 'tekes-loopback-default'
       ) {
-        const payload = (request.payload ?? {}) as Wire;
-        if (!payload || typeof payload !== 'object' || Array.isArray(payload))
-          throw new Error('Invalid session payload');
-        payload.execution = await directories.execution(
-          request.endpoint,
-          payload.cwd ?? options.workspace,
-          {
-            cwd: options.workspace,
-            read_roots: [options.workspace],
-            writable_roots: [options.workspace],
-            toolchain_roots: ['/bin', '/usr/bin'],
-            network: false,
-            allowed_tools: [
-              'read',
-              'write',
-              'edit',
-              'shell',
-              'ask_user_questions',
-              'context',
-              'task',
-            ],
-          },
+        request.payload = await prepareNativePresetExecution(
+          request,
+          options.workspace,
+          directories,
         );
-        delete payload.cwd;
-        payload.identityProfile ??= 'general';
-        request.payload = payload;
       }
       if (request.op !== 'follow') {
         reply(res, 200, { value: await bridge.request(request) });

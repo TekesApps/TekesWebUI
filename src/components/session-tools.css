@@ -1,0 +1,114 @@
+.resource-picker {
+  margin: 12px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.resource-picker .section-heading,
+.selected-skills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.resource-picker .section-heading {
+  justify-content: space-between;
+}
+.resource-picker h3 {
+  margin: 0;
+}
+.resource-picker ul {
+  list-style: none;
+  padding: 0;
+}
+.resource-picker li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.resource-picker li p {
+  margin: 4px 0;
+  color: var(--secondary);
+}
+.resource-picker input,
+.resource-picker textarea,
+.family-panel textarea,
+.family-panel input[type='number'],
+.queued textarea {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--canvas);
+}
+.resource-picker textarea,
+.family-panel textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+.resource-picker button,
+.selected-skills button,
+.queued form button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--hover);
+}
+.resource-picker button[aria-pressed='true'] {
+  background: var(--selected);
+}
+.resource-picker .error {
+  color: var(--danger);
+}
+.selected-skills {
+  max-width: 860px;
+  margin: 0 auto 8px;
+}
+.harness-setting {
+  margin: 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.harness-setting input:not([type='checkbox']),
+.harness-setting select,
+.feedback-editor textarea {
+  width: 100%;
+  padding: 8px;
+  margin: 8px 0;
+  color: var(--text);
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.message-feedback {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.message-feedback button {
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 0 6px 6px 0;
+  background: var(--hover);
+}
+.message-feedback button[aria-pressed='true'] {
+  background: var(--selected);
+  outline: 1px solid var(--secondary);
+}
+.feedback-editor {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.feedback-editor textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+.context-rows {
+  padding-left: 20px;
+}
+.context-rows li {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}

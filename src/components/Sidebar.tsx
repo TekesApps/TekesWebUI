@@ -19,6 +19,8 @@ import type { Address } from '../types';
 import { TekesIcon } from './ui/TekesIcon';
 import { statusGroupIcon, statusGroupColor } from '../icons/status-assets';
 import { SessionActions } from './SessionActions';
+import { ThreadSearch } from './ThreadSearch';
+import type { ThreadSearchLoader } from '../thread-search';
 import {
   addressKey,
   formatTimestamp,
@@ -51,6 +53,7 @@ export function Sidebar({
   onSettings,
   onHelp,
   onCollapse,
+  loadThreadSearch,
 }: {
   workspace: Workspace;
   state: WorkspaceState;
@@ -61,7 +64,9 @@ export function Sidebar({
   onSettings: () => void;
   onHelp: () => void;
   onCollapse: () => void;
+  loadThreadSearch?: ThreadSearchLoader;
 }) {
+  const [searchMode, setSearchMode] = useState<'filter' | 'names'>('filter');
   const [searching, setSearching] = useState(false),
     [query, setQuery] = useState('');
   const [sort, setSort] = useState<SessionSort>(() => {
@@ -75,6 +80,7 @@ export function Sidebar({
   const [grouping, setGrouping] = useState<SessionGrouping>(() =>
     sessionGroupingPreference(preference('tekes.web.sidebar.grouping')),
   );
+  const [archived, setArchived] = useState(false);
   const [filter, setFilter] = useState(''),
     [running, setRunning] = useState(false),
     [limit, setLimit] = useState(8);
@@ -91,11 +97,12 @@ export function Sidebar({
     savePreference('tekes.web.sidebar.grouping', String(grouping));
     setPages({});
     setLimit(8);
-  }, [sort, grouping]);
+  }, [sort, grouping, archived]);
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
+        setSearchMode('filter');
         setSearching(true);
         requestAnimationFrame(() => {
           search.current?.focus();
@@ -116,19 +123,22 @@ export function Sidebar({
   }, [query]);
   const groups = groupSessions(
     s.endpoints,
-    s.inventories,
+    archived ? s.archivedInventories : s.inventories,
     query,
     filter,
     running,
     (endpoint, entry) =>
       w.titles.title(endpoint, entry.sessionId, entry.summary),
-    { sort, grouping },
+    { sort, grouping, archived },
   );
-  const total = [...s.inventories.values()]
+  const inventories = archived ? s.archivedInventories : s.inventories;
+  const total = [...inventories.values()]
     .flat()
     .filter(
       (e) =>
-        e.summary && !e.summary.ephemeral && e.summary.status !== 'archived',
+        e.summary &&
+        !e.summary.ephemeral &&
+        (archived || e.summary.status !== 'archived'),
     ).length;
   const sorts: [SessionSort, string][] = [
     ['recentActivity', t('最近活动')],
@@ -170,7 +180,11 @@ export function Sidebar({
           <>
             <button
               className="brand"
-              title={t('{0} 个活动会话', total)}
+              title={
+                archived
+                  ? t('{0} 个已归档会话', total)
+                  : t('{0} 个活动会话', total)
+              }
               onClick={() => onNew()}
             >
               <img src="/app-icon.png" width={22} height={22} alt="" />
@@ -182,7 +196,10 @@ export function Sidebar({
                 <button
                   className="icon-button"
                   aria-label={t('搜索会话')}
-                  onClick={() => setSearching(true)}
+                  onClick={() => {
+                    setSearchMode('filter');
+                    setSearching(true);
+                  }}
                 >
                   <Search size={17} />
                 </button>
@@ -243,7 +260,11 @@ export function Sidebar({
             ))}
           </MenuSub>
           <MenuSeparator />
-          <MenuItem selected={running} onSelect={() => setRunning(!running)}>
+          <MenuItem
+            selected={running}
+            disabled={archived}
+            onSelect={() => setRunning(!running)}
+          >
             {t('仅显示运行中')}
           </MenuItem>
         </PopupMenu>
@@ -253,231 +274,304 @@ export function Sidebar({
         <span>{t('新建会话')}</span>
         <kbd>⌘ ↵</kbd>
       </button>
-      {(query || filter || running) && (
-        <div className="list-filter-summary">
-          <span>
-            {groups.reduce((n, g) => n + g.entries.length, 0)}
-            {t(' 个结果')}
-            {filter
-              ? ` · ${s.endpoints.find((e) => e.id === filter)?.name || ''}`
-              : ''}
-            {running ? t(' · 运行中') : ''}
-          </span>
-          <button
-            aria-label={t('清除筛选')}
-            title={t('清除筛选')}
-            onClick={() => {
-              setQuery('');
-              setFilter('');
-              setRunning(false);
+      {loadThreadSearch && (
+        <div className="filters">
+          <label htmlFor="sidebar-search-mode">{t('查找方式')}</label>
+          <select
+            id="sidebar-search-mode"
+            aria-label={t('查找方式')}
+            value={searchMode}
+            onChange={(event) => {
+              setSearchMode(event.target.value as 'filter' | 'names');
+              setSearching(false);
             }}
           >
-            <X size={12} />
-          </button>
+            <option value="filter">{t('列表筛选')}</option>
+            <option
+              value="names"
+              disabled={
+                !s.endpoints.some((endpoint) =>
+                  endpoint.capabilities?.methods?.includes(
+                    'agent.threadSearch',
+                  ),
+                )
+              }
+            >
+              {t('名称检索')}
+            </option>
+          </select>
         </div>
       )}
-      <nav
-        className="thread-list"
-        aria-label={
-          grouping === 'status'
-            ? t('按状态分组的会话')
-            : grouping === 'folder'
-              ? t('按文件夹分组的会话')
-              : t('所有会话')
-        }
-      >
-        {groups.slice(0, query ? groups.length : limit).map((group) => (
-          <section
-            className={`folder-group ${grouping === 'none' ? 'ungrouped' : ''}`}
-            key={group.key}
+      {searchMode === 'names' && loadThreadSearch ? (
+        <ThreadSearch
+          endpoints={s.endpoints}
+          load={loadThreadSearch}
+          onSelect={(address) => {
+            void w.select(address);
+            onSelect();
+          }}
+        />
+      ) : (
+        <>
+          <div className="filters">
+            <label htmlFor="sidebar-session-view">{t('会话视图')}</label>
+            <select
+              id="sidebar-session-view"
+              aria-label={t('会话视图')}
+              value={archived ? 'archived' : 'active'}
+              onChange={(event) => {
+                setArchived(event.target.value === 'archived');
+                setRunning(false);
+              }}
+            >
+              <option value="active">{t('活动会话')}</option>
+              <option value="archived">{t('已归档会话')}</option>
+            </select>
+          </div>
+          {(query || filter || running) && (
+            <div className="list-filter-summary">
+              <span>
+                {groups.reduce((n, g) => n + g.entries.length, 0)}
+                {t(' 个结果')}
+                {filter
+                  ? ` · ${s.endpoints.find((e) => e.id === filter)?.name || ''}`
+                  : ''}
+                {running ? t(' · 运行中') : ''}
+              </span>
+              <button
+                aria-label={t('清除筛选')}
+                title={t('清除筛选')}
+                onClick={() => {
+                  setQuery('');
+                  setFilter('');
+                  setRunning(false);
+                }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+          <nav
+            className="thread-list"
+            aria-label={
+              archived
+                ? t('已归档会话')
+                : grouping === 'status'
+                  ? t('按状态分组的会话')
+                  : grouping === 'folder'
+                    ? t('按文件夹分组的会话')
+                    : t('所有会话')
+            }
           >
-            {(grouping !== 'none' || group.key === 'pinned') && (
-              <div className="folder-heading">
-                <button
-                  className="folder-toggle"
-                  title={group.path}
-                  aria-expanded={!collapsed.has(group.key) || !!query}
-                  onClick={() => {
-                    const next = new Set(collapsed);
-                    next.has(group.key)
-                      ? next.delete(group.key)
-                      : next.add(group.key);
-                    setCollapsed(next);
-                  }}
-                >
-                  {collapsed.has(group.key) && !query ? (
-                    <ChevronRight size={12} />
-                  ) : (
-                    <ChevronDown size={12} />
-                  )}
-                  {group.key === 'pinned' ? (
-                    <TekesIcon name="tekes-pin" size={14} />
-                  ) : grouping === 'status' ? (
-                    <TekesIcon
-                      name={statusGroupIcon(group.key)}
-                      size={14}
-                      style={{ color: `var(--${statusGroupColor(group.key)})` }}
-                    />
-                  ) : collapsed.has(group.key) && !query ? (
-                    <Folder size={14} />
-                  ) : (
-                    <FolderOpen size={14} />
-                  )}
-                  <span>{group.name}</span>
-                </button>
-                {grouping === 'folder' && group.key !== 'pinned' && (
-                  <button
-                    className="icon-button folder-add"
-                    aria-label={t('在 {0} 新建会话', group.name)}
-                    title={t('在此文件夹新建会话')}
-                    onClick={() =>
-                      onNew(
-                        group.path || s.hostWorkspace,
-                        group.entries[0]?.endpoint,
-                      )
-                    }
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
-              </div>
-            )}
-            {((grouping === 'none' && group.key !== 'pinned') ||
-              !collapsed.has(group.key) ||
-              !!query) && (
-              <>
-                {group.entries
-                  .slice(
-                    0,
-                    query
-                      ? group.entries.length
-                      : pages[group.key] || (grouping === 'none' ? 30 : 5),
-                  )
-                  .map((entry) => {
-                    const selected =
-                      s.selected?.endpoint === entry.endpoint &&
-                      s.selected.sessionId === entry.sessionId;
-                    const updated = formatTimestamp(entry.row.updatedAt),
-                      created = formatTimestamp(entry.row.createdAt);
-                    const tooltip = (
-                      <>
-                        <strong>{entry.title}</strong>
-                        <span>{entry.agent}</span>
-                        {updated && (
-                          <span>
-                            {t('最后活动 · ')}
-                            {updated}
-                          </span>
-                        )}
-                        {created && (
-                          <span>
-                            {t('创建时间 · ')}
-                            {created}
-                          </span>
-                        )}
-                        {entry.row.cwd && (
-                          <span className="tooltip-path">{entry.row.cwd}</span>
-                        )}
-                      </>
-                    );
-                    return (
-                      <div
-                        className="thread-row"
-                        key={addressKey(entry.endpoint, entry.sessionId)}
-                      >
-                        <Tooltip
-                          key={addressKey(entry.endpoint, entry.sessionId)}
-                          content={tooltip}
-                          side="right"
-                          block
+            {groups.slice(0, query ? groups.length : limit).map((group) => (
+              <section
+                className={`folder-group ${grouping === 'none' ? 'ungrouped' : ''}`}
+                key={group.key}
+              >
+                {(grouping !== 'none' || group.key === 'pinned') && (
+                  <div className="folder-heading">
+                    <button
+                      className="folder-toggle"
+                      title={group.path}
+                      aria-expanded={!collapsed.has(group.key) || !!query}
+                      onClick={() => {
+                        const next = new Set(collapsed);
+                        next.has(group.key)
+                          ? next.delete(group.key)
+                          : next.add(group.key);
+                        setCollapsed(next);
+                      }}
+                    >
+                      {collapsed.has(group.key) && !query ? (
+                        <ChevronRight size={12} />
+                      ) : (
+                        <ChevronDown size={12} />
+                      )}
+                      {group.key === 'pinned' ? (
+                        <TekesIcon name="tekes-pin" size={14} />
+                      ) : grouping === 'status' ? (
+                        <TekesIcon
+                          name={statusGroupIcon(group.key)}
+                          size={14}
+                          style={{
+                            color: `var(--${statusGroupColor(group.key)})`,
+                          }}
+                        />
+                      ) : collapsed.has(group.key) && !query ? (
+                        <Folder size={14} />
+                      ) : (
+                        <FolderOpen size={14} />
+                      )}
+                      <span>{group.name}</span>
+                    </button>
+                    {!archived &&
+                      grouping === 'folder' &&
+                      group.key !== 'pinned' && (
+                        <button
+                          className="icon-button folder-add"
+                          aria-label={t('在 {0} 新建会话', group.name)}
+                          title={t('在此文件夹新建会话')}
+                          onClick={() =>
+                            onNew(
+                              group.path || s.hostWorkspace,
+                              group.entries[0]?.endpoint,
+                            )
+                          }
                         >
-                          <button
-                            className={`thread ${selected ? 'selected' : ''}`}
-                            aria-current={selected ? 'page' : undefined}
-                            onClick={() => {
-                              void w.select({
+                          <Plus size={14} />
+                        </button>
+                      )}
+                  </div>
+                )}
+                {((grouping === 'none' && group.key !== 'pinned') ||
+                  !collapsed.has(group.key) ||
+                  !!query) && (
+                  <>
+                    {group.entries
+                      .slice(
+                        0,
+                        query
+                          ? group.entries.length
+                          : pages[group.key] || (grouping === 'none' ? 30 : 5),
+                      )
+                      .map((entry) => {
+                        const selected =
+                          s.selected?.endpoint === entry.endpoint &&
+                          s.selected.sessionId === entry.sessionId;
+                        const updated = formatTimestamp(entry.row.updatedAt),
+                          created = formatTimestamp(entry.row.createdAt);
+                        const tooltip = (
+                          <>
+                            <strong>{entry.title}</strong>
+                            <span>{entry.agent}</span>
+                            {updated && (
+                              <span>
+                                {t('最后活动 · ')}
+                                {updated}
+                              </span>
+                            )}
+                            {created && (
+                              <span>
+                                {t('创建时间 · ')}
+                                {created}
+                              </span>
+                            )}
+                            {entry.row.cwd && (
+                              <span className="tooltip-path">
+                                {entry.row.cwd}
+                              </span>
+                            )}
+                          </>
+                        );
+                        return (
+                          <div
+                            className="thread-row"
+                            key={addressKey(entry.endpoint, entry.sessionId)}
+                          >
+                            <Tooltip
+                              key={addressKey(entry.endpoint, entry.sessionId)}
+                              content={tooltip}
+                              side="right"
+                              block
+                            >
+                              <button
+                                className={`thread ${selected ? 'selected' : ''}`}
+                                aria-current={selected ? 'page' : undefined}
+                                onClick={() => {
+                                  void w.select({
+                                    endpoint: entry.endpoint,
+                                    sessionId: entry.sessionId,
+                                  });
+                                  onSelect();
+                                }}
+                              >
+                                <span className="thread-label">
+                                  {entry.title}
+                                </span>
+                                {sessionActivity(entry) === 'running' ? (
+                                  <span
+                                    className="running-dot"
+                                    aria-label={t('运行中')}
+                                  />
+                                ) : (
+                                  <time
+                                    className="thread-time"
+                                    dateTime={
+                                      timestampMillis(entry.row.updatedAt)
+                                        ? new Date(
+                                            timestampMillis(
+                                              entry.row.updatedAt,
+                                            ),
+                                          ).toISOString()
+                                        : undefined
+                                    }
+                                  >
+                                    {shortAge(entry.row.updatedAt)}
+                                  </time>
+                                )}
+                              </button>
+                            </Tooltip>
+                            <SessionActions
+                              compact
+                              workspace={w}
+                              state={s}
+                              address={{
                                 endpoint: entry.endpoint,
                                 sessionId: entry.sessionId,
-                              });
-                              onSelect();
-                            }}
-                          >
-                            <span className="thread-label">{entry.title}</span>
-                            {sessionActivity(entry) === 'running' ? (
-                              <span
-                                className="running-dot"
-                                aria-label={t('运行中')}
-                              />
-                            ) : (
-                              <time
-                                className="thread-time"
-                                dateTime={
-                                  timestampMillis(entry.row.updatedAt)
-                                    ? new Date(
-                                        timestampMillis(entry.row.updatedAt),
-                                      ).toISOString()
-                                    : undefined
-                                }
-                              >
-                                {shortAge(entry.row.updatedAt)}
-                              </time>
-                            )}
-                          </button>
-                        </Tooltip>
-                        <SessionActions
-                          compact
-                          workspace={w}
-                          state={s}
-                          address={{
-                            endpoint: entry.endpoint,
-                            sessionId: entry.sessionId,
-                          }}
-                          title={entry.title}
-                          onRename={onRename}
-                        />
-                      </div>
-                    );
-                  })}
-                {!query &&
-                  group.entries.length >
-                    (pages[group.key] || (grouping === 'none' ? 30 : 5)) && (
-                    <button
-                      className="list-more"
-                      onClick={() =>
-                        setPages({
-                          ...pages,
-                          [group.key]:
-                            (pages[group.key] ||
-                              (grouping === 'none' ? 30 : 5)) + 20,
-                        })
-                      }
-                    >
-                      {t('更多会话')}
-                      <ChevronDown size={11} />
-                    </button>
-                  )}
-              </>
+                              }}
+                              title={entry.title}
+                              onRename={onRename}
+                            />
+                          </div>
+                        );
+                      })}
+                    {!query &&
+                      group.entries.length >
+                        (pages[group.key] ||
+                          (grouping === 'none' ? 30 : 5)) && (
+                        <button
+                          className="list-more"
+                          onClick={() =>
+                            setPages({
+                              ...pages,
+                              [group.key]:
+                                (pages[group.key] ||
+                                  (grouping === 'none' ? 30 : 5)) + 20,
+                            })
+                          }
+                        >
+                          {t('更多会话')}
+                          <ChevronDown size={11} />
+                        </button>
+                      )}
+                  </>
+                )}
+              </section>
+            ))}
+            {!groups.length && (
+              <p className="list-empty">
+                {s.connecting
+                  ? t('正在读取会话…')
+                  : query
+                    ? t('没有找到匹配的会话')
+                    : archived
+                      ? t('没有已归档会话')
+                      : t('你的会话会出现在这里')}
+              </p>
             )}
-          </section>
-        ))}
-        {!groups.length && (
-          <p className="list-empty">
-            {s.connecting
-              ? t('正在读取会话…')
-              : query
-                ? t('没有找到匹配的会话')
-                : t('你的会话会出现在这里')}
-          </p>
-        )}
-        {!query && groups.length > limit && (
-          <button
-            className="list-more more-folders"
-            onClick={() => setLimit(limit + 12)}
-          >
-            {grouping === 'folder' ? t('显示更多文件夹') : t('显示更多分组')}
-          </button>
-        )}
-      </nav>
+            {!query && groups.length > limit && (
+              <button
+                className="list-more more-folders"
+                onClick={() => setLimit(limit + 12)}
+              >
+                {grouping === 'folder'
+                  ? t('显示更多文件夹')
+                  : t('显示更多分组')}
+              </button>
+            )}
+          </nav>
+        </>
+      )}
       <div className="sidebar-bottom">
         <Tooltip content={health}>
           <button

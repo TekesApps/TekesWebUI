@@ -61,10 +61,10 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service verifies the pinned Kernel 0.9.21 bundle, source revision and all
-four binary hashes. Use `TekesKernel-0.9.21-macos-arm64.tar.gz` from the official
+The local service verifies the pinned Kernel 0.9.22 bundle, source revision and all
+four binary hashes. Use `TekesKernel-0.9.22-macos-arm64.tar.gz` from the official
 Kernel release and verify its SHA-256 sidecar. The source revision is
-`4e1bdfdc2b3fd6b4d61af47c3ac89f8133e65590`. This release preserves durable user Stop
+`992ebca52c9fd1026357dd141b10b5a4fbea8a3d`. This release preserves durable user Stop
 through recovery, so the public terminal reason remains `aborted`, and retains
 remote-task cancellation delivery while reading the cancellation reply.
 
@@ -74,17 +74,15 @@ not launched by this CLI. Native UI is not required.
 
 On macOS the directory button invokes the local OS folder chooser. Only a confirmed
 canonical directory is granted as the Kernel session's cwd/read/write roots, while
-tool/network policy remains intact. AgentKit has no directory-browsing API.
+tool/network policy remains intact. The directory chooser grants session execution scope; WorkspaceService root registration remains an independent host decision.
 
-## Final Native consumer and release conditions
+## Runtime consumer and release conditions
 
-WebUI 0.2.0 uses the shared service operations listed in
+WebUI 0.3.0 uses the shared service operations listed in
 [delivery integration](agentkit-delivery-integration.md#independent-maintenance-and-runtime-dependencies).
-Use the immutable AgentKit 0.4.0 Core executable and the pinned public Kernel
-0.9.21 cohort. The declaration archive alone cannot supply the runtime operations.
-The existing declaration pin remains valid: its `package.json` and `web-contract`
-contents are identical to the accepted Core f649a98 source. It is not the identity
-of the running executable. Keep the release source revision and binary hashes
+Use the immutable AgentKit 0.5.0 Core executable and the pinned public Kernel
+0.9.22 cohort. The declaration archive alone cannot supply the runtime operations.
+The immutable declaration dependency in package.json/package-lock.json includes the public WorkspaceService subpath. It does not identify the running executable. Keep the release source revision and binary hashes
 with the installed cohort; do not substitute a private candidate manifest for the
 published-runtime checks.
 
@@ -163,3 +161,43 @@ still prevent execution: the service does not fabricate catalog facts or rewrite
 historical messages. AgentKit shared presentation consumes `historyAccess` to
 disable mutations while retaining readable transcripts. Unknown historical formats
 continue to fail closed.
+
+## Files and Git authority
+
+Files/Git use a host-owned WorkspaceService, independent of the selected Harness.
+The default registry exposes only the configured workspace with read access.
+An embedding host can supply `Options.workspaceService.workspaces`; saved private
+service options preserve the same configuration. For example:
+
+```json
+{
+  "workspaceService": {
+    "workspaces": [
+      {
+        "id": "project",
+        "title": "Project",
+        "root": "/absolute/path/to/project",
+        "allowRead": true,
+        "allowFileWrites": true,
+        "git": {
+          "operations": ["commit", "branch.create", "branch.switch"],
+          "repositories": [""]
+        }
+      }
+    ]
+  }
+}
+```
+
+Only configure grants for the intended project. `push` is a separate explicit
+operation grant. Repository paths are relative to the registered root; the empty
+path denotes its root repository. Browser requests cannot change this registry
+or provide execution roots or helper credentials. The service verifies the
+version-bound helper from the Kernel bundle without changing Kernel source or
+restoring any historical Kernel HTTP endpoint. Overlapping registrations share
+locks while keeping grants separate. Unknown mutation results require explicit
+inspection; reconnecting never replays them.
+
+Turn-change facts are not advertised without a real producer. Git diff is not
+a replacement for per-turn change history. These options do not change existing
+service data or grants until the owning host is explicitly configured/restarted.

@@ -16,7 +16,8 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { DirectoryAuthority } from '../host/directory.js';
 import { createHostServer, type HttpOptions } from '../host/http.js';
-import { kernelProjection, type Settings } from '../host/config.js';
+import { kernelProjection, sha256, type Settings } from '../host/config.js';
+import { WorkspaceService } from '../host/workspace-service.js';
 import { Bridge, type Wire } from '../host/bridge.js';
 import { LIMIT } from '../host/private.js';
 import {
@@ -135,6 +136,7 @@ test('provider projection preserves Responses, enabled models and credential iso
 async function httpFixture(
   root: string,
   bridgeRequest: (request: Wire) => Promise<unknown> = async () => [],
+  workspaceService?: HttpOptions['workspaceService'],
 ) {
   const assets = join(root, 'assets');
   await mkdir(assets);
@@ -169,6 +171,7 @@ async function httpFixture(
       },
     },
     attachDSH: async () => ({ connected: true }),
+    ...(workspaceService ? { workspaceService } : {}),
   };
   const server = createHostServer(options);
   server.listen(0, '127.0.0.1');
@@ -530,4 +533,203 @@ lines.on('line', (line) => {
       await readFile(logPath, 'utf8'),
       /reason=stdout-frame-too-large category=limit-exceeded/,
     );
+  }));
+
+test('Workspace HTTP operations retain authentication, registered identities and private read-only grants', () =>
+  temporary(async (root) => {
+    const helper = join(root, 'tekes-workspace-service');
+    const marker = join(root, 'workspace-helper-calls.jsonl');
+    const source = `#!/usr/bin/env node
+const fs=require('node:fs');let data='';
+process.stdin.on('data',part=>data+=part);
+process.stdin.on('end',()=>{
+ const input=JSON.parse(data);
+ fs.appendFileSync(${JSON.stringify(marker)},JSON.stringify({argv:process.argv.slice(2),input})+'\\n');
+ if(input.request.path==='remote-error')console.log(JSON.stringify({error:{code:'read-failed',message:'fixture read failed'}}));
+ else console.log(JSON.stringify({result:{workspaceId:input.request.workspaceId,path:input.request.path||'',entries:[],truncated:false}}));
+});
+`;
+    await writeFile(helper, source, { mode: 0o700 });
+    const service = await WorkspaceService.create({
+      helper: { path: helper, sha256: sha256(Buffer.from(source)) },
+      stateRoot: join(root, 'workspace-service-state'),
+      connectionId: 'local-workspace',
+      workspaces: [
+        { id: 'opaque-project', title: 'Project', root, allowRead: true },
+      ],
+    });
+    const fixture = await httpFixture(
+      root,
+      async () => {
+        throw new Error('Workspace operations must not reach SessionRuntime');
+      },
+      service,
+    );
+    const call = (changes: Wire = {}) => ({
+      op: 'workspace.call',
+      connectionId: 'local-workspace',
+      workspaceId: 'opaque-project',
+      method: 'filesList',
+      request: { path: '' },
+      rpcId: 'read-once',
+      ...changes,
+    });
+    try {
+      assert.equal(
+        (await fixture.api({ op: 'workspace.list' }, 'wrong')).status,
+        401,
+      );
+      assert.equal((await fixture.api(call(), 'wrong')).status, 401);
+      assert.equal(
+        (
+          await fixture.api(call(), 'browser-secret', {
+            Origin: 'https://outside.invalid',
+          })
+        ).status,
+        403,
+      );
+      const info = await (await fixture.api({ op: 'host.info' })).json();
+      assert.equal(info.value.workspaceService, true);
+      const inventory = await (
+        await fixture.api({ op: 'workspace.list' })
+      ).json();
+      assert.equal(inventory.value.workspaces[0].workspaceId, 'opaque-project');
+      assert.equal(
+        inventory.value.workspaces[0].connectionId,
+        'local-workspace',
+      );
+      assert.equal('root' in inventory.value.workspaces[0], false);
+      assert.equal(inventory.value.workspaces[0].capabilities.mutations, false);
+      assert.equal(
+        inventory.value.workspaces[0].capabilities.methods.includes(
+          'filesWrite',
+        ),
+        false,
+      );
+      assert.equal(
+        inventory.value.workspaces[0].capabilities.methods.includes('gitPush'),
+        false,
+      );
+      assert.equal(
+        (
+          await (
+            await fixture.api(call({ workspaceId: 'unregistered' }))
+          ).json()
+        ).value.error.code,
+        'invalid-request',
+      );
+      assert.equal(
+        (
+          await (
+            await fixture.api(call({ connectionId: 'another-server' }))
+          ).json()
+        ).value.error.code,
+        'invalid-request',
+      );
+      const denied = await (
+        await fixture.api(
+          call({
+            method: 'filesWrite',
+            request: {
+              path: 'file.txt',
+              content: 'content',
+              expectedRevision: 'r1',
+            },
+          }),
+        )
+      ).json();
+      assert.equal(denied.value.error.code, 'permission-denied');
+      const injected = await (
+        await fixture.api(
+          call({
+            method: 'filesWrite',
+            request: {
+              path: 'file.txt',
+              content: 'content',
+              expectedRevision: 'r1',
+            },
+            allowFileWrites: true,
+          }),
+        )
+      ).json();
+      assert.equal(injected.value.error.code, 'invalid-request');
+      const bodyScope = await (
+        await fixture.api(
+          call({ request: { path: '', workspaceId: 'another-project' } }),
+        )
+      ).json();
+      assert.equal(bodyScope.value.error.code, 'invalid-request');
+      const push = await (
+        await fixture.api(
+          call({
+            method: 'gitPush',
+            request: { repositoryPath: '', remote: 'origin' },
+          }),
+        )
+      ).json();
+      assert.equal(push.value.error.code, 'permission-denied');
+      await assert.rejects(readFile(marker), { code: 'ENOENT' });
+      const listed = await (await fixture.api(call())).json();
+      assert.deepEqual(listed.value.result, {
+        workspaceId: 'opaque-project',
+        path: '',
+        entries: [],
+        truncated: false,
+      });
+      const failed = await (
+        await fixture.api(
+          call({
+            method: 'filesRead',
+            request: { path: 'remote-error', maxBytes: 32 },
+            rpcId: 'failed-read',
+          }),
+        )
+      ).json();
+      assert.deepEqual(failed.value, {
+        error: { code: 'read-failed', message: 'fixture read failed' },
+      });
+      const entries = (await readFile(marker, 'utf8'))
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.equal(
+        entries.length,
+        2,
+        'only the two explicitly authorized reads run a helper',
+      );
+      assert.equal(entries[0].input.request.workspaceId, 'opaque-project');
+      assert.deepEqual(entries[0].argv.slice(0, 2), ['--root', root]);
+      assert.equal(entries[0].argv[2], '--authority-file');
+      assert.equal(fixture.calls.length, 0);
+    } finally {
+      fixture.server.close();
+      fixture.server.closeAllConnections();
+      await service.close();
+    }
+  }));
+
+test('older hosts omit Workspace advertisement and never forward unconfigured workspace operations', () =>
+  temporary(async (root) => {
+    const fixture = await httpFixture(root);
+    try {
+      const info = await (await fixture.api({ op: 'host.info' })).json();
+      assert.equal('workspaceService' in info.value, false);
+      assert.deepEqual(
+        await (await fixture.api({ op: 'workspace.list' })).json(),
+        { error: 'Workspace service is unavailable' },
+      );
+      assert.deepEqual(
+        await (
+          await fixture.api({
+            op: 'workspace.call',
+            workspaceId: 'browser-selected',
+          })
+        ).json(),
+        { error: 'Workspace service is unavailable' },
+      );
+      assert.equal(fixture.calls.length, 0);
+    } finally {
+      fixture.server.close();
+      fixture.server.closeAllConnections();
+    }
   }));

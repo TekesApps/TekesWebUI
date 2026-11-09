@@ -150,6 +150,8 @@ export function sessionActivity(entry: Session): keyof typeof statusGroups {
 export interface ListOptions {
   sort?: SessionSort;
   grouping?: SessionGrouping;
+  /** The supplied collection is the authoritative archived inventory. */
+  archived?: boolean;
 }
 export function groupSessions(
   endpoints: Pick<Endpoint, 'id' | 'name'>[],
@@ -170,7 +172,7 @@ export function groupSessions(
       if (
         !row ||
         row.ephemeral ||
-        row.status === 'archived' ||
+        (!options.archived && row.status === 'archived') ||
         (runningOnly && sessionActivity(entry) !== 'running')
       )
         continue;

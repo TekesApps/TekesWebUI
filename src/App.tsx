@@ -1,3 +1,9 @@
+import { SideChatPanel } from './components/SideChatPanel';
+import { PresetEditor } from './components/PresetEditor';
+import { RecoveryPanel } from './components/RecoveryPanel';
+import { WorkspacePanel } from './components/WorkspacePanel';
+import { HarnessSettings } from './components/HarnessSettings';
+import { ContextDetails } from './components/ContextDetails';
 import { t, useLocale, setLocale } from './i18n';
 import {
   useEffect,
@@ -39,6 +45,8 @@ import { Composer } from './components/Composer';
 import { Sidebar } from './components/Sidebar';
 import { SidebarDivider } from './components/SidebarDivider';
 import { FamilyPanel } from './components/FamilyPanel';
+import { GoalPanel } from './components/GoalPanel';
+import { ResourcePicker } from './components/ResourcePicker';
 import {
   Menu as PopupMenu,
   MenuItem,
@@ -70,6 +78,21 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
   const s = useSyncExternalStore(w.subscribe, w.snapshot, w.snapshot);
   const [settings, setSettings] = useState(false),
     [familyOpen, setFamilyOpen] = useState(false),
+    [workspacePanelOpen, setWorkspacePanelOpen] = useState(false),
+    [advancedPresetOpen, setAdvancedPresetOpen] = useState(false),
+    [workspaceChoice, setWorkspaceChoice] = useState({
+      scope: '',
+      identity: '',
+    }),
+    [toolsPanel, setToolsPanel] = useState<
+      | 'goal'
+      | 'catalog'
+      | 'settings'
+      | 'context'
+      | 'recovery'
+      | 'sideChat'
+      | null
+    >(null),
     [sidebar, setSidebar] = useState(true),
     [mobile, setMobile] = useState(false);
   const [reconnecting, setReconnecting] = useState<Set<string>>(
@@ -93,6 +116,26 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     scroll = useRef<HTMLDivElement>(null);
   const followBottom = useRef(true),
     previousKey = useRef('');
+  const harnessWorkspace = w.harnessWorkspaceSource();
+  const workspaceOptions = [
+    ...(harnessWorkspace
+      ? [{ ...harnessWorkspace, source: 'harness' as const }]
+      : []),
+    ...s.workspaceServices.map((entry) => ({
+      ...entry,
+      title: t('本地宿主：{0}', entry.title),
+      source: 'local' as const,
+    })),
+  ];
+  const workspaceSelectionScope = w.key();
+  const selectedWorkspace =
+    workspaceOptions.find(
+      (entry) =>
+        workspaceChoice.scope === workspaceSelectionScope &&
+        JSON.stringify([entry.connectionId, entry.workspaceId]) ===
+          workspaceChoice.identity,
+    ) || workspaceOptions[0];
+  const workspaceAvailable = !!harnessWorkspace || s.workspaceServiceAvailable;
   const key = w.key(),
     selectedEndpoint = s.endpoints.find(
       (e) => e.id === (s.selected?.endpoint || s.newEndpoint),
@@ -102,8 +145,16 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
     s.inventories
       .get(s.selected.endpoint)
       ?.find((e) => e.sessionId === s.selected?.sessionId)?.summary;
+  const sideChat = w.sideChatOrigin();
+  const sideChatParent = sideChat
+    ? {
+        endpoint: sideChat.parent.endpointId,
+        sessionId: sideChat.parent.sessionId,
+      }
+    : s.selected;
   const title = s.selected
-    ? w.titles.title(s.selected.endpoint, s.selected.sessionId, row || {})
+    ? sideChat?.title ||
+      w.titles.title(s.selected.endpoint, s.selected.sessionId, row || {})
     : t('新建会话');
   const cwd = s.selected ? row?.cwd || s.hostWorkspace : s.cwd;
   const ready = s.endpoints.filter((e) => e.connection === 'ready').length;
@@ -237,6 +288,7 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
         />
       )}
       <Sidebar
+        loadThreadSearch={w.threadSearch}
         workspace={w}
         state={s}
         health={health}
@@ -294,6 +346,41 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 >
                   {familyOpen ? t('关闭任务') : t('任务')}
                 </button>
+                <PopupMenu
+                  label={t('会话工具')}
+                  trigger={
+                    <button type="button" className="icon-button">
+                      {t('会话工具')}
+                      <ChevronDown size={14} />
+                    </button>
+                  }
+                >
+                  {(
+                    [
+                      ['catalog', 'agent.catalog', t('命令与技能')],
+                      ['goal', 'agent.goal.read', t('目标')],
+                      ['settings', 'agent.settings.read', t('Harness 设置')],
+                      ['context', 'agent.context.read', t('上下文')],
+                      ['recovery', 'agent.recovery.read', t('恢复会话')],
+                      ['sideChat', 'agent.sideChat.state', t('临时会话')],
+                    ] as const
+                  ).map(
+                    ([panel, method, label]) =>
+                      selectedEndpoint?.capabilities?.methods?.includes(
+                        method,
+                      ) && (
+                        <MenuItem
+                          key={panel}
+                          selected={toolsPanel === panel}
+                          onSelect={() =>
+                            setToolsPanel(toolsPanel === panel ? null : panel)
+                          }
+                        >
+                          {label}
+                        </MenuItem>
+                      ),
+                  )}
+                </PopupMenu>
                 <SessionActions
                   workspace={w}
                   state={s}
@@ -302,6 +389,16 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                   onRename={openRename}
                 />
               </>
+            )}
+            {workspaceAvailable && (
+              <button
+                className="icon-button"
+                type="button"
+                aria-expanded={workspacePanelOpen}
+                onClick={() => setWorkspacePanelOpen((open) => !open)}
+              >
+                {t('文件与 Git')}
+              </button>
             )}
             {!s.selected && <span className="web-label">WEB WORKSPACE</span>}
           </div>
@@ -318,7 +415,98 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
             </button>
           </div>
         )}
-        {!s.selected ? (
+        {workspacePanelOpen && workspaceAvailable ? (
+          <div className="conversation-scroll">
+            <div className="conversation">
+              <div className="family-heading">
+                <label>
+                  {t('文件来源')}
+                  <select
+                    value={
+                      selectedWorkspace
+                        ? JSON.stringify([
+                            selectedWorkspace.connectionId,
+                            selectedWorkspace.workspaceId,
+                          ])
+                        : ''
+                    }
+                    onChange={(event) =>
+                      setWorkspaceChoice({
+                        scope: workspaceSelectionScope,
+                        identity: event.target.value,
+                      })
+                    }
+                    disabled={s.workspaceServicesLoading}
+                  >
+                    {workspaceOptions.map((entry) => (
+                      <option
+                        key={JSON.stringify([
+                          entry.connectionId,
+                          entry.workspaceId,
+                        ])}
+                        value={JSON.stringify([
+                          entry.connectionId,
+                          entry.workspaceId,
+                        ])}
+                      >
+                        {entry.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {s.workspaceServiceAvailable && (
+                  <button
+                    type="button"
+                    disabled={s.workspaceServicesLoading}
+                    onClick={() => void w.refreshWorkspaceServices()}
+                  >
+                    {t('刷新工作区目录')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setWorkspacePanelOpen(false)}
+                >
+                  {t('返回会话')}
+                </button>
+              </div>
+              {s.workspaceServicesLoading && (
+                <p role="status">{t('正在读取工作区目录。')}</p>
+              )}
+              {s.workspaceServicesError && (
+                <p role="alert" className="inline-error">
+                  {s.workspaceServicesError}
+                </p>
+              )}
+              {!s.workspaceServicesLoading &&
+                !s.workspaceServicesError &&
+                !selectedWorkspace && <p>{t('宿主尚未注册工作区。')}</p>}
+              {selectedWorkspace && (
+                <WorkspacePanel
+                  connectionId={selectedWorkspace.connectionId}
+                  workspaceId={selectedWorkspace.workspaceId}
+                  label={selectedWorkspace.title}
+                  call={(method, payload, rpcId) =>
+                    selectedWorkspace.source === 'harness'
+                      ? w.harnessWorkspaceCall(
+                          selectedWorkspace,
+                          method,
+                          payload,
+                          rpcId,
+                        )
+                      : w.workspaceServiceCall(
+                          selectedWorkspace.connectionId,
+                          selectedWorkspace.workspaceId,
+                          method,
+                          payload,
+                          rpcId,
+                        )
+                  }
+                />
+              )}
+            </div>
+          </div>
+        ) : !s.selected ? (
           <div className="welcome-scroll">
             <section className="welcome">
               <div className="welcome-heading">
@@ -328,6 +516,97 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 <p>{t('从一个问题开始，也可以交给我一项完整的工作。')}</p>
               </div>
               {composer}
+              {selectedEndpoint?.capabilities?.methods?.includes(
+                'agent.preset.describe',
+              ) &&
+                selectedEndpoint.capabilities.methods.includes(
+                  'agent.preset.preview',
+                ) &&
+                typeof selectedEndpoint.connectionEpoch === 'number' && (
+                  <div className="advanced-preset-controls">
+                    <button
+                      type="button"
+                      disabled={s.busy}
+                      aria-expanded={advancedPresetOpen}
+                      onClick={() => setAdvancedPresetOpen((open) => !open)}
+                    >
+                      {advancedPresetOpen
+                        ? t('收起高级预设')
+                        : t('高级会话预设')}
+                    </button>
+                    {s.advancedPreset && (
+                      <div className="family-panel">
+                        <p title={s.advancedPreset.resolution.digest}>
+                          {t(
+                            '已应用高级预设：{0}，{1} 层',
+                            s.advancedPreset.resolution.base,
+                            s.advancedPreset.resolution.layers.length,
+                          )}
+                        </p>
+                        {s.advancedPreset.resolution.defaults && (
+                          <p>
+                            {t(
+                              '启动模型由高级预设决定：{0} / {1}',
+                              s.advancedPreset.resolution.defaults.provider,
+                              s.advancedPreset.resolution.defaults.model,
+                            )}
+                          </p>
+                        )}
+                        {s.advancedPreset.connectionEpoch !==
+                          selectedEndpoint.connectionEpoch && (
+                          <p role="alert">
+                            {t('高级预设预览已过期，请重新预览或清除。')}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          disabled={s.busy}
+                          onClick={w.clearAdvancedPreset}
+                        >
+                          {t('清除高级预设，恢复普通预设')}
+                        </button>
+                      </div>
+                    )}
+                    {advancedPresetOpen && (
+                      <PresetEditor
+                        endpointId={selectedEndpoint.id}
+                        cwd={s.cwd}
+                        connectionEpoch={selectedEndpoint.connectionEpoch}
+                        models={s.models}
+                        initialPreset={s.advancedPreset?.preset}
+                        describe={() =>
+                          w.describeAdvancedPreset(
+                            selectedEndpoint.id,
+                            s.cwd,
+                            selectedEndpoint.connectionEpoch!,
+                          )
+                        }
+                        preview={(preset) =>
+                          w.previewAdvancedPreset(
+                            selectedEndpoint.id,
+                            s.cwd,
+                            selectedEndpoint.connectionEpoch!,
+                            preset,
+                          )
+                        }
+                        onApply={(preset, resolution) => {
+                          try {
+                            w.applyAdvancedPreset(
+                              selectedEndpoint.id,
+                              s.cwd,
+                              selectedEndpoint.connectionEpoch!,
+                              preset,
+                              resolution,
+                            );
+                            setAdvancedPresetOpen(false);
+                          } catch (cause) {
+                            w.actionFailed(cause);
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
               <div className="workspace-context">
                 <button
                   className="directory-toggle"
@@ -427,6 +706,134 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               }}
             >
               <div className="conversation">
+                {sideChat && (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() =>
+                      void w.select({
+                        endpoint: sideChat.parent.endpointId,
+                        sessionId: sideChat.parent.sessionId,
+                      })
+                    }
+                  >
+                    {t('返回父会话')}
+                  </button>
+                )}
+                {toolsPanel === 'sideChat' &&
+                  sideChatParent &&
+                  selectedEndpoint?.capabilities?.methods?.includes(
+                    'agent.sideChat.state',
+                  ) && (
+                    <SideChatPanel
+                      address={sideChatParent}
+                      operations={w.sideChatOperations(sideChatParent)}
+                      activeSessionId={s.selected?.sessionId}
+                      onOpen={w.openSideChat}
+                      onClosed={w.closedSideChat}
+                      onParent={
+                        sideChat
+                          ? async () => {
+                              await w.select({
+                                endpoint: sideChat.parent.endpointId,
+                                sessionId: sideChat.parent.sessionId,
+                              });
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
+                {toolsPanel === 'goal' &&
+                  s.selected &&
+                  selectedEndpoint?.capabilities?.methods?.includes(
+                    'agent.goal.read',
+                  ) && (
+                    <GoalPanel
+                      address={s.selected}
+                      load={() => w.goalSnapshot(s.selected!)}
+                      act={(action) => w.goalAction(s.selected!, action)}
+                    />
+                  )}
+                {toolsPanel === 'catalog' &&
+                  s.selected &&
+                  s.view &&
+                  selectedEndpoint?.capabilities?.methods?.includes(
+                    'agent.catalog',
+                  ) && (
+                    <ResourcePicker
+                      address={s.selected}
+                      connectionEpoch={s.view.run.connectionEpoch}
+                      tools={
+                        selectedEndpoint?.capabilities?.methods?.includes(
+                          'agent.tools.list',
+                        )
+                          ? { load: w.toolCatalog, resolve: w.resolveTool }
+                          : undefined
+                      }
+                      resources={
+                        selectedEndpoint?.capabilities?.methods?.includes(
+                          'agent.resources.list',
+                        )
+                          ? {
+                              list: w.skillResources,
+                              read: w.readSkillResource,
+                            }
+                          : undefined
+                      }
+                      load={w.resourceCatalog}
+                      run={w.runCommand}
+                      selectSkill={w.selectSkill}
+                      selectedSkillIds={s.skills.map((skill) => skill.id)}
+                    />
+                  )}
+                {toolsPanel === 'settings' &&
+                  s.selected &&
+                  s.view &&
+                  selectedEndpoint?.capabilities?.methods?.includes(
+                    'agent.settings.read',
+                  ) && (
+                    <HarnessSettings
+                      endpointId={s.selected.endpoint}
+                      sessionId={s.selected.sessionId}
+                      load={() =>
+                        w.harnessSettings(
+                          s.selected!,
+                          s.view!.run.connectionEpoch,
+                        )
+                      }
+                      mutate={(request) =>
+                        w.mutateHarnessSettings(s.selected!, request)
+                      }
+                    />
+                  )}
+                {toolsPanel === 'recovery' &&
+                  s.selected &&
+                  s.view &&
+                  selectedEndpoint?.capabilities?.methods?.includes(
+                    'agent.recovery.read',
+                  ) && (
+                    <RecoveryPanel
+                      address={s.selected}
+                      load={() =>
+                        w.recoverySnapshot(
+                          s.selected!,
+                          s.view!.run.connectionEpoch,
+                        )
+                      }
+                      run={(request) => w.recoverSession(s.selected!, request)}
+                    />
+                  )}
+                {toolsPanel === 'context' && s.selected && s.view && (
+                  <ContextDetails
+                    address={s.selected}
+                    load={() =>
+                      w.contextSnapshot(
+                        s.selected!,
+                        s.view!.run.connectionEpoch,
+                      )
+                    }
+                  />
+                )}
                 {familyOpen && s.selected && (
                   <FamilyPanel
                     key={`${s.selected.endpoint}:${s.selected.sessionId}`}
@@ -450,6 +857,21 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
                 >
                   <Transcript
                     view={s.view}
+                    feedback={
+                      selectedEndpoint?.capabilities?.methods?.includes(
+                        'agent.feedback.read',
+                      )
+                        ? { read: w.feedbackSnapshot, act: w.feedbackAction }
+                        : undefined
+                    }
+                    harnessKind={selectedEndpoint?.kind}
+                    onEditQueued={
+                      selectedEndpoint?.capabilities?.methods?.includes(
+                        'agent.queue.edit',
+                      )
+                        ? w.editQueuedInput
+                        : undefined
+                    }
                     onRemoveQueued={async (
                       address,
                       itemId,
@@ -487,6 +909,20 @@ export default function App({ workspace: w }: { workspace: Workspace }) {
               </div>
             </div>
             <div className="composer-dock">
+              {s.skills.length > 0 && (
+                <div className="selected-skills" aria-label={t('已选技能')}>
+                  {s.skills.map((skill) => (
+                    <button
+                      key={skill.id}
+                      type="button"
+                      onClick={() => w.removeSkill(skill.id)}
+                      aria-label={t('移除技能：{0}', skill.title)}
+                    >
+                      {skill.title} ×
+                    </button>
+                  ))}
+                </div>
+              )}
               {!atBottom && (
                 <button
                   className="jump-bottom icon-button"

@@ -61,10 +61,10 @@ Host/Origin checks and App-only authentication for DSH pairing.
 
 ## Runtime boundaries
 
-The local service verifies the pinned Kernel 0.9.22 bundle, source revision and all
-four binary hashes. Use `TekesKernel-0.9.22-macos-arm64.tar.gz` from the official
+The local service verifies the pinned Kernel 0.9.23 bundle, source revision and all
+four binary hashes. Use `TekesKernel-0.9.23-macos-arm64.tar.gz` from the official
 Kernel release and verify its SHA-256 sidecar. The source revision is
-`992ebca52c9fd1026357dd141b10b5a4fbea8a3d`. This release preserves durable user Stop
+`1766249408c8660e7e7092c6dfb16a15125aafc9`. This release preserves durable user Stop
 through recovery, so the public terminal reason remains `aborted`, and retains
 remote-task cancellation delivery while reading the cancellation reply.
 
@@ -81,7 +81,7 @@ tool/network policy remains intact. The directory chooser grants session executi
 WebUI 0.3.0 uses the shared service operations listed in
 [delivery integration](agentkit-delivery-integration.md#independent-maintenance-and-runtime-dependencies).
 Use the immutable AgentKit 0.5.0 Core executable and the pinned public Kernel
-0.9.22 cohort. The declaration archive alone cannot supply the runtime operations.
+0.9.23 cohort. The declaration archive alone cannot supply the runtime operations.
 The immutable declaration dependency in package.json/package-lock.json includes the public WorkspaceService subpath. It does not identify the running executable. Keep the release source revision and binary hashes
 with the installed cohort; do not substitute a private candidate manifest for the
 published-runtime checks.
